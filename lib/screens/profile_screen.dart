@@ -1,95 +1,77 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+
+import '../models/transaction.dart';
 import '../providers/providers.dart';
-import '../services/calculations.dart';
 import '../utils/format_utils.dart';
-import '../utils/date_utils.dart';
+import 'transaction_detail_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
-  final String id;
-  const ProfileScreen({super.key, required this.id});
+  const ProfileScreen({super.key, required this.memberId});
+
+  final String memberId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(configProvider);
-    final data = ref.watch(dataProvider);
+    final appState = ref.watch(appStateProvider);
     final balances = ref.watch(balancesProvider);
-    final person = config.people.firstWhere((p) => p.id == id,
-        orElse: () => MemberConfig(id: id, name: id));
-    final netBalance = balances[id] ?? 0.0;
-    final credits = data.transactions
-        .where((t) => t.type == 'credit' && t.whoOrBill == id)
-        .fold(0.0, (sum, t) => sum + t.amount);
+    final matchedMembers = appState.config.people.where((p) => p.id == memberId).toList();
+    final member = matchedMembers.isEmpty ? null : matchedMembers.first;
 
-    // Filter transactions involving this person
-    final txs = data.transactions.where((tx) {
-      if (tx.type == 'credit' && tx.whoOrBill == id) return true;
-      if (tx.type == 'debit') {
-        final payers = tx.splitAmong ?? [];
-        if (payers.contains(id)) return true;
-      }
-      return false;
+    final related = appState.data.transactions.where((tx) {
+      if (tx.actorId == memberId || tx.targetId == memberId) return true;
+      return tx.participantIds.contains(memberId);
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text('${person.name}\'s Profile')),
+      appBar: AppBar(title: Text(member?.name ?? memberId)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          CircleAvatar(
-            radius: 50,
-            child: Text(person.name[0].toUpperCase(), style: const TextStyle(fontSize: 30)),
-          ),
-          const SizedBox(height: 12),
-          Text(person.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Column(
-                        children: [
-                          const Text('Given'),
-                          Text(FormatUtils.formatCurrency(credits, config.currency)),
-                        ],
-                      ),
-                      Column(
-                        children: [
-                          const Text('Net'),
-                          Text(
-                            FormatUtils.formatCurrency(netBalance, config.currency),
-                            style: TextStyle(color: netBalance >= 0 ? Colors.green : Colors.red),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
+              child: Text(
+                'Net: ${FormatUtils.currency(balances[memberId] ?? 0, appState.config.currency)}',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          const Text('Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ...txs.map((tx) {
-            final share = tx.type == 'debit'
-                ? tx.amount / (tx.splitAmong?.length ?? 1)
-                : tx.amount;
-            return ListTile(
-              title: Text(tx.type == 'credit' ? 'Credit' : 'Debit'),
-              subtitle: Text(tx.note),
-              trailing: Text(FormatUtils.formatCurrency(share, config.currency)),
-              onTap: () => context.go('/transaction_detail/${tx.id}'),
-            );
-          }),
+          const SizedBox(height: 12),
+          ...related.map((tx) => ListTile(
+                title: Text(tx.type.name.toUpperCase()),
+                subtitle: Text(tx.note),
+                trailing: Text(FormatUtils.currency(
+                  _impactForMember(tx, memberId),
+                  appState.config.currency,
+                )),
+                onTap: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => TransactionDetailScreen(transactionId: tx.id))),
+              )),
         ],
       ),
     );
   }
-}
 
+  double _impactForMember(Transaction tx, String memberId) {
+    switch (tx.type) {
+      case TransactionType.credit:
+        return tx.actorId == memberId ? tx.amount : 0;
+      case TransactionType.debit:
+      case TransactionType.expense:
+        if (!tx.participantIds.contains(memberId)) return 0;
+        return -(tx.amount / tx.participantIds.length);
+      case TransactionType.distribution:
+        if (!tx.participantIds.contains(memberId)) return 0;
+        return tx.amount / tx.participantIds.length;
+      case TransactionType.settlement:
+        if (tx.actorId == memberId) return tx.amount;
+        if (tx.targetId == memberId) return -tx.amount;
+        return 0;
+      case TransactionType.transfer:
+        if (tx.actorId == memberId) return -tx.amount;
+        if (tx.targetId == memberId) return tx.amount;
+        return 0;
+    }
+  }
+}

@@ -1,24 +1,27 @@
-
-import 'package:json_annotation/json_annotation.dart';
-import 'package:equatable/equatable.dart';
-
-part 'config.g.dart';
-
-@JsonSerializable()
-class MemberConfig extends Equatable {
-  final String id;
-  final String name;
-  final bool active;
-
+class MemberConfig {
   const MemberConfig({
     required this.id,
     required this.name,
     this.active = true,
   });
 
-  factory MemberConfig.fromJson(Map<String, dynamic> json) =>
-      _$MemberConfigFromJson(json);
-  Map<String, dynamic> toJson() => _$MemberConfigToJson(this);
+  final String id;
+  final String name;
+  final bool active;
+
+  factory MemberConfig.fromJson(Map<String, dynamic> json) {
+    return MemberConfig(
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      active: json['active'] is bool ? json['active'] as bool : true,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'active': active,
+      };
 
   MemberConfig copyWith({String? id, String? name, bool? active}) {
     return MemberConfig(
@@ -27,26 +30,32 @@ class MemberConfig extends Equatable {
       active: active ?? this.active,
     );
   }
-
-  @override
-  List<Object?> get props => [id, name, active];
 }
 
-@JsonSerializable()
-class BillTypeConfig extends Equatable {
+class BillTypeConfig {
+  const BillTypeConfig({
+    required this.id,
+    required this.name,
+    this.icon = '🧾',
+  });
+
   final String id;
   final String name;
   final String icon;
 
-  const BillTypeConfig({
-    required this.id,
-    required this.name,
-    required this.icon,
-  });
+  factory BillTypeConfig.fromJson(Map<String, dynamic> json) {
+    return BillTypeConfig(
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      icon: (json['icon'] ?? '🧾').toString(),
+    );
+  }
 
-  factory BillTypeConfig.fromJson(Map<String, dynamic> json) =>
-      _$BillTypeConfigFromJson(json);
-  Map<String, dynamic> toJson() => _$BillTypeConfigToJson(this);
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'icon': icon,
+      };
 
   BillTypeConfig copyWith({String? id, String? name, String? icon}) {
     return BillTypeConfig(
@@ -55,13 +64,21 @@ class BillTypeConfig extends Equatable {
       icon: icon ?? this.icon,
     );
   }
-
-  @override
-  List<Object?> get props => [id, name, icon];
 }
 
-@JsonSerializable()
-class AppConfig extends Equatable {
+class AppConfig {
+  const AppConfig({
+    this.siteTitle = 'Fund',
+    this.siteSubtitle = 'Expense Tracker',
+    this.currency = '৳',
+    this.repoOwner = '',
+    this.repoName = '',
+    this.repoBranch = 'main',
+    this.dataFileName = 'data.json',
+    this.people = const [],
+    this.billTypes = const [],
+  });
+
   final String siteTitle;
   final String siteSubtitle;
   final String currency;
@@ -72,21 +89,83 @@ class AppConfig extends Equatable {
   final List<MemberConfig> people;
   final List<BillTypeConfig> billTypes;
 
-  const AppConfig({
-    this.siteTitle = 'Fund',
-    this.siteSubtitle = 'Expense Tracker',
-    this.currency = '₹',
-    this.repoOwner = '',
-    this.repoName = '',
-    this.repoBranch = 'main',
-    this.dataFileName = 'data.json',
-    this.people = const [],
-    this.billTypes = const [],
-  });
+  bool get hasRepository => repoOwner.isNotEmpty && repoName.isNotEmpty;
 
-  factory AppConfig.fromJson(Map<String, dynamic> json) =>
-      _$AppConfigFromJson(json);
-  Map<String, dynamic> toJson() => _$AppConfigToJson(this);
+  factory AppConfig.fromJson(Map<String, dynamic> json) {
+    List<MemberConfig> parsePeople(dynamic raw) {
+      if (raw is List) {
+        return raw
+            .whereType<Map>()
+            .map((e) => MemberConfig.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+      if (raw is Map) {
+        return raw.entries.map((entry) {
+          final key = entry.key.toString();
+          final value = entry.value;
+          if (value is Map) {
+            final json = Map<String, dynamic>.from(value);
+            return MemberConfig.fromJson({
+              ...json,
+              if ((json['id'] ?? '').toString().isEmpty) 'id': key,
+              if ((json['name'] ?? '').toString().isEmpty) 'name': key,
+            });
+          }
+          return MemberConfig(id: key, name: value?.toString() ?? key);
+        }).toList();
+      }
+      return const [];
+    }
+
+    List<BillTypeConfig> parseBillTypes(dynamic raw) {
+      if (raw is List) {
+        return raw
+            .whereType<Map>()
+            .map((e) => BillTypeConfig.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+      if (raw is Map) {
+        return raw.entries.map((entry) {
+          final key = entry.key.toString();
+          final value = entry.value;
+          if (value is Map) {
+            final json = Map<String, dynamic>.from(value);
+            return BillTypeConfig.fromJson({
+              ...json,
+              if ((json['id'] ?? '').toString().isEmpty) 'id': key,
+              if ((json['name'] ?? '').toString().isEmpty) 'name': key,
+            });
+          }
+          return BillTypeConfig(id: key, name: value?.toString() ?? key);
+        }).toList();
+      }
+      return const [];
+    }
+
+    return AppConfig(
+      siteTitle: (json['siteTitle'] ?? json['site_title'] ?? 'Fund').toString(),
+      siteSubtitle: (json['siteSubtitle'] ?? json['site_subtitle'] ?? 'Expense Tracker').toString(),
+      currency: (json['currency'] ?? '৳').toString(),
+      repoOwner: (json['repoOwner'] ?? json['repo_owner'] ?? '').toString(),
+      repoName: (json['repoName'] ?? json['repo_name'] ?? '').toString(),
+      repoBranch: (json['repoBranch'] ?? json['repo_branch'] ?? 'main').toString(),
+      dataFileName: (json['dataFileName'] ?? json['data_file_name'] ?? 'data.json').toString(),
+      people: parsePeople(json['people']),
+      billTypes: parseBillTypes(json['billTypes'] ?? json['bill_types']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'siteTitle': siteTitle,
+        'siteSubtitle': siteSubtitle,
+        'currency': currency,
+        'repoOwner': repoOwner,
+        'repoName': repoName,
+        'repoBranch': repoBranch,
+        'dataFileName': dataFileName,
+        'people': people.map((p) => p.toJson()).toList(),
+        'billTypes': billTypes.map((b) => b.toJson()).toList(),
+      };
 
   AppConfig copyWith({
     String? siteTitle,
@@ -111,18 +190,4 @@ class AppConfig extends Equatable {
       billTypes: billTypes ?? this.billTypes,
     );
   }
-
-  @override
-  List<Object?> get props => [
-        siteTitle,
-        siteSubtitle,
-        currency,
-        repoOwner,
-        repoName,
-        repoBranch,
-        dataFileName,
-        people,
-        billTypes,
-      ];
 }
-

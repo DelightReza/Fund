@@ -1,95 +1,81 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+
 import 'providers/providers.dart';
+import 'screens/dashboard_screen.dart';
 import 'screens/repo_selection_screen.dart';
 import 'screens/user_selection_screen.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/admin_screen.dart';
-import 'screens/profile_screen.dart';
-import 'screens/add_transaction_screen.dart';
-import 'screens/transaction_detail_screen.dart';
-import 'screens/reset_commit_screen.dart';
 import 'theme/theme.dart';
 
-class FundApp extends ConsumerWidget {
+class FundApp extends ConsumerStatefulWidget {
   const FundApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(configProvider);
-    final user = ref.watch(userProvider);
+  ConsumerState<FundApp> createState() => _FundAppState();
+}
 
-    // On web, we load config from the same domain; skip repo/user selection.
-    final bool isWeb = const bool.fromEnvironment('dart.library.js_util') == true;
+class _FundAppState extends ConsumerState<FundApp> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(appStateProvider.notifier).bootstrap());
+  }
 
-    return MaterialApp.router(
-      title: config.siteTitle,
+  @override
+  Widget build(BuildContext context) {
+    final appState = ref.watch(appStateProvider);
+
+    return MaterialApp(
+      title: appState.config.siteTitle,
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: ThemeMode.system,
-      routerConfig: GoRouter(
-        initialLocation: '/',
-        redirect: (context, state) {
-          if (isWeb) {
-            // Web: always go to dashboard (config is fetched on startup)
-            return '/dashboard';
-          } else {
-            // Mobile: check repo and user
-            if (config.repoOwner.isEmpty) return '/repo_selection';
-            if (user == null || user.isEmpty) return '/user_selection';
-            return null;
-          }
-        },
-        routes: [
-          GoRoute(
-            path: '/repo_selection',
-            builder: (context, state) => const RepoSelectionScreen(),
-          ),
-          GoRoute(
-            path: '/user_selection',
-            builder: (context, state) => const UserSelectionScreen(),
-          ),
-          GoRoute(
-            path: '/dashboard',
-            builder: (context, state) => const DashboardScreen(),
-          ),
-          GoRoute(
-            path: '/admin',
-            builder: (context, state) => const AdminScreen(),
-          ),
-          GoRoute(
-            path: '/profile/:id',
-            builder: (context, state) {
-              final id = state.pathParameters['id']!;
-              return ProfileScreen(id: id);
-            },
-          ),
-          GoRoute(
-            path: '/add_transaction',
-            builder: (context, state) {
-              final extra = state.extra as Map<String, dynamic>?;
-              return AddTransactionScreen(
-                transactionId: extra?['txId'] as String?,
-                defaultType: extra?['type'] as String?,
-              );
-            },
-          ),
-          GoRoute(
-            path: '/transaction_detail/:id',
-            builder: (context, state) {
-              final id = state.pathParameters['id']!;
-              return TransactionDetailScreen(transactionId: id);
-            },
-          ),
-          GoRoute(
-            path: '/reset_commit',
-            builder: (context, state) => const ResetCommitScreen(),
-          ),
-        ],
-      ),
+      home: switch (appState.stage) {
+        LaunchStage.loading => const _LoadingScreen(),
+        LaunchStage.repoSelection => const RepoSelectionScreen(),
+        LaunchStage.userSelection => const UserSelectionScreen(),
+        LaunchStage.dashboard => const DashboardScreen(),
+        LaunchStage.error => _ErrorScreen(message: appState.error ?? 'Unknown error'),
+      },
     );
   }
 }
 
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _ErrorScreen extends ConsumerWidget {
+  const _ErrorScreen({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => ref.read(appStateProvider.notifier).bootstrap(),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

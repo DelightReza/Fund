@@ -1,32 +1,25 @@
-
 import 'package:intl/intl.dart';
 
-class DateUtils {
-  static String formatDate(String isoString) {
+class AppDateUtils {
+  static String nowIso() => DateTime.now().toIso8601String();
+
+  static String generateId() => DateTime.now().microsecondsSinceEpoch.toString();
+
+  static String formatDateTime(String isoDateTime) {
     try {
-      final date = DateTime.parse(isoString);
+      final date = DateTime.parse(isoDateTime).toLocal();
       return DateFormat('yyyy-MM-dd HH:mm').format(date);
     } catch (_) {
-      return isoString.replaceFirst('T', ' ').substring(0, 16);
+      return isoDateTime;
     }
   }
 
-  static String formatDateOnly(String isoString) {
+  static String formatDate(String isoDateTime) {
     try {
-      final date = DateTime.parse(isoString);
+      final date = DateTime.parse(isoDateTime).toLocal();
       return DateFormat('yyyy-MM-dd').format(date);
     } catch (_) {
-      return isoString.split('T').first;
+      return isoDateTime;
     }
   }
-
-  static String now() {
-    final now = DateTime.now();
-    return DateFormat('yyyy-MM-ddTHH:mm:ss').format(now);
-  }
-
-  static String fromLocalDateTime(DateTime dateTime) {
-    return DateFormat('yyyy-MM-ddTHH:mm:ss').format(dateTime);
-  }
 }
-

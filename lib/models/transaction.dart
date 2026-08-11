@@ -1,93 +1,130 @@
+import '../utils/date_utils.dart';
 
-import 'package:json_annotation/json_annotation.dart';
-import 'package:equatable/equatable.dart';
+enum TransactionType {
+  expense,
+  credit,
+  debit,
+  distribution,
+  settlement,
+  transfer;
 
-part 'transaction.g.dart';
+  static TransactionType parse(String raw) {
+    final normalized = raw.trim().toLowerCase();
+    return TransactionType.values.firstWhere(
+      (type) => type.name == normalized,
+      orElse: () => TransactionType.debit,
+    );
+  }
+}
 
-@JsonSerializable()
-class Transaction extends Equatable {
-  final String id;
-  final String type; // 'credit' or 'debit'
-  @JsonKey(includeIfNull: false)
-  final String? payerId;
-  @JsonKey(includeIfNull: false)
-  final String? billTypeId;
-  @JsonKey(includeIfNull: false)
-  final List<String>? splitAmong;
-  final String whoOrBill;
-  final String note;
-  final double amount;
-  final String date;
-  @JsonKey(includeIfNull: false)
-  final List<String>? exemptions;
-  @JsonKey(includeIfNull: false)
-  final String? parentId;
-  @JsonKey(includeIfNull: false)
-  final double? distributionTotal;
-
+class Transaction {
   const Transaction({
     required this.id,
     required this.type,
-    this.payerId,
-    this.billTypeId,
-    this.splitAmong,
-    required this.whoOrBill,
-    this.note = '',
     required this.amount,
-    required this.date,
-    this.exemptions,
+    required this.timestamp,
+    this.note = '',
+    this.actorId,
+    this.targetId,
+    this.participantIds = const [],
+    this.exemptions = const [],
     this.parentId,
-    this.distributionTotal,
   });
 
-  factory Transaction.fromJson(Map<String, dynamic> json) =>
-      _$TransactionFromJson(json);
-  Map<String, dynamic> toJson() => _$TransactionToJson(this);
+  final String id;
+  final TransactionType type;
+  final double amount;
+  final String timestamp;
+  final String note;
+  final String? actorId;
+  final String? targetId;
+  final List<String> participantIds;
+  final List<String> exemptions;
+  final String? parentId;
+
+  factory Transaction.fromJson(Map<String, dynamic> json) {
+    final parsedType = TransactionType.parse((json['type'] ?? 'debit').toString());
+    final split = (json['participantIds'] ?? json['splitAmong']) as List?;
+    final ex = (json['exemptions']) as List?;
+
+    String? legacyActor;
+    String? legacyTarget;
+    if (parsedType == TransactionType.credit ||
+        parsedType == TransactionType.transfer ||
+        parsedType == TransactionType.settlement) {
+      legacyActor = (json['payerId'] ?? json['whoOrBill'])?.toString();
+    }
+    if (parsedType == TransactionType.debit || parsedType == TransactionType.expense) {
+      legacyTarget = (json['billTypeId'] ?? json['whoOrBill'])?.toString();
+    }
+
+    return Transaction(
+      id: (json['id'] ?? AppDateUtils.generateId()).toString(),
+      type: parsedType,
+      amount: _toDouble(json['amount']),
+      timestamp: (json['timestamp'] ?? json['date'] ?? AppDateUtils.nowIso()).toString(),
+      note: (json['note'] ?? '').toString(),
+      actorId: (json['actorId'] ?? legacyActor)?.toString(),
+      targetId: (json['targetId'] ?? legacyTarget)?.toString(),
+      participantIds: split == null ? const [] : split.map((e) => e.toString()).toList(),
+      exemptions: ex == null ? const [] : ex.map((e) => e.toString()).toList(),
+      parentId: json['parentId']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final whoOrBill = switch (type) {
+      TransactionType.credit || TransactionType.transfer || TransactionType.settlement => actorId,
+      _ => targetId,
+    };
+
+    return {
+      'id': id,
+      'type': type.name,
+      'amount': amount,
+      'timestamp': timestamp,
+      'date': timestamp,
+      'note': note,
+      'actorId': actorId,
+      'targetId': targetId,
+      'participantIds': participantIds,
+      'splitAmong': participantIds,
+      'exemptions': exemptions,
+      'parentId': parentId,
+      'payerId': actorId,
+      'billTypeId': targetId,
+      'whoOrBill': whoOrBill,
+    };
+  }
 
   Transaction copyWith({
     String? id,
-    String? type,
-    String? payerId,
-    String? billTypeId,
-    List<String>? splitAmong,
-    String? whoOrBill,
-    String? note,
+    TransactionType? type,
     double? amount,
-    String? date,
+    String? timestamp,
+    String? note,
+    String? actorId,
+    String? targetId,
+    List<String>? participantIds,
     List<String>? exemptions,
     String? parentId,
-    double? distributionTotal,
   }) {
     return Transaction(
       id: id ?? this.id,
       type: type ?? this.type,
-      payerId: payerId ?? this.payerId,
-      billTypeId: billTypeId ?? this.billTypeId,
-      splitAmong: splitAmong ?? this.splitAmong,
-      whoOrBill: whoOrBill ?? this.whoOrBill,
-      note: note ?? this.note,
       amount: amount ?? this.amount,
-      date: date ?? this.date,
+      timestamp: timestamp ?? this.timestamp,
+      note: note ?? this.note,
+      actorId: actorId ?? this.actorId,
+      targetId: targetId ?? this.targetId,
+      participantIds: participantIds ?? this.participantIds,
       exemptions: exemptions ?? this.exemptions,
       parentId: parentId ?? this.parentId,
-      distributionTotal: distributionTotal ?? this.distributionTotal,
     );
   }
 
-  @override
-  List<Object?> get props => [
-        id,
-        type,
-        payerId,
-        billTypeId,
-        splitAmong,
-        whoOrBill,
-        note,
-        amount,
-        date,
-        exemptions,
-        parentId,
-        distributionTotal,
-      ];
+  static double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '0') ?? 0;
+  }
 }
-

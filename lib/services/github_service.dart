@@ -1,152 +1,203 @@
-
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../models/config.dart';
 import '../models/fund_data.dart';
 
 class GitHubService {
-  final String owner;
-  final String repo;
-  final String? token;
-  final String branch;
-  final String dataFileName;
-
   GitHubService({
     required this.owner,
     required this.repo,
+    required this.branch,
+    required this.dataFileName,
     this.token,
-    this.branch = 'main',
-    this.dataFileName = 'data.json',
   });
 
+  final String owner;
+  final String repo;
+  final String branch;
+  final String dataFileName;
+  final String? token;
+
   Map<String, String> get _headers {
-    final headers = {'Accept': 'application/vnd.github.v3+json'};
+    final headers = <String, String>{
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
     if (token != null && token!.isNotEmpty) {
       headers['Authorization'] = 'token $token';
     }
     return headers;
   }
 
-  Future<Map<String, dynamic>> _getFile(String path) async {
-    final url =
-        'https://api.github.com/repos/$owner/$repo/contents/$path';
-    final response = await http.get(Uri.parse(url), headers: _headers);
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to fetch $path: ${response.statusCode}');
-    }
-  }
-
   Future<AppConfig> fetchConfig() async {
-    final data = await _getFile('config.json');
-    final content = base64Decode(data['content'] as String);
-    final json = jsonDecode(utf8.decode(content)) as Map<String, dynamic>;
-    return AppConfig.fromJson(json);
+    if (owner.isEmpty || repo.isEmpty) {
+      throw Exception('Repository not set');
+    }
+
+    if (token != null && token!.isNotEmpty) {
+      try {
+        final file = await _getRepoFile('config.json');
+        return AppConfig.fromJson(file)
+            .copyWith(repoOwner: owner, repoName: repo, repoBranch: branch, dataFileName: dataFileName);
+      } catch (_) {
+        // Fallback to raw below.
+      }
+    }
+
+    final uri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/$branch/config.json');
+    final response = await http.get(uri);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load config.json (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return AppConfig.fromJson(json)
+        .copyWith(repoOwner: owner, repoName: repo, repoBranch: branch, dataFileName: dataFileName);
   }
 
   Future<FundData> fetchData() async {
-    final data = await _getFile(dataFileName);
-    final content = base64Decode(data['content'] as String);
-    final json = jsonDecode(utf8.decode(content)) as Map<String, dynamic>;
+    if (owner.isEmpty || repo.isEmpty) {
+      throw Exception('Repository not set');
+    }
+
+    if (token != null && token!.isNotEmpty) {
+      try {
+        final file = await _getRepoFile(dataFileName);
+        return FundData.fromJson(file);
+      } catch (_) {
+        // Fallback to raw below.
+      }
+    }
+
+    final uri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/$branch/$dataFileName');
+    final response = await http.get(uri);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load $dataFileName (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
     return FundData.fromJson(json);
   }
 
-  Future<void> commitFile(
-    String path,
-    String content,
-    String message, {
-    String? sha,
-  }) async {
-    final url = 'https://api.github.com/repos/$owner/$repo/contents/$path';
-    final body = jsonEncode({
-      'message': message,
-      'content': base64Encode(utf8.encode(content)),
-      'sha': sha,
-    });
-    final response = await http.put(
-      Uri.parse(url),
-      headers: {
-        ..._headers,
-        'Content-Type': 'application/json',
-      },
-      body: body,
-    );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-          'Failed to commit $path: ${response.statusCode} ${response.body}');
+  Future<AppConfig> fetchRelativeConfig() async {
+    final candidates = _relativeCandidates('config.json');
+    for (final uri in candidates) {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        return AppConfig.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      }
     }
+    throw Exception('Failed to load web config.json');
   }
 
-  Future<void> commitConfig(AppConfig config, String message) async {
-    final sha = await _getSha('config.json');
-    final json = jsonEncode(config.toJson());
-    await commitFile('config.json', json, message, sha: sha);
-  }
-
-  Future<void> commitData(FundData data, String message) async {
-    final sha = await _getSha(dataFileName);
-    final json = jsonEncode(data.toJson());
-    await commitFile(dataFileName, json, message, sha: sha);
-  }
-
-  Future<List<Map<String, dynamic>>> getCommits({int perPage = 15}) async {
-    final url =
-        'https://api.github.com/repos/$owner/$repo/commits?sha=$branch&per_page=$perPage';
-    final response = await http.get(Uri.parse(url), headers: _headers);
-    if (response.statusCode == 200) {
-      final list = jsonDecode(response.body) as List;
-      return list.map((e) => e as Map<String, dynamic>).toList();
-    } else {
-      throw Exception('Failed to fetch commits: ${response.statusCode}');
+  Future<FundData> fetchRelativeData(String fileName) async {
+    final candidates = _relativeCandidates(fileName);
+    for (final uri in candidates) {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        return FundData.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      }
     }
+    throw Exception('Failed to load web $fileName');
+  }
+
+  List<Uri> _relativeCandidates(String fileName) {
+    final candidates = <Uri>{};
+    candidates.add(Uri.base.resolve(fileName));
+    candidates.add(Uri.parse('${Uri.base.origin}/$fileName'));
+
+    final pathSegments = Uri.base.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (pathSegments.isNotEmpty) {
+      final first = pathSegments.first;
+      candidates.add(Uri.parse('${Uri.base.origin}/$first/$fileName'));
+    }
+
+    return candidates.toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getCommits({int perPage = 20}) async {
+    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/commits?sha=$branch&per_page=$perPage');
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch commits (${response.statusCode})');
+    }
+    final list = jsonDecode(response.body) as List;
+    return list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   Future<void> resetToCommit(String sha) async {
-    final url =
-        'https://api.github.com/repos/$owner/$repo/git/refs/heads/$branch';
-    final body = jsonEncode({'sha': sha, 'force': true});
+    _assertToken();
+    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/git/refs/heads/$branch');
     final response = await http.patch(
-      Uri.parse(url),
-      headers: {
-        ..._headers,
-        'Content-Type': 'application/json',
-      },
-      body: body,
+      uri,
+      headers: {..._headers, 'Content-Type': 'application/json'},
+      body: jsonEncode({'sha': sha, 'force': true}),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Failed to reset: ${response.statusCode}');
+      throw Exception('Reset failed (${response.statusCode})');
     }
   }
 
-  Future<String?> _getSha(String path) async {
-    try {
-      final data = await _getFile(path);
-      return data['sha'] as String?;
-    } catch (_) {
-      return null;
+  Future<void> commitConfig(AppConfig config, {required String message}) async {
+    await _commitJsonFile(path: 'config.json', payload: config.toJson(), message: message);
+  }
+
+  Future<void> commitData(FundData data, {required String message}) async {
+    await _commitJsonFile(path: dataFileName, payload: data.toJson(), message: message);
+  }
+
+  Future<Map<String, dynamic>> _getRepoFile(String path) async {
+    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path?ref=$branch');
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode != 200) {
+      throw Exception('Unable to fetch $path (${response.statusCode})');
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final content = (body['content'] as String).replaceAll('\n', '');
+    final decoded = utf8.decode(base64Decode(content));
+    return jsonDecode(decoded) as Map<String, dynamic>;
+  }
+
+  Future<String?> _getFileSha(String path) async {
+    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path?ref=$branch');
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode != 200) return null;
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return body['sha']?.toString();
+  }
+
+  Future<void> _commitJsonFile({
+    required String path,
+    required Map<String, dynamic> payload,
+    required String message,
+  }) async {
+    _assertToken();
+    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path');
+    final sha = await _getFileSha(path);
+    final body = {
+      'message': message,
+      'content': base64Encode(utf8.encode(const JsonEncoder.withIndent('  ').convert(payload))),
+      'branch': branch,
+      if (sha != null) 'sha': sha,
+    };
+
+    final response = await http.put(
+      uri,
+      headers: {..._headers, 'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Commit failed for $path (${response.statusCode})');
     }
   }
 
-  // For fallback raw URLs
-  static Future<AppConfig> fetchConfigRaw(String url) async {
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
-      return AppConfig.fromJson(
-          jsonDecode(response.body) as Map<String, dynamic>);
-    } else {
-      throw Exception('Failed to fetch raw config: ${response.statusCode}');
-    }
-  }
-
-  static Future<FundData> fetchDataRaw(String url) async {
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
-      return FundData.fromJson(
-          jsonDecode(response.body) as Map<String, dynamic>);
-    } else {
-      throw Exception('Failed to fetch raw data: ${response.statusCode}');
+  void _assertToken() {
+    if (token == null || token!.isEmpty) {
+      throw Exception('PAT required for write operations');
     }
   }
 }
-

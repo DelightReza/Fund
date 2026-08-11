@@ -1,195 +1,346 @@
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../models/config.dart';
 import '../models/fund_data.dart';
-import '../services/storage_service.dart';
-import '../services/github_service.dart';
-import '../services/sync_service.dart';
+import '../models/settlement.dart';
+import '../models/transaction.dart';
 import '../services/calculations.dart';
+import '../services/github_service.dart';
+import '../services/storage_service.dart';
+import '../services/sync_service.dart';
+import '../utils/date_utils.dart';
 
-// ---------- Storage Provider ----------
+enum LaunchStage { loading, repoSelection, userSelection, dashboard, error }
+
+class AppState {
+  static const _unset = Object();
+
+  const AppState({
+    this.stage = LaunchStage.loading,
+    this.config = const AppConfig(),
+    this.data = const FundData(),
+    this.token,
+    this.userId,
+    this.syncing = false,
+    this.pendingCount = 0,
+    this.error,
+  });
+
+  final LaunchStage stage;
+  final AppConfig config;
+  final FundData data;
+  final String? token;
+  final String? userId;
+  final bool syncing;
+  final int pendingCount;
+  final String? error;
+
+  AppState copyWith({
+    LaunchStage? stage,
+    AppConfig? config,
+    FundData? data,
+    Object? token = _unset,
+    Object? userId = _unset,
+    bool? syncing,
+    int? pendingCount,
+    Object? error = _unset,
+  }) {
+    return AppState(
+      stage: stage ?? this.stage,
+      config: config ?? this.config,
+      data: data ?? this.data,
+      token: identical(token, _unset) ? this.token : token as String?,
+      userId: identical(userId, _unset) ? this.userId : userId as String?,
+      syncing: syncing ?? this.syncing,
+      pendingCount: pendingCount ?? this.pendingCount,
+      error: identical(error, _unset) ? this.error : error as String?,
+    );
+  }
+}
+
 final storageProvider = Provider<StorageService>((ref) {
-  throw UnimplementedError('StorageService must be initialized');
+  throw UnimplementedError('storageProvider must be overridden in main.dart');
 });
 
-// ---------- Config Provider ----------
-final configProvider = StateNotifierProvider<ConfigNotifier, AppConfig>((ref) {
-  return ConfigNotifier(ref);
+final syncServiceProvider = Provider<SyncService>((ref) {
+  final storage = ref.watch(storageProvider);
+  return SyncService(storage);
 });
 
-class ConfigNotifier extends StateNotifier<AppConfig> {
+final appStateProvider = StateNotifierProvider<AppNotifier, AppState>((ref) {
+  return AppNotifier(ref);
+});
+
+class AppNotifier extends StateNotifier<AppState> {
+  AppNotifier(this.ref) : super(const AppState());
+
   final Ref ref;
-  ConfigNotifier(this.ref) : super(const AppConfig());
+  Timer? _syncTimer;
 
-  Future<void> loadFromStorage() async {
-    final storage = ref.read(storageProvider);
-    final saved = storage.loadConfig();
-    if (saved != null) {
-      state = saved;
-    }
-  }
+  bool get _isWeb => kIsWeb;
 
-  Future<void> setConfig(AppConfig config) async {
-    state = config;
-    final storage = ref.read(storageProvider);
-    await storage.saveConfig(config);
-    // Also queue sync if token exists
-  }
+  Future<void> bootstrap() async {
+    state = state.copyWith(stage: LaunchStage.loading, error: null);
 
-  Future<void> syncConfigFromGitHub({String? token}) async {
-    final config = state;
-    if (config.repoOwner.isEmpty || config.repoName.isEmpty) return;
-    final service = GitHubService(
-      owner: config.repoOwner,
-      repo: config.repoName,
-      token: token,
-      branch: config.repoBranch,
-      dataFileName: config.dataFileName,
-    );
     try {
-      final remote = await service.fetchConfig();
-      state = remote.copyWith(
-        repoOwner: config.repoOwner,
-        repoName: config.repoName,
-        repoBranch: config.repoBranch,
-        dataFileName: config.dataFileName,
-      );
       final storage = ref.read(storageProvider);
-      await storage.saveConfig(state);
-    } catch (_) {
-      // Fallback to raw URLs
-      final rawUrl =
-          'https://raw.githubusercontent.com/${config.repoOwner}/${config.repoName}/${config.repoBranch}/config.json';
-      try {
-        final remote = await GitHubService.fetchConfigRaw(rawUrl);
-        state = remote.copyWith(
-          repoOwner: config.repoOwner,
-          repoName: config.repoName,
-          repoBranch: config.repoBranch,
-          dataFileName: config.dataFileName,
+      final token = storage.loadToken();
+      final userId = storage.loadUser();
+      final localConfig = storage.loadConfig() ?? const AppConfig();
+      final localData = storage.loadData() ?? const FundData();
+      final pending = ref.read(syncServiceProvider).loadQueue().length;
+
+      if (_isWeb) {
+        final webService = GitHubService(owner: '', repo: '', branch: 'main', dataFileName: localConfig.dataFileName);
+        AppConfig config;
+        FundData data;
+        try {
+          config = await webService.fetchRelativeConfig();
+          data = await webService.fetchRelativeData(config.dataFileName);
+        } catch (_) {
+          config = localConfig;
+          data = localData;
+        }
+        state = state.copyWith(
+          stage: LaunchStage.dashboard,
+          config: config,
+          data: data,
+          token: null,
+          userId: userId,
+          pendingCount: 0,
+          error: null,
         );
-        final storage = ref.read(storageProvider);
-        await storage.saveConfig(state);
-      } catch (_) {}
+        return;
+      }
+
+      if (!localConfig.hasRepository) {
+        state = state.copyWith(
+          stage: LaunchStage.repoSelection,
+          config: localConfig,
+          data: localData,
+          token: token,
+          userId: userId,
+          pendingCount: pending,
+        );
+        return;
+      }
+
+      final merged = await _pullLatestFromRemote(localConfig, token, fallbackData: localData);
+      final nextStage = (userId == null || userId.isEmpty) ? LaunchStage.userSelection : LaunchStage.dashboard;
+
+      state = state.copyWith(
+        stage: nextStage,
+        config: merged.$1,
+        data: merged.$2,
+        token: token,
+        userId: userId,
+        pendingCount: pending,
+        error: null,
+      );
+
+      _startPeriodicSync();
+    } catch (e) {
+      state = state.copyWith(stage: LaunchStage.error, error: e.toString());
     }
   }
-}
 
-// ---------- Data Provider ----------
-final dataProvider = StateNotifierProvider<DataNotifier, FundData>((ref) {
-  return DataNotifier(ref);
-});
+  Future<void> connectRepository({
+    required String owner,
+    required String repo,
+    String branch = 'main',
+    String dataFileName = 'data.json',
+    String? token,
+  }) async {
+    state = state.copyWith(stage: LaunchStage.loading, error: null);
 
-class DataNotifier extends StateNotifier<FundData> {
-  final Ref ref;
-  DataNotifier(this.ref) : super(const FundData());
-
-  Future<void> loadFromStorage() async {
-    final storage = ref.read(storageProvider);
-    final saved = storage.loadData();
-    if (saved != null) {
-      state = saved;
-    }
-  }
-
-  Future<void> setData(FundData data) async {
-    state = data;
-    final storage = ref.read(storageProvider);
-    await storage.saveData(data);
-  }
-
-  Future<void> syncDataFromGitHub({String? token}) async {
-    final config = ref.read(configProvider);
-    if (config.repoOwner.isEmpty || config.repoName.isEmpty) return;
-    final service = GitHubService(
-      owner: config.repoOwner,
-      repo: config.repoName,
-      token: token,
-      branch: config.repoBranch,
-      dataFileName: config.dataFileName,
+    final baseConfig = state.config.copyWith(
+      repoOwner: owner,
+      repoName: repo,
+      repoBranch: branch,
+      dataFileName: dataFileName,
     );
-    try {
-      final remote = await service.fetchData();
-      state = remote;
-      final storage = ref.read(storageProvider);
-      await storage.saveData(remote);
-    } catch (_) {
-      final rawUrl =
-          'https://raw.githubusercontent.com/${config.repoOwner}/${config.repoName}/${config.repoBranch}/${config.dataFileName}';
-      try {
-        final remote = await GitHubService.fetchDataRaw(rawUrl);
-        state = remote;
-        final storage = ref.read(storageProvider);
-        await storage.saveData(remote);
-      } catch (_) {}
+
+    final merged = await _pullLatestFromRemote(baseConfig, token, fallbackData: state.data);
+
+    final storage = ref.read(storageProvider);
+    await storage.saveConfig(merged.$1);
+    await storage.saveData(merged.$2);
+
+    if (token != null && token.isNotEmpty) {
+      await storage.saveToken(token);
     }
+
+    state = state.copyWith(
+      stage: LaunchStage.userSelection,
+      config: merged.$1,
+      data: merged.$2,
+      token: token ?? state.token,
+      error: null,
+    );
+
+    _startPeriodicSync();
   }
 
-  // Transaction add/edit/delete will be handled via SyncService.
-}
-
-// ---------- Auth Provider (PAT) ----------
-final authProvider = StateNotifierProvider<AuthNotifier, String?>((ref) {
-  return AuthNotifier(ref);
-});
-
-class AuthNotifier extends StateNotifier<String?> {
-  final Ref ref;
-  AuthNotifier(this.ref) : super(null);
-
-  Future<void> loadToken() async {
-    final storage = ref.read(storageProvider);
-    final token = storage.loadToken();
-    state = token;
+  Future<void> selectUser(String userId) async {
+    await ref.read(storageProvider).saveUser(userId);
+    state = state.copyWith(userId: userId, stage: LaunchStage.dashboard);
   }
 
   Future<void> setToken(String? token) async {
     final storage = ref.read(storageProvider);
-    if (token == null) {
+    if (token == null || token.isEmpty) {
       await storage.clearToken();
-      state = null;
-    } else {
-      await storage.saveToken(token);
-      state = token;
+      state = state.copyWith(token: null);
+      return;
     }
+
+    await storage.saveToken(token);
+    state = state.copyWith(token: token);
+  }
+
+  Future<void> addTransaction(Transaction tx, {String? message}) async {
+    final updated = state.data.copyWith(transactions: [tx, ...state.data.transactions]);
+    final storage = ref.read(storageProvider);
+    await storage.saveData(updated);
+    state = state.copyWith(data: updated);
+
+    if (_isWeb) return;
+
+    final pendingCount = await ref.read(syncServiceProvider).queueSnapshot(
+          config: state.config,
+          data: updated,
+          message: message ?? 'Update fund data (${tx.type.name})',
+        );
+
+    state = state.copyWith(pendingCount: pendingCount);
+    await syncNow();
+  }
+
+  Future<void> syncNow() async {
+    if (_isWeb || state.token == null || state.token!.isEmpty || !state.config.hasRepository) {
+      return;
+    }
+
+    state = state.copyWith(syncing: true);
+
+    try {
+      final github = GitHubService(
+        owner: state.config.repoOwner,
+        repo: state.config.repoName,
+        branch: state.config.repoBranch,
+        dataFileName: state.config.dataFileName,
+        token: state.token,
+      );
+      final remaining = await ref.read(syncServiceProvider).flushQueue(github);
+      final merged = await _pullLatestFromRemote(state.config, state.token, fallbackData: state.data);
+
+      await ref.read(storageProvider).saveConfig(merged.$1);
+      await ref.read(storageProvider).saveData(merged.$2);
+
+      state = state.copyWith(
+        config: merged.$1,
+        data: merged.$2,
+        pendingCount: remaining,
+        syncing: false,
+      );
+    } catch (e) {
+      state = state.copyWith(syncing: false, error: e.toString());
+    }
+  }
+
+  Future<void> logoutUser() async {
+    await ref.read(storageProvider).clearUser();
+    state = state.copyWith(userId: null, stage: LaunchStage.userSelection);
+  }
+
+  Future<void> refreshReadOnly() async {
+    if (!state.config.hasRepository || _isWeb) return;
+
+    final merged = await _pullLatestFromRemote(state.config, state.token, fallbackData: state.data);
+    await ref.read(storageProvider).saveConfig(merged.$1);
+    await ref.read(storageProvider).saveData(merged.$2);
+    state = state.copyWith(config: merged.$1, data: merged.$2);
+  }
+
+  Future<(AppConfig, FundData)> _pullLatestFromRemote(
+    AppConfig base,
+    String? token, {
+    required FundData fallbackData,
+  }) async {
+    final github = GitHubService(
+      owner: base.repoOwner,
+      repo: base.repoName,
+      branch: base.repoBranch,
+      dataFileName: base.dataFileName,
+      token: token,
+    );
+
+    try {
+      final remoteConfig = await github.fetchConfig();
+      final remoteData = await github.fetchData();
+      return (remoteConfig, remoteData);
+    } catch (_) {
+      return (base, fallbackData);
+    }
+  }
+
+  void _startPeriodicSync() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      syncNow();
+    });
+  }
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
   }
 }
 
-// ---------- User Provider ----------
-final userProvider = StateProvider<String?>((ref) {
-  return null;
-});
-
-// ---------- Sync Service Provider ----------
-final syncServiceProvider = Provider<SyncService>((ref) {
-  final storage = ref.watch(storageProvider);
-  final config = ref.watch(configProvider);
-  final token = ref.watch(authProvider);
-  final service = GitHubService(
-    owner: config.repoOwner,
-    repo: config.repoName,
-    token: token,
-    branch: config.repoBranch,
-    dataFileName: config.dataFileName,
-  );
-  return SyncService(storage: storage, github: service);
-});
-
-// ---------- Computed Providers ----------
 final balancesProvider = Provider<Map<String, double>>((ref) {
-  final data = ref.watch(dataProvider);
-  final config = ref.watch(configProvider);
-  return Calculations.calculateBalances(data, config.people);
+  final state = ref.watch(appStateProvider);
+  return Calculations.calculateBalances(state.data, state.config.people);
 });
 
-final debtSettlementsProvider = Provider<List<Settlement>>((ref) {
+final settlementsProvider = Provider<List<Settlement>>((ref) {
   final balances = ref.watch(balancesProvider);
   return Calculations.calculateDebtSettlements(balances);
 });
 
 final totalsProvider = Provider<({double credits, double debits})>((ref) {
-  final data = ref.watch(dataProvider);
+  final data = ref.watch(appStateProvider.select((s) => s.data));
   return Calculations.totals(data);
 });
 
+final billTotalsProvider = Provider<Map<String, double>>((ref) {
+  final data = ref.watch(appStateProvider.select((s) => s.data));
+  return Calculations.calculateBillTotals(data);
+});
+
+Transaction createTransaction({
+  required TransactionType type,
+  required double amount,
+  required String note,
+  String? actorId,
+  String? targetId,
+  List<String> participants = const [],
+  List<String> exemptions = const [],
+  String? parentId,
+}) {
+  return Transaction(
+    id: AppDateUtils.generateId(),
+    type: type,
+    amount: amount,
+    note: note,
+    actorId: actorId,
+    targetId: targetId,
+    participantIds: participants,
+    exemptions: exemptions,
+    parentId: parentId,
+    timestamp: AppDateUtils.nowIso(),
+  );
+}

@@ -1,44 +1,33 @@
-
-import 'package:json_annotation/json_annotation.dart';
-import 'package:equatable/equatable.dart';
 import 'transaction.dart';
 
-part 'fund_data.g.dart';
-
-@JsonSerializable()
-class FundData extends Equatable {
-  @JsonKey(defaultValue: {})
-  final Map<String, double> people;
-
-  @JsonKey(defaultValue: {})
-  final Map<String, double> billTypes;
-
-  @JsonKey(defaultValue: [])
-  final List<Transaction> transactions;
-
+class FundData {
   const FundData({
-    this.people = const {},
-    this.billTypes = const {},
     this.transactions = const [],
   });
 
-  factory FundData.fromJson(Map<String, dynamic> json) =>
-      _$FundDataFromJson(json);
-  Map<String, dynamic> toJson() => _$FundDataToJson(this);
+  final List<Transaction> transactions;
 
-  FundData copyWith({
-    Map<String, double>? people,
-    Map<String, double>? billTypes,
-    List<Transaction>? transactions,
-  }) {
+  factory FundData.fromJson(Map<String, dynamic> json) {
+    final rawTransactions = json['transactions'];
+    if (rawTransactions is! List) {
+      return const FundData();
+    }
+
     return FundData(
-      people: people ?? this.people,
-      billTypes: billTypes ?? this.billTypes,
-      transactions: transactions ?? this.transactions,
+      transactions: rawTransactions
+          .whereType<Map>()
+          .map((entry) => Transaction.fromJson(Map<String, dynamic>.from(entry)))
+          .toList(),
     );
   }
 
-  @override
-  List<Object?> get props => [people, billTypes, transactions];
-}
+  Map<String, dynamic> toJson() => {
+        'transactions': transactions.map((e) => e.toJson()).toList(),
+      };
 
+  FundData copyWith({List<Transaction>? transactions}) {
+    return FundData(
+      transactions: transactions ?? this.transactions,
+    );
+  }
+}

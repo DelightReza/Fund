@@ -1,36 +1,36 @@
-
 import 'package:flutter/material.dart';
+
 import '../models/transaction.dart';
-import '../utils/format_utils.dart';
 import '../utils/date_utils.dart';
+import '../utils/format_utils.dart';
 
 class ReceiptModal extends StatelessWidget {
+  const ReceiptModal({
+    super.key,
+    required this.transaction,
+    required this.currency,
+  });
+
   final Transaction transaction;
   final String currency;
-
-  const ReceiptModal({super.key, required this.transaction, required this.currency});
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(transaction.type == 'credit' ? 'Credit Receipt' : 'Debit Receipt'),
+      title: const Text('Receipt'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('ID: ${transaction.id}'),
-          Text('Amount: ${FormatUtils.formatCurrency(transaction.amount, currency)}'),
-          Text('Date: ${DateUtils.formatDate(transaction.date)}'),
-          if (transaction.note.isNotEmpty) Text('Note: ${transaction.note}'),
+          Text('Type: ${transaction.type.name}'),
+          Text('Amount: ${FormatUtils.currency(transaction.amount, currency)}'),
+          Text('Date: ${AppDateUtils.formatDateTime(transaction.timestamp)}'),
+          Text('Note: ${transaction.note.isEmpty ? '-' : transaction.note}'),
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
       ],
     );
   }
 }
-

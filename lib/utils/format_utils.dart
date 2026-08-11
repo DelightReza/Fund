@@ -1,18 +1,9 @@
-
 class FormatUtils {
-  static String formatAmount(double amount) {
-    if (amount % 1 == 0) {
-      return amount.toInt().toString();
-    } else {
-      return amount.toStringAsFixed(2);
-    }
-  }
-
-  static String formatCurrency(double amount, String currency) {
-    final formatted = amount % 1 == 0
-        ? amount.toInt().toString()
-        : amount.toStringAsFixed(2);
-    return '$formatted $currency';
+  static String currency(double value, String symbol) {
+    final normalized = value.abs() < 0.005 ? 0.0 : value;
+    final formatted = normalized % 1 == 0
+        ? normalized.toStringAsFixed(0)
+        : normalized.toStringAsFixed(2);
+    return '$symbol $formatted';
   }
 }
-

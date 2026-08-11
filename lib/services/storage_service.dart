@@ -1,128 +1,79 @@
-
 import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/config.dart';
 import '../models/fund_data.dart';
+import '../models/pending_operation.dart';
 
 class StorageService {
-  static const String _configKey = 'config';
-  static const String _dataKey = 'data';
-  static const String _tokenKey = 'pat';
-  static const String _tokenTimeKey = 'pat_time';
-  static const String _pendingOpsKey = 'pending_ops';
-  static const String _userKey = 'selected_user';
-  static const String _savedReposKey = 'saved_repos';
+  StorageService(this._prefs);
 
   final SharedPreferences _prefs;
 
-  StorageService(this._prefs);
+  static const _configKey = 'fund.config';
+  static const _dataKey = 'fund.data';
+  static const _tokenKey = 'fund.token';
+  static const _userKey = 'fund.user';
+  static const _pendingOpsKey = 'fund.pending_ops';
 
-  // ------ Config ------
   AppConfig? loadConfig() {
-    final jsonStr = _prefs.getString(_configKey);
-    if (jsonStr == null) return null;
+    final raw = _prefs.getString(_configKey);
+    if (raw == null) return null;
     try {
-      return AppConfig.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
+      return AppConfig.fromJson(Map<String, dynamic>.from(jsonDecode(raw) as Map));
     } catch (_) {
       return null;
     }
   }
 
   Future<void> saveConfig(AppConfig config) async {
-    final json = jsonEncode(config.toJson());
-    await _prefs.setString(_configKey, json);
+    await _prefs.setString(_configKey, jsonEncode(config.toJson()));
   }
 
-  // ------ Data ------
   FundData? loadData() {
-    final jsonStr = _prefs.getString(_dataKey);
-    if (jsonStr == null) return null;
+    final raw = _prefs.getString(_dataKey);
+    if (raw == null) return null;
     try {
-      return FundData.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
+      return FundData.fromJson(Map<String, dynamic>.from(jsonDecode(raw) as Map));
     } catch (_) {
       return null;
     }
   }
 
   Future<void> saveData(FundData data) async {
-    final json = jsonEncode(data.toJson());
-    await _prefs.setString(_dataKey, json);
+    await _prefs.setString(_dataKey, jsonEncode(data.toJson()));
   }
 
-  // ------ Token ------
-  String? loadToken() {
-    final token = _prefs.getString(_tokenKey);
-    final timeStr = _prefs.getString(_tokenTimeKey);
-    if (token == null || timeStr == null) return null;
-    final time = int.tryParse(timeStr);
-    if (time == null) return null;
-    // 30 days validity
-    if (DateTime.now().millisecondsSinceEpoch - time > 30 * 24 * 60 * 60 * 1000) {
-      return null;
-    }
-    return token;
-  }
+  String? loadToken() => _prefs.getString(_tokenKey);
 
-  Future<void> saveToken(String token) async {
-    await _prefs.setString(_tokenKey, token);
-    await _prefs.setString(
-        _tokenTimeKey, DateTime.now().millisecondsSinceEpoch.toString());
-  }
+  Future<void> saveToken(String token) async => _prefs.setString(_tokenKey, token);
 
-  Future<void> clearToken() async {
-    await _prefs.remove(_tokenKey);
-    await _prefs.remove(_tokenTimeKey);
-  }
+  Future<void> clearToken() async => _prefs.remove(_tokenKey);
 
-  // ------ User ------
-  String? loadUser() {
-    return _prefs.getString(_userKey);
-  }
+  String? loadUser() => _prefs.getString(_userKey);
 
-  Future<void> saveUser(String userId) async {
-    await _prefs.setString(_userKey, userId);
-  }
+  Future<void> saveUser(String userId) async => _prefs.setString(_userKey, userId);
 
-  Future<void> clearUser() async {
-    await _prefs.remove(_userKey);
-  }
+  Future<void> clearUser() async => _prefs.remove(_userKey);
 
-  // ------ Pending Operations ------
-  List<Map<String, dynamic>> loadPendingOps() {
-    final jsonStr = _prefs.getString(_pendingOpsKey);
-    if (jsonStr == null) return [];
+  List<PendingOperation> loadPendingOperations() {
+    final raw = _prefs.getString(_pendingOpsKey);
+    if (raw == null) return const [];
     try {
-      final list = jsonDecode(jsonStr) as List;
-      return list.map((e) => e as Map<String, dynamic>).toList();
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map((entry) => PendingOperation.fromJson(Map<String, dynamic>.from(entry)))
+          .toList();
     } catch (_) {
-      return [];
+      return const [];
     }
   }
 
-  Future<void> savePendingOps(List<Map<String, dynamic>> ops) async {
-    final json = jsonEncode(ops);
-    await _prefs.setString(_pendingOpsKey, json);
-  }
-
-  // ------ Saved Repos (for mobile) ------
-  List<String> loadSavedRepos() {
-    final jsonStr = _prefs.getString(_savedReposKey);
-    if (jsonStr == null) return [];
-    try {
-      final list = jsonDecode(jsonStr) as List;
-      return list.map((e) => e.toString()).toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<void> saveSavedRepos(List<String> repos) async {
-    final json = jsonEncode(repos);
-    await _prefs.setString(_savedReposKey, json);
-  }
-
-  Future<void> clearAll() async {
-    await _prefs.clear();
+  Future<void> savePendingOperations(List<PendingOperation> operations) async {
+    final payload = operations.map((e) => e.toJson()).toList();
+    await _prefs.setString(_pendingOpsKey, jsonEncode(payload));
   }
 }
-

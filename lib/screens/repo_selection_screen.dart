@@ -1,8 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../providers/providers.dart';
-import '../services/github_service.dart';
 
 class RepoSelectionScreen extends ConsumerStatefulWidget {
   const RepoSelectionScreen({super.key});
@@ -12,164 +11,78 @@ class RepoSelectionScreen extends ConsumerStatefulWidget {
 }
 
 class _RepoSelectionScreenState extends ConsumerState<RepoSelectionScreen> {
-  final TextEditingController _urlController = TextEditingController();
-  final TextEditingController _tokenController = TextEditingController();
-  bool _showToken = false;
+  final _ownerController = TextEditingController();
+  final _repoController = TextEditingController();
+  final _branchController = TextEditingController(text: 'main');
+  final _dataFileController = TextEditingController(text: 'data.json');
+  final _tokenController = TextEditingController();
   bool _loading = false;
   String? _error;
 
   @override
   Widget build(BuildContext context) {
-    final storage = ref.read(storageProvider);
-    final saved = storage.loadSavedRepos();
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Select Fund Repository')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Connect to a GitHub repository',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 20),
-            if (saved.isNotEmpty) ...[
-              const Text('Saved repositories:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: saved.length,
-                  itemBuilder: (context, index) {
-                    final entry = saved[index];
-                    return ListTile(
-                      leading: const Icon(Icons.book),
-                      title: Text(entry),
-                      onTap: () => _connect(entry),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () {
-                          final updated = List<String>.from(saved)..removeAt(index);
-                          storage.saveSavedRepos(updated);
-                          setState(() {});
-                        },
-                      ),
-                    );
-                  },
-                ),
+      appBar: AppBar(title: const Text('Repository Selection')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              TextField(controller: _ownerController, decoration: const InputDecoration(labelText: 'GitHub owner')),
+              const SizedBox(height: 12),
+              TextField(controller: _repoController, decoration: const InputDecoration(labelText: 'Repository name')),
+              const SizedBox(height: 12),
+              TextField(controller: _branchController, decoration: const InputDecoration(labelText: 'Branch')),
+              const SizedBox(height: 12),
+              TextField(controller: _dataFileController, decoration: const InputDecoration(labelText: 'Data file name')),
+              const SizedBox(height: 12),
+              TextField(controller: _tokenController, decoration: const InputDecoration(labelText: 'GitHub PAT (optional)'), obscureText: true),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ],
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _loading ? null : _connect,
+                child: _loading
+                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Connect'),
               ),
-              const Divider(),
             ],
-            const Text('Or add a new one:'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _urlController,
-              decoration: const InputDecoration(
-                labelText: 'owner/repo or full URL',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _tokenController,
-              obscureText: !_showToken,
-              decoration: InputDecoration(
-                labelText: 'GitHub Token (optional)',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  onPressed: () => setState(() => _showToken = !_showToken),
-                  icon: Icon(_showToken ? Icons.visibility_off : Icons.visibility),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_error != null)
-              Text(_error!, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loading ? null : () => _connect(_urlController.text.trim()),
-              child: _loading ? const CircularProgressIndicator() : const Text('Connect'),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _connect(String input) async {
-    if (input.isEmpty) {
-      setState(() => _error = 'Please enter a repository');
+  Future<void> _connect() async {
+    final owner = _ownerController.text.trim();
+    final repo = _repoController.text.trim();
+    if (owner.isEmpty || repo.isEmpty) {
+      setState(() => _error = 'Owner and repository are required.');
       return;
     }
+
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final token = _tokenController.text.trim().isNotEmpty
-          ? _tokenController.text.trim()
-          : null;
-      // Parse owner/repo
-      String owner, repo;
-      if (input.contains('github.com') || input.contains('github.io')) {
-        final uri = Uri.tryParse(input);
-        if (uri != null) {
-          final segments = uri.pathSegments;
-          if (segments.isNotEmpty) {
-            owner = segments[0];
-            repo = segments.length > 1 ? segments[1] : '';
-          } else {
-            throw Exception('Invalid URL');
-          }
-        } else {
-          throw Exception('Invalid URL');
-        }
-      } else {
-        final parts = input.split('/');
-        if (parts.length != 2) throw Exception('Invalid format, use owner/repo');
-        owner = parts[0];
-        repo = parts[1];
-      }
-
-      // Try to fetch config
-      AppConfig config;
-      try {
-        final service = GitHubService(owner: owner, repo: repo, token: token);
-        config = await service.fetchConfig();
-      } catch (_) {
-        // Fallback raw
-        final rawUrl = 'https://raw.githubusercontent.com/$owner/$repo/main/config.json';
-        config = await GitHubService.fetchConfigRaw(rawUrl);
-      }
-
-      // Save config
-      final fullConfig = config.copyWith(
-        repoOwner: owner,
-        repoName: repo,
-        repoBranch: 'main',
-        dataFileName: 'data.json',
-      );
-      await ref.read(configProvider.notifier).setConfig(fullConfig);
-      // Save repo
-      final storage = ref.read(storageProvider);
-      final saved = storage.loadSavedRepos();
-      if (!saved.contains(input)) {
-        storage.saveSavedRepos([...saved, input]);
-      }
-      // Save token if provided
-      if (token != null) {
-        await ref.read(authProvider.notifier).setToken(token);
-      }
-      // Navigate to user selection
-      if (context.mounted) {
-        Navigator.of(context).pushReplacementNamed('/user_selection');
-      }
+      await ref.read(appStateProvider.notifier).connectRepository(
+            owner: owner,
+            repo: repo,
+            branch: _branchController.text.trim().isEmpty ? 'main' : _branchController.text.trim(),
+            dataFileName: _dataFileController.text.trim().isEmpty ? 'data.json' : _dataFileController.text.trim(),
+            token: _tokenController.text.trim().isEmpty ? null : _tokenController.text.trim(),
+          );
     } catch (e) {
-      setState(() => _error = 'Failed to connect: $e');
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
-    setState(() => _loading = false);
   }
 }
-
