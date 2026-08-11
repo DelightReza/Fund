@@ -173,12 +173,23 @@ class AppNotifier extends StateNotifier<AppState> {
 
     final merged = await _pullLatestFromRemote(baseConfig, token, fallbackData: state.data);
 
-    await storage.saveConfig(merged.$1);
-    await storage.saveData(merged.$2);
-
     if (token != null && token.isNotEmpty) {
+      final isValid = await GitHubService(
+        owner: owner,
+        repo: repo,
+        branch: branch,
+        dataFileName: dataFileName,
+        token: token,
+      ).verifyToken(token);
+
+      if (!isValid) {
+        throw Exception('Invalid Personal Access Token provided.');
+      }
       await storage.saveToken(token);
     }
+
+    await storage.saveConfig(merged.$1);
+    await storage.saveData(merged.$2);
 
     state = state.copyWith(
       stage: LaunchStage.userSelection,
@@ -202,6 +213,18 @@ class AppNotifier extends StateNotifier<AppState> {
       await storage.clearToken();
       state = state.copyWith(token: null);
       return;
+    }
+
+    final isValid = await GitHubService(
+      owner: state.config.repoOwner,
+      repo: state.config.repoName,
+      branch: state.config.repoBranch,
+      dataFileName: state.config.dataFileName,
+      token: token,
+    ).verifyToken(token);
+
+    if (!isValid) {
+      throw Exception('Invalid Personal Access Token');
     }
 
     await storage.saveToken(token);

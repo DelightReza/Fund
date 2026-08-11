@@ -31,6 +31,16 @@ class GitHubService {
     return headers;
   }
 
+  Future<bool> verifyToken(String tokenToVerify) async {
+    final uri = Uri.parse('https://api.github.com/user');
+    final response = await http.get(uri, headers: {
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Authorization': 'token $tokenToVerify',
+    });
+    return response.statusCode == 200;
+  }
+
   Future<AppConfig> fetchConfig() async {
     if (owner.isEmpty || repo.isEmpty) {
       throw Exception('Repository not set');

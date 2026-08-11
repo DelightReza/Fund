@@ -54,9 +54,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                       ),
                       const SizedBox(width: 8),
                       FilledButton(
-                        onPressed: appState.syncing
-                            ? null
-                            : () async {
+                        onPressed: () async {
                                 final token = _tokenController.text.trim();
                                 if (token.isEmpty) {
                                   await ref.read(appStateProvider.notifier).setToken(null);
@@ -66,10 +64,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                                   return;
                                 }
 
-                                // Show loading state on the button or general sync state
-                                // We can use syncNow to verify by attempting to pull/push, but a simple user check is better.
                                 try {
-                                  // Just a simple validation if needed, or save it directly.
                                   await ref.read(appStateProvider.notifier).setToken(token);
                                   
                                   if (context.mounted) {
@@ -77,7 +72,6 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                                       content: Text('Token saved successfully.'),
                                       backgroundColor: Colors.green,
                                     ));
-                                    // Trigger a sync to make sure it works and clears the queue
                                     ref.read(appStateProvider.notifier).syncNow();
                                   }
                                 } catch (e) {
@@ -89,9 +83,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                                   }
                                 }
                               },
-                        child: appState.syncing 
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                          : const Text('Save'),
+                        child: const Text('Save'),
                       ),
                     ],
                   ),
