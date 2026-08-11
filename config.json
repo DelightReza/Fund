@@ -1,11 +1,31 @@
 {
-  "siteTitle": "Fund",
+  "siteTitle": "Room Fund",
   "siteSubtitle": "Expenses Tracker",
   "currency": "₹",
-  "repoOwner": "",
-  "repoName": "",
-  "repoBranch": "",
+  "repoOwner": "DelightReza",
+  "repoName": "Fund",
+  "repoBranch": "main",
   "dataFileName": "data.json",
-  "people": [],
-  "billTypes": []
+  "people": [
+    { "id": "aabid", "name": "Aabid", "active": true },
+    { "id": "gulam", "name": "Gulam", "active": true },
+    { "id": "raza", "name": "Raza", "active": true }
+  ],
+  "billTypes": [
+    { "id": "thaali", "name": "Thaali", "icon": "🍱" },
+    { "id": "biryani", "name": "Biryani", "icon": "🍛" },
+    { "id": "groceries", "name": "Groceries", "icon": "🛒" },
+    { "id": "other", "name": "Other", "icon": "📦" },
+    { "id": "chicken", "name": "Chicken", "icon": "🍗" },
+    { "id": "drinking_water", "name": "Drinking Water", "icon": "🍶" },
+    { "id": "water", "name": "Water", "icon": "🚰" },
+    { "id": "rent", "name": "Rent", "icon": "🏠" },
+    { "id": "banana", "name": "Banana", "icon": "🍌" },
+    { "id": "milk", "name": "Milk", "icon": "🥛" },
+    { "id": "cold_drink", "name": "Cold Drink", "icon": "🥤" },
+    { "id": "dahi", "name": "Dahi", "icon": "🥤" },
+    { "id": "samosa", "name": "Samosa", "icon": "🦋" },
+    { "id": "taxi", "name": "Taxi", "icon": "🚕" },
+    { "id": "ice_cream", "name": "Ice Cream", "icon": "🍦🧾" }
+  ]
 }

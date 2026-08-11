@@ -1,5 +1,1304 @@
 {
-  "billTypes": {},
-  "people": {},
-  "transactions": []
+  "people": {
+    "raza": 11725,
+    "aabid": 10105,
+    "gulam": 10016
+  },
+  "billTypes": {
+    "biryani": 1822,
+    "thaali": 5780,
+    "groceries": 3081,
+    "drinking_water": 420,
+    "banana": 555,
+    "milk": 648,
+    "chicken": 908,
+    "other": 561,
+    "cold_drink": 60,
+    "dahi": 30,
+    "samosa": 160,
+    "taxi": 180,
+    "ice_cream": 120,
+    "rent": 17521
+  },
+  "transactions": [
+    {
+      "id": "tx_exp_1786356246590_debit",
+      "parentId": "tx_exp_1786356246590",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 80,
+      "note": "Banana is paid by Aabid",
+      "date": "2026-08-10T15:34:06",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1786356246590_credit",
+      "parentId": "tx_exp_1786356246590",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 80,
+      "note": "Aabid paid for Banana",
+      "date": "2026-08-10T15:34:06"
+    },
+    {
+      "id": "tx_exp_1786290261489_debit",
+      "parentId": "tx_exp_1786290261489",
+      "type": "debit",
+      "whoOrBill": "other",
+      "amount": 10,
+      "note": "HandWash is paid by Raza",
+      "date": "2026-08-09T21:14:21",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1786290261489_credit",
+      "parentId": "tx_exp_1786290261489",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 10,
+      "note": "Raza paid for HandWash",
+      "date": "2026-08-09T21:14:21"
+    },
+    {
+      "id": "tx_exp_1786264214081_debit",
+      "parentId": "tx_exp_1786264214081",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-08-09T14:00:14",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1786264214081_credit",
+      "parentId": "tx_exp_1786264214081",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-08-09T14:00:14"
+    },
+    {
+      "id": "tx_exp_1786185675947_debit",
+      "parentId": "tx_exp_1786185675947",
+      "type": "debit",
+      "whoOrBill": "groceries",
+      "amount": 667,
+      "note": "Muesli + Milk is paid by Raza",
+      "date": "2026-08-08T16:11:15",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1786185675947_credit",
+      "parentId": "tx_exp_1786185675947",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 667,
+      "note": "Raza paid for Muesli + Milk",
+      "date": "2026-08-08T16:11:15"
+    },
+    {
+      "id": "tx_exp_1786022981932_debit",
+      "parentId": "tx_exp_1786022981932",
+      "type": "debit",
+      "whoOrBill": "other",
+      "amount": 160,
+      "note": "Chhata + Bartan Dhulne Wala is paid by Raza",
+      "date": "2026-08-06T18:59:41",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1786022981932_credit",
+      "parentId": "tx_exp_1786022981932",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 160,
+      "note": "Raza paid for Chhata + Bartan Dhulne Wala",
+      "date": "2026-08-06T18:59:41"
+    },
+    {
+      "id": "tx_exp_1786012702772_debit",
+      "parentId": "tx_exp_1786012702772",
+      "type": "debit",
+      "whoOrBill": "biryani",
+      "amount": 380,
+      "note": "Riyaz Biryani is paid by Raza",
+      "date": "2026-08-06T16:08:22",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1786012702772_credit",
+      "parentId": "tx_exp_1786012702772",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 380,
+      "note": "Raza paid for Riyaz Biryani",
+      "date": "2026-08-06T16:08:22"
+    },
+    {
+      "id": "tx_exp_1785922144079_debit",
+      "parentId": "tx_exp_1785922144079",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 35,
+      "note": "Banana is paid by Raza",
+      "date": "2026-08-05T14:59:04",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785922144079_credit",
+      "parentId": "tx_exp_1785922144079",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 35,
+      "note": "Raza paid for Banana",
+      "date": "2026-08-05T14:59:04"
+    },
+    {
+      "id": "tx_exp_1785922005633_debit",
+      "parentId": "tx_exp_1785922005633",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-08-05T14:56:45",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785922005633_credit",
+      "parentId": "tx_exp_1785922005633",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-08-05T14:56:45"
+    },
+    {
+      "id": "tx_exp_1785671795600_debit",
+      "parentId": "tx_exp_1785671795600",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-08-02T14:26:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785671795600_credit",
+      "parentId": "tx_exp_1785671795600",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-08-02T14:26:00"
+    },
+    {
+      "id": "tx_exp_1785606693888_debit",
+      "parentId": "tx_exp_1785606693888",
+      "type": "debit",
+      "whoOrBill": "drinking_water",
+      "amount": 60,
+      "note": "Drinking Water is paid by Raza",
+      "date": "2026-08-01T23:21:33",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785606693888_credit",
+      "parentId": "tx_exp_1785606693888",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 60,
+      "note": "Raza paid for Drinking Water",
+      "date": "2026-08-01T23:21:33"
+    },
+    {
+      "id": "tx_exp_1785597354178_debit",
+      "parentId": "tx_exp_1785597354178",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 65,
+      "note": "Banana is paid by Raza",
+      "date": "2026-08-01T20:45:54",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785597354178_credit",
+      "parentId": "tx_exp_1785597354178",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 65,
+      "note": "Raza paid for Banana",
+      "date": "2026-08-01T20:45:54"
+    },
+    {
+      "id": "tx_1785591642662_jbapr",
+      "type": "debit",
+      "whoOrBill": "rent",
+      "amount": 17521,
+      "note": "",
+      "date": "2026-08-01T19:10:42",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_1785590901827_pxuvc",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 2436,
+      "note": "",
+      "date": "2026-08-01T18:58:21"
+    },
+    {
+      "id": "tx_1785590806487_3059x",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 5840,
+      "note": "",
+      "date": "2026-08-01T18:56:46"
+    },
+    {
+      "id": "tx_1785590625428_ajavy",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 210,
+      "note": "",
+      "date": "2026-08-01T18:53:45"
+    },
+    {
+      "id": "tx_1785590569963_bomvk",
+      "type": "credit",
+      "whoOrBill": "gulam",
+      "amount": 7480,
+      "note": "",
+      "date": "2026-08-01T18:52:49"
+    },
+    {
+      "id": "tx_exp_1785571963211_debit",
+      "parentId": "tx_exp_1785571963211",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-08-01T13:42:43",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785571963211_credit",
+      "parentId": "tx_exp_1785571963211",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-08-01T13:42:43"
+    },
+    {
+      "id": "tx_1785424724600_ok3cm",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 1555,
+      "note": "",
+      "date": "2026-07-30T20:48:44"
+    },
+    {
+      "id": "tx_exp_1785424335025_debit",
+      "parentId": "tx_exp_1785424335025",
+      "type": "debit",
+      "whoOrBill": "groceries",
+      "amount": 120,
+      "note": "Chana is paid by Aabid",
+      "date": "2026-07-30T20:42:15",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785424335025_credit",
+      "parentId": "tx_exp_1785424335025",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 120,
+      "note": "Aabid paid for Chana",
+      "date": "2026-07-30T20:42:15"
+    },
+    {
+      "id": "tx_exp_1785399982895_debit",
+      "parentId": "tx_exp_1785399982895",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 70,
+      "note": "Banana is paid by Aabid",
+      "date": "2026-07-30T13:56:22",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785399982895_credit",
+      "parentId": "tx_exp_1785399982895",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 70,
+      "note": "Aabid paid for Banana",
+      "date": "2026-07-30T13:56:22"
+    },
+    {
+      "id": "tx_exp_1785399399938_debit",
+      "parentId": "tx_exp_1785399399938",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-30T13:46:39",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785399399938_credit",
+      "parentId": "tx_exp_1785399399938",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-30T13:46:39"
+    },
+    {
+      "id": "tx_exp_1785316482296_debit",
+      "parentId": "tx_exp_1785316482296",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Gulam",
+      "date": "2026-07-29T14:44:42",
+      "splitAmong": ["gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785316482296_credit",
+      "parentId": "tx_exp_1785316482296",
+      "type": "credit",
+      "whoOrBill": "gulam",
+      "amount": 36,
+      "note": "Gulam paid for Milk",
+      "date": "2026-07-29T14:44:42"
+    },
+    {
+      "id": "tx_exp_1785310369119_debit",
+      "parentId": "tx_exp_1785310369119",
+      "type": "debit",
+      "whoOrBill": "groceries",
+      "amount": 376,
+      "note": "Muesli + Sattu is paid by Raza",
+      "date": "2026-07-29T13:02:49",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785310369119_credit",
+      "parentId": "tx_exp_1785310369119",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 376,
+      "note": "Raza paid for Muesli + Sattu",
+      "date": "2026-07-29T13:02:49"
+    },
+    {
+      "id": "tx_exp_1785263750235_debit",
+      "parentId": "tx_exp_1785263750235",
+      "type": "debit",
+      "whoOrBill": "groceries",
+      "amount": 375,
+      "note": "Chala + Meusli is paid by Raza",
+      "date": "2026-07-29T00:05:50",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785263750235_credit",
+      "parentId": "tx_exp_1785263750235",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 375,
+      "note": "Raza paid for Chala + Meusli",
+      "date": "2026-07-29T00:05:50"
+    },
+    {
+      "id": "tx_exp_1785253657321_debit",
+      "parentId": "tx_exp_1785253657321",
+      "type": "debit",
+      "whoOrBill": "ice_cream",
+      "amount": 120,
+      "note": "Ice Cream is paid by Raza",
+      "date": "2026-07-28T21:17:37",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785253657321_credit",
+      "parentId": "tx_exp_1785253657321",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 120,
+      "note": "Raza paid for Ice Cream",
+      "date": "2026-07-28T21:17:37"
+    },
+    {
+      "id": "tx_exp_1785253546925_debit",
+      "parentId": "tx_exp_1785253546925",
+      "type": "debit",
+      "whoOrBill": "biryani",
+      "amount": 382,
+      "note": "Riyaz Biryani is paid by Raza",
+      "date": "2026-07-28T21:15:46",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785253546925_credit",
+      "parentId": "tx_exp_1785253546925",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 382,
+      "note": "Raza paid for Riyaz Biryani",
+      "date": "2026-07-28T21:15:46"
+    },
+    {
+      "id": "tx_1785246424931_ymh98",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 1100,
+      "note": "",
+      "date": "2026-07-12T19:16:00"
+    },
+    {
+      "id": "tx_exp_1785239286268_debit",
+      "parentId": "tx_exp_1785239286268",
+      "type": "debit",
+      "whoOrBill": "drinking_water",
+      "amount": 60,
+      "note": "Drinking Water is paid by Raza",
+      "date": "2026-07-28T17:18:06",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785239286268_credit",
+      "parentId": "tx_exp_1785239286268",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 60,
+      "note": "Raza paid for Drinking Water",
+      "date": "2026-07-28T17:18:06"
+    },
+    {
+      "id": "tx_exp_1785226955124_debit",
+      "parentId": "tx_exp_1785226955124",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 65,
+      "note": "Banana is paid by Raza",
+      "date": "2026-07-28T13:52:35",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785226955124_credit",
+      "parentId": "tx_exp_1785226955124",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 65,
+      "note": "Raza paid for Banana",
+      "date": "2026-07-28T13:52:35"
+    },
+    {
+      "id": "tx_exp_1785225405655_debit",
+      "parentId": "tx_exp_1785225405655",
+      "type": "debit",
+      "whoOrBill": "samosa",
+      "amount": 60,
+      "note": "Samosa is paid by Raza",
+      "date": "2026-07-28T13:26:45",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785225405655_credit",
+      "parentId": "tx_exp_1785225405655",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 60,
+      "note": "Raza paid for Samosa",
+      "date": "2026-07-28T13:26:45"
+    },
+    {
+      "id": "tx_exp_1785155271053_debit",
+      "parentId": "tx_exp_1785155271053",
+      "type": "debit",
+      "whoOrBill": "samosa",
+      "amount": 60,
+      "note": "Samosa is paid by Raza",
+      "date": "2026-07-27T17:57:51",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785155271053_credit",
+      "parentId": "tx_exp_1785155271053",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 60,
+      "note": "Raza paid for Samosa",
+      "date": "2026-07-27T17:57:51"
+    },
+    {
+      "id": "tx_exp_1785152687959_debit",
+      "parentId": "tx_exp_1785152687959",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-27T13:14:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785152687959_credit",
+      "parentId": "tx_exp_1785152687959",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-27T13:14:00"
+    },
+    {
+      "id": "tx_exp_1785074562027_0euvm_debit",
+      "parentId": "tx_exp_1785074562027_0euvm",
+      "type": "debit",
+      "whoOrBill": "chicken",
+      "amount": 348,
+      "note": "Chicken Korma is paid by Raza",
+      "date": "2026-07-26T14:40:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785074562027_0euvm_credit",
+      "parentId": "tx_exp_1785074562027_0euvm",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 348,
+      "note": "Raza paid for Chicken Korma",
+      "date": "2026-07-26T14:40:00"
+    },
+    {
+      "id": "tx_exp_1785074515210_xnzq3_debit",
+      "parentId": "tx_exp_1785074515210_xnzq3",
+      "type": "debit",
+      "whoOrBill": "taxi",
+      "amount": 180,
+      "note": "Taxi is paid by Raza",
+      "date": "2026-07-26T14:31:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1785074515210_xnzq3_credit",
+      "parentId": "tx_exp_1785074515210_xnzq3",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 180,
+      "note": "Raza paid for Taxi",
+      "date": "2026-07-26T14:31:00"
+    },
+    {
+      "id": "tx_exp_1784989786298_sm945_debit",
+      "parentId": "tx_exp_1784989786298_sm945",
+      "type": "debit",
+      "whoOrBill": "samosa",
+      "amount": 40,
+      "note": "Samosa is paid by Raza",
+      "date": "2026-07-25T19:59:00",
+      "splitAmong": ["gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784989786298_sm945_credit",
+      "parentId": "tx_exp_1784989786298_sm945",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 40,
+      "note": "Raza paid for Samosa",
+      "date": "2026-07-25T19:59:00"
+    },
+    {
+      "id": "tx_exp_1784972221651_r8r5e_debit",
+      "parentId": "tx_exp_1784972221651_r8r5e",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-25T15:07:00",
+      "splitAmong": ["gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784972221651_r8r5e_credit",
+      "parentId": "tx_exp_1784972221651_r8r5e",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-25T15:07:00"
+    },
+    {
+      "id": "tx_exp_1784955099683_pjgq8_debit",
+      "parentId": "tx_exp_1784955099683_pjgq8",
+      "type": "debit",
+      "whoOrBill": "drinking_water",
+      "amount": 60,
+      "note": "Drinking Water is paid by Aabid",
+      "date": "2026-07-25T10:21:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784955099683_pjgq8_credit",
+      "parentId": "tx_exp_1784955099683_pjgq8",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 60,
+      "note": "Aabid paid for Drinking Water",
+      "date": "2026-07-25T10:21:00"
+    },
+    {
+      "id": "tx_exp_1784906584576_624j1_debit",
+      "parentId": "tx_exp_1784906584576_624j1",
+      "type": "debit",
+      "whoOrBill": "cold_drink",
+      "amount": 20,
+      "note": "Maaza is paid by Raza",
+      "date": "2026-07-24T20:53:00",
+      "splitAmong": ["gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784906584576_624j1_credit",
+      "parentId": "tx_exp_1784906584576_624j1",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 20,
+      "note": "Raza paid for Maaza",
+      "date": "2026-07-24T20:53:00"
+    },
+    {
+      "id": "tx_exp_1784891053758_6iiu9_debit",
+      "parentId": "tx_exp_1784891053758_6iiu9",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-24T16:34:00",
+      "splitAmong": ["gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784891053758_6iiu9_credit",
+      "parentId": "tx_exp_1784891053758_6iiu9",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-24T16:34:00"
+    },
+    {
+      "id": "tx_exp_1784827067467_bufe6_debit",
+      "parentId": "tx_exp_1784827067467_bufe6",
+      "type": "debit",
+      "whoOrBill": "chicken",
+      "amount": 280,
+      "note": "Lazeez Lemon Chicken is paid by Raza",
+      "date": "2026-07-23T22:47:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784827067467_bufe6_credit",
+      "parentId": "tx_exp_1784827067467_bufe6",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 280,
+      "note": "Raza paid for Lazeez Lemon Chicken",
+      "date": "2026-07-23T22:47:00"
+    },
+    {
+      "id": "tx_exp_1784797061828_f1qu9_debit",
+      "parentId": "tx_exp_1784797061828_f1qu9",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-23T14:27:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784797061828_f1qu9_credit",
+      "parentId": "tx_exp_1784797061828_f1qu9",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-23T14:27:00"
+    },
+    {
+      "id": "tx_exp_1784797049529_c6dyr_debit",
+      "parentId": "tx_exp_1784797049529_c6dyr",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 65,
+      "note": "Banana is paid by Aabid",
+      "date": "2026-07-23T14:27:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784797049529_c6dyr_credit",
+      "parentId": "tx_exp_1784797049529_c6dyr",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 65,
+      "note": "Aabid paid for Banana",
+      "date": "2026-07-23T14:27:00"
+    },
+    {
+      "id": "tx_exp_1784711768069_16u8m_debit",
+      "parentId": "tx_exp_1784711768069_16u8m",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-22T14:46:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784711768069_16u8m_credit",
+      "parentId": "tx_exp_1784711768069_16u8m",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-22T14:46:00"
+    },
+    {
+      "id": "tx_exp_1784648211679_d1dg7_credit",
+      "parentId": "tx_exp_1784648211679_d1dg7",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 30,
+      "note": "Raza paid for Dahi",
+      "date": "2026-07-21T21:06:00"
+    },
+    {
+      "id": "tx_exp_1784648211679_d1dg7_debit",
+      "parentId": "tx_exp_1784648211679_d1dg7",
+      "type": "debit",
+      "whoOrBill": "dahi",
+      "amount": 30,
+      "note": "Dahi is paid by Raza",
+      "date": "2026-07-21T21:06:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784639438791_f04g3_credit",
+      "parentId": "tx_exp_1784639438791_f04g3",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-21T18:40:00"
+    },
+    {
+      "id": "tx_exp_1784639438791_f04g3_debit",
+      "parentId": "tx_exp_1784639438791_f04g3",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-21T18:40:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784639427358_q4i2a_credit",
+      "parentId": "tx_exp_1784639427358_q4i2a",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 70,
+      "note": "Aabid paid for Banana",
+      "date": "2026-07-21T18:40:00"
+    },
+    {
+      "id": "tx_exp_1784639427358_q4i2a_debit",
+      "parentId": "tx_exp_1784639427358_q4i2a",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 70,
+      "note": "Banana is paid by Aabid",
+      "date": "2026-07-21T18:40:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784535685041_q02ma_credit",
+      "parentId": "tx_exp_1784535685041_q02ma",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 320,
+      "note": "Raza paid for Riyaz Biryani",
+      "date": "2026-07-20T13:51:00"
+    },
+    {
+      "id": "tx_exp_1784535685041_q02ma_debit",
+      "parentId": "tx_exp_1784535685041_q02ma",
+      "type": "debit",
+      "whoOrBill": "biryani",
+      "amount": 320,
+      "note": "Riyaz Biryani is paid by Raza",
+      "date": "2026-07-20T13:51:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784484157772_7n30h_credit",
+      "parentId": "tx_exp_1784484157772_7n30h",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 40,
+      "note": "Raza paid for Maza",
+      "date": "2026-07-19T23:32:00"
+    },
+    {
+      "id": "tx_exp_1784484157772_7n30h_debit",
+      "parentId": "tx_exp_1784484157772_7n30h",
+      "type": "debit",
+      "whoOrBill": "cold_drink",
+      "amount": 40,
+      "note": "Maza is paid by Raza",
+      "date": "2026-07-19T23:32:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784466094143_852y8_credit",
+      "parentId": "tx_exp_1784466094143_852y8",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 60,
+      "note": "Raza paid for Drinking Water",
+      "date": "2026-07-19T18:31:00"
+    },
+    {
+      "id": "tx_exp_1784466094143_852y8_debit",
+      "parentId": "tx_exp_1784466094143_852y8",
+      "type": "debit",
+      "whoOrBill": "drinking_water",
+      "amount": 60,
+      "note": "Drinking Water is paid by Raza",
+      "date": "2026-07-19T18:31:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784460761459_pt0vm_credit",
+      "parentId": "tx_exp_1784460761459_pt0vm",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-19T17:02:00"
+    },
+    {
+      "id": "tx_exp_1784460761459_pt0vm_debit",
+      "parentId": "tx_exp_1784460761459_pt0vm",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-19T17:02:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784379037897_9l5e2_credit",
+      "parentId": "tx_exp_1784379037897_9l5e2",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 50,
+      "note": "Raza paid for Banana",
+      "date": "2026-07-18T18:20:00"
+    },
+    {
+      "id": "tx_exp_1784379037897_9l5e2_debit",
+      "parentId": "tx_exp_1784379037897_9l5e2",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 50,
+      "note": "Banana is paid by Raza",
+      "date": "2026-07-18T18:20:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784364783083_klfm5_credit",
+      "parentId": "tx_exp_1784364783083_klfm5",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-18T14:23:00"
+    },
+    {
+      "id": "tx_exp_1784364783083_klfm5_debit",
+      "parentId": "tx_exp_1784364783083_klfm5",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-18T14:23:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784364744154_gndn3_credit",
+      "parentId": "tx_exp_1784364744154_gndn3",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 391,
+      "note": "AC Remote",
+      "date": "2026-07-18T14:22:00"
+    },
+    {
+      "id": "tx_exp_1784364744154_gndn3_debit",
+      "parentId": "tx_exp_1784364744154_gndn3",
+      "type": "debit",
+      "whoOrBill": "other",
+      "amount": 391,
+      "note": "AC Remote",
+      "date": "2026-07-18T14:22:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784299841249_2nd6w_credit",
+      "parentId": "tx_exp_1784299841249_2nd6w",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 637,
+      "note": "Muesli",
+      "date": "2026-07-17T20:20:00"
+    },
+    {
+      "id": "tx_exp_1784299841249_2nd6w_debit",
+      "parentId": "tx_exp_1784299841249_2nd6w",
+      "type": "debit",
+      "whoOrBill": "groceries",
+      "amount": 637,
+      "note": "Muesli",
+      "date": "2026-07-17T20:20:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784296640456_7kudk_credit",
+      "parentId": "tx_exp_1784296640456_7kudk",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 280,
+      "note": "Lemon Chicken",
+      "date": "2026-07-17T19:27:00"
+    },
+    {
+      "id": "tx_exp_1784296640456_7kudk_debit",
+      "parentId": "tx_exp_1784296640456_7kudk",
+      "type": "debit",
+      "whoOrBill": "chicken",
+      "amount": 280,
+      "note": "Lemon Chicken",
+      "date": "2026-07-17T19:27:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784215563329_g40bf_credit",
+      "parentId": "tx_exp_1784215563329_g40bf",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 120,
+      "note": "Chana",
+      "date": "2026-07-16T20:56:00"
+    },
+    {
+      "id": "tx_exp_1784215563329_g40bf_debit",
+      "parentId": "tx_exp_1784215563329_g40bf",
+      "type": "debit",
+      "whoOrBill": "groceries",
+      "amount": 120,
+      "note": "Chana",
+      "date": "2026-07-16T20:56:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784189762258_b4fpt_credit",
+      "parentId": "tx_exp_1784189762258_b4fpt",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-16T13:46:00"
+    },
+    {
+      "id": "tx_exp_1784189762258_b4fpt_debit",
+      "parentId": "tx_exp_1784189762258_b4fpt",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-16T13:46:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784172605181_le0rk_credit",
+      "parentId": "tx_exp_1784172605181_le0rk",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 60,
+      "note": "Aabid paid for Drinking Water",
+      "date": "2026-07-16T09:00:00"
+    },
+    {
+      "id": "tx_exp_1784172605181_le0rk_debit",
+      "parentId": "tx_exp_1784172605181_le0rk",
+      "type": "debit",
+      "whoOrBill": "drinking_water",
+      "amount": 60,
+      "note": "Drinking Water is paid by Aabid",
+      "date": "2026-07-16T09:00:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1784016776513_m1yk3_credit",
+      "parentId": "tx_exp_1784016776513_m1yk3",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-14T13:42:00"
+    },
+    {
+      "id": "tx_exp_1784016776513_m1yk3_debit",
+      "parentId": "tx_exp_1784016776513_m1yk3",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-14T13:42:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783949542384_yi1uw_credit",
+      "parentId": "tx_exp_1783949542384_yi1uw",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 30,
+      "note": "Aabid paid for Banana",
+      "date": "2026-07-13T19:02:00"
+    },
+    {
+      "id": "tx_exp_1783949542384_yi1uw_debit",
+      "parentId": "tx_exp_1783949542384_yi1uw",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 30,
+      "note": "Banana is paid by Aabid",
+      "date": "2026-07-13T19:02:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783929057832_4lq6c_credit",
+      "parentId": "tx_exp_1783929057832_4lq6c",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-13T13:20:00"
+    },
+    {
+      "id": "tx_exp_1783929057832_4lq6c_debit",
+      "parentId": "tx_exp_1783929057832_4lq6c",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-13T13:20:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_1783870043078_rrrth",
+      "type": "debit",
+      "whoOrBill": "thaali",
+      "amount": 5400,
+      "note": "3 Mess",
+      "date": "2026-07-12T20:57:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_1783870025920_cbm8r",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 1800,
+      "note": "",
+      "date": "2026-07-12T20:57:00"
+    },
+    {
+      "id": "tx_1783847937547_wv7dx",
+      "type": "credit",
+      "whoOrBill": "gulam",
+      "amount": 2500,
+      "note": "",
+      "date": "2026-07-12T14:48:00"
+    },
+    {
+      "id": "tx_exp_1783841960800_430q7_credit",
+      "parentId": "tx_exp_1783841960800_430q7",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 60,
+      "note": "Aabid paid for Drinking Water",
+      "date": "2026-07-12T13:09:00"
+    },
+    {
+      "id": "tx_exp_1783841960800_430q7_debit",
+      "parentId": "tx_exp_1783841960800_430q7",
+      "type": "debit",
+      "whoOrBill": "drinking_water",
+      "amount": 60,
+      "note": "Drinking Water is paid by Aabid",
+      "date": "2026-07-12T13:09:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783791855544_y3zbf_credit",
+      "parentId": "tx_exp_1783791855544_y3zbf",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 240,
+      "note": "Raza paid for Thaali",
+      "date": "2026-07-11T20:14:00"
+    },
+    {
+      "id": "tx_exp_1783791855544_y3zbf_debit",
+      "parentId": "tx_exp_1783791855544_y3zbf",
+      "type": "debit",
+      "whoOrBill": "thaali",
+      "amount": 240,
+      "note": "Thaali is paid by Raza",
+      "date": "2026-07-11T20:14:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783758408633_xxuxv_credit",
+      "parentId": "tx_exp_1783758408633_xxuxv",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 36,
+      "note": "Raza paid for Milk",
+      "date": "2026-07-11T13:56:00"
+    },
+    {
+      "id": "tx_exp_1783758408633_xxuxv_debit",
+      "parentId": "tx_exp_1783758408633_xxuxv",
+      "type": "debit",
+      "whoOrBill": "milk",
+      "amount": 36,
+      "note": "Milk is paid by Raza",
+      "date": "2026-07-11T13:56:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783700278029_3vidk_credit",
+      "parentId": "tx_exp_1783700278029_3vidk",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 360,
+      "note": "Riyaz Biryani",
+      "date": "2026-07-10T21:47:00"
+    },
+    {
+      "id": "tx_exp_1783700278029_3vidk_debit",
+      "parentId": "tx_exp_1783700278029_3vidk",
+      "type": "debit",
+      "whoOrBill": "biryani",
+      "amount": 360,
+      "note": "Riyaz Biryani",
+      "date": "2026-07-10T21:47:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783689035054_05kda_credit",
+      "parentId": "tx_exp_1783689035054_05kda",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 25,
+      "note": "Aabid paid for Banana",
+      "date": "2026-07-10T18:40:00"
+    },
+    {
+      "id": "tx_exp_1783689035054_05kda_debit",
+      "parentId": "tx_exp_1783689035054_05kda",
+      "type": "debit",
+      "whoOrBill": "banana",
+      "amount": 25,
+      "note": "Banana is paid by Aabid",
+      "date": "2026-07-10T18:40:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783664250059_16edj_credit",
+      "parentId": "tx_exp_1783664250059_16edj",
+      "type": "credit",
+      "whoOrBill": "aabid",
+      "amount": 60,
+      "note": "Aabid paid for Drinking Water",
+      "date": "2026-07-10T11:47:00"
+    },
+    {
+      "id": "tx_exp_1783664250059_16edj_debit",
+      "parentId": "tx_exp_1783664250059_16edj",
+      "type": "debit",
+      "whoOrBill": "drinking_water",
+      "amount": 60,
+      "note": "Drinking Water is paid by Aabid",
+      "date": "2026-07-10T11:47:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783622315791_dgvw5_credit",
+      "parentId": "tx_exp_1783622315791_dgvw5",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 786,
+      "note": "Coffe + Chana + Muesli",
+      "date": "2026-07-09T21:55:00"
+    },
+    {
+      "id": "tx_exp_1783622315791_dgvw5_debit",
+      "parentId": "tx_exp_1783622315791_dgvw5",
+      "type": "debit",
+      "whoOrBill": "groceries",
+      "amount": 786,
+      "note": "Coffe + Chana + Muesli",
+      "date": "2026-07-09T21:55:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783612492686_cxeou_credit",
+      "parentId": "tx_exp_1783612492686_cxeou",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 140,
+      "note": "Raza paid for Thaali",
+      "date": "2026-07-09T21:24:00"
+    },
+    {
+      "id": "tx_exp_1783612492686_cxeou_debit",
+      "parentId": "tx_exp_1783612492686_cxeou",
+      "type": "debit",
+      "whoOrBill": "thaali",
+      "amount": 140,
+      "note": "Thaali is paid by Raza",
+      "date": "2026-07-09T21:24:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    },
+    {
+      "id": "tx_exp_1783611469718_it1mg_credit",
+      "parentId": "tx_exp_1783611469718_it1mg",
+      "type": "credit",
+      "whoOrBill": "raza",
+      "amount": 380,
+      "note": "Riyaz Biryani",
+      "date": "2026-07-09T14:07:00"
+    },
+    {
+      "id": "tx_exp_1783611469718_it1mg_debit",
+      "parentId": "tx_exp_1783611469718_it1mg",
+      "type": "debit",
+      "whoOrBill": "biryani",
+      "amount": 380,
+      "note": "Riyaz Biryani",
+      "date": "2026-07-09T14:07:00",
+      "splitAmong": ["aabid", "gulam", "raza"]
+    }
+  ]
 }
