@@ -24,8 +24,15 @@ class ReceiptModal extends ConsumerWidget {
     final isTransfer = transaction.type == TransactionType.transfer;
     final isDistribution = transaction.type == TransactionType.distribution;
 
-    String resolveMember(String id) => config.people.where((e) => e.id == id).firstOrNull?.name ?? id;
-    String resolveBill(String id) => config.billTypes.where((e) => e.id == id).firstOrNull?.name ?? id;
+    String resolveMember(String? id) {
+      if (id == null || id.isEmpty) return id ?? '';
+      return config.people.where((e) => e.id == id).firstOrNull?.name ?? id;
+    }
+    
+    String resolveBill(String? id) {
+      if (id == null || id.isEmpty) return id ?? '';
+      return config.billTypes.where((e) => e.id == id).firstOrNull?.name ?? id;
+    }
 
     return AlertDialog(
       title: Row(
@@ -40,9 +47,9 @@ class ReceiptModal extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (transaction.actorId.isNotEmpty)
+            if (transaction.actorId != null && transaction.actorId!.isNotEmpty)
               _InfoRow(label: 'Paid By / From', value: resolveMember(transaction.actorId)),
-            if (transaction.targetId.isNotEmpty)
+            if (transaction.targetId != null && transaction.targetId!.isNotEmpty)
               _InfoRow(
                 label: isExpense ? 'Category' : 'Target / To',
                 value: isExpense ? resolveBill(transaction.targetId) : resolveMember(transaction.targetId),
