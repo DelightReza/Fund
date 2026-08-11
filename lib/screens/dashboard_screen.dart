@@ -26,27 +26,23 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(appState.config.siteTitle),
         actions: [
-          if (!kIsWeb)
-            IconButton(
-              onPressed: appState.syncing ? null : () => ref.read(appStateProvider.notifier).syncNow(),
-              icon: appState.syncing
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.sync),
-            ),
-          if (!kIsWeb)
-            IconButton(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminScreen())),
-              icon: const Icon(Icons.admin_panel_settings),
-            ),
+          IconButton(
+            onPressed: appState.syncing ? null : () => ref.read(appStateProvider.notifier).syncNow(),
+            icon: appState.syncing
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.sync),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminScreen())),
+            icon: const Icon(Icons.admin_panel_settings),
+          ),
         ],
       ),
-      floatingActionButton: kIsWeb
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
-              icon: const Icon(Icons.add),
-              label: const Text('Add'),
-            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
+        icon: const Icon(Icons.add),
+        label: const Text('Add'),
+      ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(appStateProvider.notifier).refreshReadOnly(),
         child: ListView(
@@ -71,9 +67,9 @@ class DashboardScreen extends ConsumerWidget {
                         Expanded(child: Text('Spent: ${FormatUtils.currency(totals.debits, appState.config.currency)}')),
                       ],
                     ),
-                    if (!kIsWeb) ...[
+                    if (appState.pendingCount > 0) ...[
                       const SizedBox(height: 8),
-                      Text('Pending sync: ${appState.pendingCount}'),
+                      Text('Pending sync: ${appState.pendingCount}', style: const TextStyle(color: Colors.orange)),
                     ],
                   ],
                 ),

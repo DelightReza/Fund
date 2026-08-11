@@ -207,8 +207,6 @@ class AppNotifier extends StateNotifier<AppState> {
     await storage.saveData(updated);
     state = state.copyWith(data: updated);
 
-    if (_isWeb) return;
-
     final pendingCount = await ref.read(syncServiceProvider).queueSnapshot(
           config: state.config,
           data: updated,
@@ -219,8 +217,40 @@ class AppNotifier extends StateNotifier<AppState> {
     await syncNow();
   }
 
+  Future<void> deleteTransaction(String id) async {
+    final updatedTx = state.data.transactions.where((tx) => tx.id != id).toList();
+    final updated = state.data.copyWith(transactions: updatedTx);
+    final storage = ref.read(storageProvider);
+    await storage.saveData(updated);
+    state = state.copyWith(data: updated);
+
+    final pendingCount = await ref.read(syncServiceProvider).queueSnapshot(
+          config: state.config,
+          data: updated,
+          message: 'Delete transaction ($id)',
+        );
+
+    state = state.copyWith(pendingCount: pendingCount);
+    await syncNow();
+  }
+
+  Future<void> updateConfig(AppConfig newConfig) async {
+    final storage = ref.read(storageProvider);
+    await storage.saveConfig(newConfig);
+    state = state.copyWith(config: newConfig);
+
+    final pendingCount = await ref.read(syncServiceProvider).queueSnapshot(
+          config: newConfig,
+          data: state.data,
+          message: 'Update configuration',
+        );
+
+    state = state.copyWith(pendingCount: pendingCount);
+    await syncNow();
+  }
+
   Future<void> syncNow() async {
-    if (_isWeb || state.token == null || state.token!.isEmpty || !state.config.hasRepository) {
+    if (state.token == null || state.token!.isEmpty || !state.config.hasRepository) {
       return;
     }
 
@@ -257,7 +287,7 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   Future<void> refreshReadOnly() async {
-    if (!state.config.hasRepository || _isWeb) return;
+    if (!state.config.hasRepository) return;
 
     final merged = await _pullLatestFromRemote(state.config, state.token, fallbackData: state.data);
     await ref.read(storageProvider).saveConfig(merged.$1);
