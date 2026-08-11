@@ -26,7 +26,8 @@ class ProfileScreen extends ConsumerWidget {
     }).toList();
 
     // Ensure they are sorted oldest to newest for running balance calculation
-    related.sort((a, b) => a.date.compareTo(b.date));
+    DateTime _parseTxTime(Transaction tx) => DateTime.tryParse(tx.timestamp) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    related.sort((a, b) => _parseTxTime(a).compareTo(_parseTxTime(b)));
 
     double runningBalance = 0.0;
     final balanceMap = <String, double>{};
@@ -36,7 +37,7 @@ class ProfileScreen extends ConsumerWidget {
     }
 
     // Sort back to newest first for display
-    related.sort((a, b) => b.date.compareTo(a.date));
+    related.sort((a, b) => _parseTxTime(b).compareTo(_parseTxTime(a)));
 
     return Scaffold(
       appBar: AppBar(title: Text(member?.name ?? memberId)),

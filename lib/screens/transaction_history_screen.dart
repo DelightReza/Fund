@@ -26,12 +26,14 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
   Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
 
-    String resolveMember(String id) {
+    String resolveMember(String? id) {
+      if (id == null || id.isEmpty) return '';
       final matched = appState.config.people.where((p) => p.id == id).toList();
       return matched.isEmpty ? id : matched.first.name;
     }
 
-    String resolveBill(String id) {
+    String resolveBill(String? id) {
+      if (id == null || id.isEmpty) return '';
       final matched = appState.config.billTypes.where((b) => b.id == id).toList();
       final bill = matched.isEmpty ? null : matched.first;
       return bill == null ? id : '${bill.icon} ${bill.name}';
@@ -58,10 +60,18 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
       ).toList();
     }
     if (_startDate != null) {
-      transactions = transactions.where((tx) => tx.timestamp.isAfter(_startDate!) || tx.timestamp.isAtSameMomentAs(_startDate!)).toList();
+      transactions = transactions.where((tx) {
+        final txDate = DateTime.tryParse(tx.timestamp);
+        if (txDate == null) return false;
+        return !txDate.isBefore(_startDate!);
+      }).toList();
     }
     if (_endDate != null) {
-      transactions = transactions.where((tx) => tx.timestamp.isBefore(_endDate!.add(const Duration(days: 1)))).toList();
+      transactions = transactions.where((tx) {
+        final txDate = DateTime.tryParse(tx.timestamp);
+        if (txDate == null) return false;
+        return txDate.isBefore(_endDate!.add(const Duration(days: 1)));
+      }).toList();
     }
 
     final hasMore = transactions.length > _limit;
