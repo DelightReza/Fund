@@ -26,14 +26,7 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.account_balance_wallet, color: Colors.blue, size: 28),
-            const SizedBox(width: 8),
-            Text(appState.config.siteTitle.isNotEmpty ? appState.config.siteTitle : 'Fund'),
-          ],
-        ),
+        title: Text(appState.config.siteTitle),
         actions: [
           IconButton(
             onPressed: () {
