@@ -48,17 +48,18 @@ class TransactionDetailScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.receipt_long),
           ),
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => AddTransactionScreen(existingTransaction: tx)),
-              ).then((_) {
-                // Return to previous screen after edit
-                if (context.mounted) Navigator.of(context).pop();
-              });
-            },
-            icon: const Icon(Icons.edit),
-          ),
+          if (appState.token != null && appState.token!.isNotEmpty)
+            IconButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => AddTransactionScreen(existingTransaction: tx)),
+                ).then((_) {
+                  // Return to previous screen after edit
+                  if (context.mounted) Navigator.of(context).pop();
+                });
+              },
+              icon: const Icon(Icons.edit),
+            ),
         ],
       ),
       body: ListView(

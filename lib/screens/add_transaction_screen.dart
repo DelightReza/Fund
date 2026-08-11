@@ -29,6 +29,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     super.initState();
     _type = widget.initialType ?? TransactionType.expense;
     
+    final appState = ref.read(appStateProvider);
+    final members = appState.config.people.where((p) => p.active).toList();
+    
     if (widget.existingTransaction != null) {
       final tx = widget.existingTransaction!;
       _type = tx.type;
@@ -40,9 +43,13 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       if (tx.participantIds.isNotEmpty) {
         _participants.addAll(tx.participantIds);
       } else if (tx.exemptions.isNotEmpty) {
-        // Fallback for older transactions that relied purely on exemptions
-        // We will resolve this in build() once we have the members list
+        final activeIds = members.map((e) => e.id).toList();
+        _participants.addAll(activeIds.where((id) => !tx.exemptions.contains(id)));
       }
+    }
+    
+    if (_participants.isEmpty && _needsParticipants) {
+      _participants.addAll(members.map((e) => e.id));
     }
   }
 
@@ -51,15 +58,6 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     final appState = ref.watch(appStateProvider);
     final members = appState.config.people.where((p) => p.active).toList();
     final billTypes = appState.config.billTypes;
-
-    if (_participants.isEmpty) {
-      if (widget.existingTransaction != null && widget.existingTransaction!.exemptions.isNotEmpty) {
-        final activeIds = members.map((e) => e.id).toList();
-        _participants.addAll(activeIds.where((id) => !widget.existingTransaction!.exemptions.contains(id)));
-      } else {
-        _participants.addAll(members.map((e) => e.id));
-      }
-    }
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.existingTransaction == null ? 'Add Transaction' : 'Edit Transaction')),

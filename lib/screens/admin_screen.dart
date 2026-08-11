@@ -54,11 +54,44 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                       ),
                       const SizedBox(width: 8),
                       FilledButton(
-                        onPressed: () {
-                          ref.read(appStateProvider.notifier).setToken(_tokenController.text.trim());
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Token saved.')));
-                        },
-                        child: const Text('Save'),
+                        onPressed: appState.syncing
+                            ? null
+                            : () async {
+                                final token = _tokenController.text.trim();
+                                if (token.isEmpty) {
+                                  await ref.read(appStateProvider.notifier).setToken(null);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Token removed.')));
+                                  }
+                                  return;
+                                }
+
+                                // Show loading state on the button or general sync state
+                                // We can use syncNow to verify by attempting to pull/push, but a simple user check is better.
+                                try {
+                                  // Just a simple validation if needed, or save it directly.
+                                  await ref.read(appStateProvider.notifier).setToken(token);
+                                  
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                      content: Text('Token saved successfully.'),
+                                      backgroundColor: Colors.green,
+                                    ));
+                                    // Trigger a sync to make sure it works and clears the queue
+                                    ref.read(appStateProvider.notifier).syncNow();
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                      content: Text('Failed to save token: $e'),
+                                      backgroundColor: Colors.red,
+                                    ));
+                                  }
+                                }
+                              },
+                        child: appState.syncing 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                          : const Text('Save'),
                       ),
                     ],
                   ),
@@ -67,6 +100,28 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          if (appState.error != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      appState.error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ListTile(
             leading: const Icon(Icons.sync),
             title: const Text('Sync now'),
