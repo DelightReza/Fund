@@ -38,11 +38,13 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
-        icon: const Icon(Icons.add),
-        label: const Text('Add'),
-      ),
+      floatingActionButton: (appState.token != null && appState.token!.isNotEmpty)
+          ? FloatingActionButton.extended(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
+              icon: const Icon(Icons.add),
+              label: const Text('Add'),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: () => ref.read(appStateProvider.notifier).refreshReadOnly(),
         child: ListView(

@@ -78,31 +78,33 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                ref.read(appStateProvider.notifier).syncNow();
             },
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('Configuration & Settings'),
-            subtitle: const Text('Manage members, bill types, and app config'),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
-          ),
-          ListTile(
-            leading: const Icon(Icons.add_circle_outline),
-            title: const Text('Add transaction'),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
-          ),
-          ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('Transaction History'),
-            subtitle: const Text('View or delete past transactions'),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionHistoryScreen())),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.restore),
-            title: const Text('Reset branch to commit'),
-            subtitle: const Text('Revert remote repository state'),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResetCommitScreen())),
-          ),
+          if (appState.token != null && appState.token!.isNotEmpty) ...[
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Configuration & Settings'),
+              subtitle: const Text('Manage members, bill types, and app config'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_circle_outline),
+              title: const Text('Add transaction'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Transaction History'),
+              subtitle: const Text('View or delete past transactions'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionHistoryScreen())),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.restore),
+              title: const Text('Reset branch to commit'),
+              subtitle: const Text('Revert remote repository state'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResetCommitScreen())),
+            ),
+          ],
           ListTile(
             leading: const Icon(Icons.person_remove),
             title: const Text('Switch user'),
