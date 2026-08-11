@@ -24,7 +24,10 @@ jobs:
           channel: 'stable'
 
       - name: Create Android platform files if needed
-        run: flutter create . --platforms=android
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create . --platforms=android --project-name fund --org com.razadroid
+          fi
 
       - name: Install dependencies
         run: flutter pub get
