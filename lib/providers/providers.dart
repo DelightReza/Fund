@@ -70,6 +70,26 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   return SyncService(storage);
 });
 
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+  final storage = ref.watch(storageProvider);
+  return ThemeModeNotifier(storage);
+});
+
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
+  ThemeModeNotifier(this.storage) : super(_loadFromStorage(storage));
+  final StorageService storage;
+
+  static ThemeMode _loadFromStorage(StorageService storage) {
+    final mode = storage.loadThemeMode();
+    return mode != null ? ThemeMode.values[mode] : ThemeMode.system;
+  }
+
+  void setThemeMode(ThemeMode mode) {
+    state = mode;
+    storage.saveThemeMode(mode.index);
+  }
+}
+
 final appStateProvider = StateNotifierProvider<AppNotifier, AppState>((ref) {
   return AppNotifier(ref);
 });
@@ -274,6 +294,55 @@ class AppNotifier extends StateNotifier<AppState> {
 
     state = state.copyWith(pendingCount: pendingCount);
     await syncNow();
+  }
+
+  Future<void> pullOnly() async {
+    if (!state.config.hasRepository) return;
+    state = state.copyWith(syncing: true);
+    try {
+      final merged = await _pullLatestFromRemote(state.config, state.token, fallbackData: state.data);
+      await ref.read(storageProvider).saveConfig(merged.$1);
+      await ref.read(storageProvider).saveData(merged.$2);
+      state = state.copyWith(config: merged.$1, data: merged.$2, syncing: false);
+    } catch (e) {
+      state = state.copyWith(syncing: false, error: e.toString());
+    }
+  }
+
+  Future<void> forceCommitData() async {
+    if (state.token == null || state.token!.isEmpty || !state.config.hasRepository) return;
+    state = state.copyWith(syncing: true);
+    try {
+      final github = GitHubService(
+        owner: state.config.repoOwner,
+        repo: state.config.repoName,
+        branch: state.config.repoBranch,
+        dataFileName: state.config.dataFileName,
+        token: state.token,
+      );
+      await github.commitData(state.data, message: 'Force manual commit of data');
+      state = state.copyWith(syncing: false);
+    } catch (e) {
+      state = state.copyWith(syncing: false, error: e.toString());
+    }
+  }
+
+  Future<void> forceCommitConfig() async {
+    if (state.token == null || state.token!.isEmpty || !state.config.hasRepository) return;
+    state = state.copyWith(syncing: true);
+    try {
+      final github = GitHubService(
+        owner: state.config.repoOwner,
+        repo: state.config.repoName,
+        branch: state.config.repoBranch,
+        dataFileName: state.config.dataFileName,
+        token: state.token,
+      );
+      await github.commitConfig(state.config, message: 'Force manual commit of config');
+      state = state.copyWith(syncing: false);
+    } catch (e) {
+      state = state.copyWith(syncing: false, error: e.toString());
+    }
   }
 
   Future<void> syncNow() async {

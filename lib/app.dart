@@ -24,12 +24,13 @@ class _FundAppState extends ConsumerState<FundApp> {
   @override
   Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
       title: appState.config.siteTitle,
       theme: lightTheme,
       darkTheme: darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       home: switch (appState.stage) {
         LaunchStage.loading => const _LoadingScreen(),
         LaunchStage.repoSelection => const RepoSelectionScreen(),

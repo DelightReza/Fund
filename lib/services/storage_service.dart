@@ -74,6 +74,12 @@ class StorageService {
 
   Future<void> clearUser() async => _prefs.remove(_userKey);
 
+  String get _themeModeKey => 'fund_app_theme_mode';
+
+  int? loadThemeMode() => _prefs.getInt(_themeModeKey);
+
+  Future<void> saveThemeMode(int mode) async => _prefs.setInt(_themeModeKey, mode);
+
   List<PendingOperation> loadPendingOperations() {
     final raw = _prefs.getString(_pendingOpsKey);
     if (raw == null) return const [];

@@ -11,6 +11,7 @@ import 'add_transaction_screen.dart';
 import 'admin_screen.dart';
 import 'profile_screen.dart';
 import 'transaction_detail_screen.dart';
+import 'transaction_history_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -27,6 +28,25 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(appState.config.siteTitle),
         actions: [
+          IconButton(
+            onPressed: () {
+              final currentMode = ref.read(themeModeProvider);
+              if (currentMode == ThemeMode.light) {
+                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.dark);
+              } else if (currentMode == ThemeMode.dark) {
+                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.system);
+              } else {
+                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.light);
+              }
+            },
+            icon: Icon(
+              ref.watch(themeModeProvider) == ThemeMode.light
+                  ? Icons.light_mode
+                  : ref.watch(themeModeProvider) == ThemeMode.dark
+                      ? Icons.dark_mode
+                      : Icons.brightness_auto,
+            ),
+          ),
           IconButton(
             onPressed: appState.syncing ? null : () => ref.read(appStateProvider.notifier).syncNow(),
             icon: appState.syncing
@@ -161,9 +181,18 @@ class DashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
             ],
-            Text('Transactions', style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Recent Transactions', style: Theme.of(context).textTheme.titleMedium),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionHistoryScreen())),
+                  child: const Text('See All'),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
-            ...appState.data.transactions.map(
+            ...appState.data.transactions.take(10).map(
               (tx) => TransactionCard(
                 transaction: tx,
                 currency: appState.config.currency,
