@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../utils/date_utils.dart';
 import '../utils/format_utils.dart';
+import '../widgets/receipt_modal.dart';
+import 'add_transaction_screen.dart';
 
 class TransactionDetailScreen extends ConsumerWidget {
   const TransactionDetailScreen({super.key, required this.transactionId});
@@ -34,7 +36,31 @@ class TransactionDetailScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Transaction Detail')),
+      appBar: AppBar(
+        title: const Text('Transaction Detail'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => ReceiptModal(transaction: tx, currency: appState.config.currency),
+              );
+            },
+            icon: const Icon(Icons.receipt_long),
+          ),
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => AddTransactionScreen(existingTransaction: tx)),
+              ).then((_) {
+                // Return to previous screen after edit
+                if (context.mounted) Navigator.of(context).pop();
+              });
+            },
+            icon: const Icon(Icons.edit),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

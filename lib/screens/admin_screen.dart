@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/transaction.dart';
 import '../providers/providers.dart';
 import 'add_transaction_screen.dart';
 import 'reset_commit_screen.dart';
@@ -86,11 +87,32 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
               subtitle: const Text('Manage members, bill types, and app config'),
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
             ),
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Advanced Tools', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
             ListTile(
               leading: const Icon(Icons.add_circle_outline),
-              title: const Text('Add transaction'),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
+              title: const Text('Add Expense'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialType: TransactionType.expense))),
             ),
+            ListTile(
+              leading: const Icon(Icons.call_split),
+              title: const Text('Distribute Funds'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialType: TransactionType.distribution))),
+            ),
+            ListTile(
+              leading: const Icon(Icons.handshake),
+              title: const Text('Record Settlement'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialType: TransactionType.settlement))),
+            ),
+            ListTile(
+              leading: const Icon(Icons.swap_horiz),
+              title: const Text('Transfer Balance'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialType: TransactionType.transfer))),
+            ),
+            const Divider(),
             ListTile(
               leading: const Icon(Icons.history),
               title: const Text('Transaction History'),
@@ -111,6 +133,32 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             onTap: () {
               ref.read(appStateProvider.notifier).logoutUser();
               Navigator.of(context).pop();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
+            title: const Text('Clear local cache & restart', style: TextStyle(color: Colors.red)),
+            onTap: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Clear all data?'),
+                  content: const Text('This will delete all local data, pending offline transactions, and reset the app.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                    FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                      onPressed: () => Navigator.pop(context, true), 
+                      child: const Text('Clear')
+                    ),
+                  ],
+                ),
+              );
+              
+              if (confirm == true && context.mounted) {
+                await ref.read(appStateProvider.notifier).clearLocalData();
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
             },
           ),
         ],

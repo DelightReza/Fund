@@ -12,6 +12,7 @@ class TransactionCard extends StatelessWidget {
     required this.memberNameResolver,
     required this.billNameResolver,
     required this.onTap,
+    this.onLongPress,
   });
 
   final Transaction transaction;
@@ -19,6 +20,7 @@ class TransactionCard extends StatelessWidget {
   final String Function(String id) memberNameResolver;
   final String Function(String id) billNameResolver;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +51,7 @@ class TransactionCard extends StatelessWidget {
           style: TextStyle(color: color, fontWeight: FontWeight.w700),
         ),
         onTap: onTap,
+        onLongPress: onLongPress,
       ),
     );
   }

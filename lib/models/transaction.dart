@@ -29,6 +29,7 @@ class Transaction {
     this.participantIds = const [],
     this.exemptions = const [],
     this.parentId,
+    this.distributionTotal,
   });
 
   final String id;
@@ -41,6 +42,7 @@ class Transaction {
   final List<String> participantIds;
   final List<String> exemptions;
   final String? parentId;
+  final double? distributionTotal;
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     final parsedType = TransactionType.parse((json['type'] ?? 'debit').toString());
@@ -69,6 +71,7 @@ class Transaction {
       participantIds: split == null ? const [] : split.map((e) => e.toString()).toList(),
       exemptions: ex == null ? const [] : ex.map((e) => e.toString()).toList(),
       parentId: json['parentId']?.toString(),
+      distributionTotal: json['distributionTotal'] == null ? null : _toDouble(json['distributionTotal']),
     );
   }
 
@@ -94,6 +97,7 @@ class Transaction {
       'payerId': actorId,
       'billTypeId': targetId,
       'whoOrBill': whoOrBill,
+      if (distributionTotal != null) 'distributionTotal': distributionTotal,
     };
   }
 
@@ -108,6 +112,7 @@ class Transaction {
     List<String>? participantIds,
     List<String>? exemptions,
     String? parentId,
+    double? distributionTotal,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -120,6 +125,7 @@ class Transaction {
       participantIds: participantIds ?? this.participantIds,
       exemptions: exemptions ?? this.exemptions,
       parentId: parentId ?? this.parentId,
+      distributionTotal: distributionTotal ?? this.distributionTotal,
     );
   }
 

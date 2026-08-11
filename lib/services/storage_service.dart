@@ -7,15 +7,32 @@ import '../models/fund_data.dart';
 import '../models/pending_operation.dart';
 
 class StorageService {
-  StorageService(this._prefs);
+  StorageService(this._prefs) {
+    _loadLastPrefix();
+  }
 
   final SharedPreferences _prefs;
+  String _prefix = 'fund_';
 
-  static const _configKey = 'fund.config';
-  static const _dataKey = 'fund.data';
-  static const _tokenKey = 'fund.token';
-  static const _userKey = 'fund.user';
-  static const _pendingOpsKey = 'fund.pending_ops';
+  void _loadLastPrefix() {
+    final last = _prefs.getString('fund_last_repo');
+    if (last != null && last.isNotEmpty) {
+      _prefix = last;
+    }
+  }
+
+  void setRepo(String owner, String repo) {
+    if (owner.isNotEmpty && repo.isNotEmpty) {
+      _prefix = '${owner}_${repo}_';
+      _prefs.setString('fund_last_repo', _prefix);
+    }
+  }
+
+  String get _configKey => '${_prefix}config';
+  String get _dataKey => '${_prefix}data';
+  String get _tokenKey => '${_prefix}token';
+  String get _userKey => '${_prefix}user';
+  String get _pendingOpsKey => '${_prefix}pending_ops';
 
   AppConfig? loadConfig() {
     final raw = _prefs.getString(_configKey);
@@ -75,5 +92,15 @@ class StorageService {
   Future<void> savePendingOperations(List<PendingOperation> operations) async {
     final payload = operations.map((e) => e.toJson()).toList();
     await _prefs.setString(_pendingOpsKey, jsonEncode(payload));
+  }
+
+  Future<void> clearAll() async {
+    await _prefs.remove(_configKey);
+    await _prefs.remove(_dataKey);
+    await _prefs.remove(_tokenKey);
+    await _prefs.remove(_userKey);
+    await _prefs.remove(_pendingOpsKey);
+    await _prefs.remove('fund_last_repo');
+    _prefix = 'fund_';
   }
 }

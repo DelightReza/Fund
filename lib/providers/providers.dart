@@ -100,6 +100,11 @@ class AppNotifier extends StateNotifier<AppState> {
         try {
           config = await webService.fetchRelativeConfig();
           data = await webService.fetchRelativeData(config.dataFileName);
+          if (config.hasRepository) {
+            storage.setRepo(config.repoOwner, config.repoName);
+            await storage.saveConfig(config);
+            await storage.saveData(data);
+          }
         } catch (_) {
           config = localConfig;
           data = localData;
@@ -156,6 +161,9 @@ class AppNotifier extends StateNotifier<AppState> {
   }) async {
     state = state.copyWith(stage: LaunchStage.loading, error: null);
 
+    final storage = ref.read(storageProvider);
+    storage.setRepo(owner, repo);
+
     final baseConfig = state.config.copyWith(
       repoOwner: owner,
       repoName: repo,
@@ -165,7 +173,6 @@ class AppNotifier extends StateNotifier<AppState> {
 
     final merged = await _pullLatestFromRemote(baseConfig, token, fallbackData: state.data);
 
-    final storage = ref.read(storageProvider);
     await storage.saveConfig(merged.$1);
     await storage.saveData(merged.$2);
 
@@ -202,47 +209,44 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   Future<void> addTransaction(Transaction tx, {String? message}) async {
-    final updated = state.data.copyWith(transactions: [tx, ...state.data.transactions]);
-    final storage = ref.read(storageProvider);
-    await storage.saveData(updated);
-    state = state.copyWith(data: updated);
+    final updatedTx = [tx, ...state.data.transactions];
+    await _saveAndUpdateData(updatedTx, state.config, message ?? 'Update fund data (${tx.type.name})');
+  }
 
-    final pendingCount = await ref.read(syncServiceProvider).queueSnapshot(
-          config: state.config,
-          data: updated,
-          message: message ?? 'Update fund data (${tx.type.name})',
-        );
-
-    state = state.copyWith(pendingCount: pendingCount);
-    await syncNow();
+  Future<void> updateTransaction(Transaction updatedTx, {String? message}) async {
+    final updatedList = state.data.transactions.map((tx) => tx.id == updatedTx.id ? updatedTx : tx).toList();
+    await _saveAndUpdateData(updatedList, state.config, message ?? 'Update transaction (${updatedTx.id})');
   }
 
   Future<void> deleteTransaction(String id) async {
     final updatedTx = state.data.transactions.where((tx) => tx.id != id).toList();
-    final updated = state.data.copyWith(transactions: updatedTx);
-    final storage = ref.read(storageProvider);
-    await storage.saveData(updated);
-    state = state.copyWith(data: updated);
-
-    final pendingCount = await ref.read(syncServiceProvider).queueSnapshot(
-          config: state.config,
-          data: updated,
-          message: 'Delete transaction ($id)',
-        );
-
-    state = state.copyWith(pendingCount: pendingCount);
-    await syncNow();
+    await _saveAndUpdateData(updatedTx, state.config, 'Delete transaction ($id)');
   }
 
   Future<void> updateConfig(AppConfig newConfig) async {
     final storage = ref.read(storageProvider);
     await storage.saveConfig(newConfig);
-    state = state.copyWith(config: newConfig);
+    await _saveAndUpdateData(state.data.transactions, newConfig, 'Update configuration');
+  }
+
+  Future<void> _saveAndUpdateData(List<Transaction> transactions, AppConfig config, String message) async {
+    final tempFundData = state.data.copyWith(transactions: transactions);
+    final balances = Calculations.calculateBalances(tempFundData, config.people);
+    final billTotals = Calculations.calculateBillTotals(tempFundData);
+
+    final updated = tempFundData.copyWith(
+      people: balances,
+      billTypes: billTotals,
+    );
+
+    final storage = ref.read(storageProvider);
+    await storage.saveData(updated);
+    state = state.copyWith(config: config, data: updated);
 
     final pendingCount = await ref.read(syncServiceProvider).queueSnapshot(
-          config: newConfig,
-          data: state.data,
-          message: 'Update configuration',
+          config: config,
+          data: updated,
+          message: message,
         );
 
     state = state.copyWith(pendingCount: pendingCount);
@@ -310,7 +314,12 @@ class AppNotifier extends StateNotifier<AppState> {
 
     try {
       final remoteConfig = await github.fetchConfig();
-      final remoteData = await github.fetchData();
+      final remoteDataRaw = await github.fetchData();
+      
+      final balances = Calculations.calculateBalances(remoteDataRaw, remoteConfig.people);
+      final billTotals = Calculations.calculateBillTotals(remoteDataRaw);
+      final remoteData = remoteDataRaw.copyWith(people: balances, billTypes: billTotals);
+      
       return (remoteConfig, remoteData);
     } catch (_) {
       return (base, fallbackData);
@@ -328,6 +337,11 @@ class AppNotifier extends StateNotifier<AppState> {
   void dispose() {
     _syncTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> clearLocalData() async {
+    await ref.read(storageProvider).clearAll();
+    state = const AppState(stage: LaunchStage.repoSelection);
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
 import '../widgets/transaction_card.dart';
+import '../widgets/receipt_modal.dart';
 import 'transaction_detail_screen.dart';
 
 class TransactionHistoryScreen extends ConsumerWidget {
@@ -62,6 +63,12 @@ class TransactionHistoryScreen extends ConsumerWidget {
               billNameResolver: resolveBill,
               onTap: () => Navigator.of(context)
                   .push(MaterialPageRoute(builder: (_) => TransactionDetailScreen(transactionId: tx.id))),
+              onLongPress: () {
+                showDialog(
+                  context: context,
+                  builder: (_) => ReceiptModal(transaction: tx, currency: appState.config.currency),
+                );
+              },
             ),
           );
         },

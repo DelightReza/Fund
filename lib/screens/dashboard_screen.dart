@@ -6,6 +6,7 @@ import '../providers/providers.dart';
 import '../utils/format_utils.dart';
 import '../widgets/member_card.dart';
 import '../widgets/transaction_card.dart';
+import '../widgets/receipt_modal.dart';
 import 'add_transaction_screen.dart';
 import 'admin_screen.dart';
 import 'profile_screen.dart';
@@ -79,15 +80,48 @@ class DashboardScreen extends ConsumerWidget {
             ),
             if (bills.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: bills.entries.map((entry) {
-                  final matched = appState.config.billTypes.where((e) => e.id == entry.key).toList();
-                  final type = matched.isEmpty ? null : matched.first;
-                  final label = '${type?.icon ?? '🧾'} ${type?.name ?? entry.key}: ${FormatUtils.currency(entry.value, appState.config.currency)}';
-                  return Chip(label: Text(label));
-                }).toList(),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Expenses by Category', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 16),
+                      ...bills.entries.map((entry) {
+                        final matched = appState.config.billTypes.where((e) => e.id == entry.key).toList();
+                        final type = matched.isEmpty ? null : matched.first;
+                        final name = '${type?.icon ?? '🧾'} ${type?.name ?? entry.key}';
+                        final amount = entry.value;
+                        final proportion = totals.debits > 0 ? amount / totals.debits : 0.0;
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(name),
+                                  Text(FormatUtils.currency(amount, appState.config.currency)),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              LinearProgressIndicator(
+                                value: proportion,
+                                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                color: Theme.of(context).colorScheme.primary,
+                                minHeight: 8,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
               ),
             ],
             const SizedBox(height: 12),
@@ -137,6 +171,12 @@ class DashboardScreen extends ConsumerWidget {
                 billNameResolver: (id) => _billName(appState, id),
                 onTap: () => Navigator.of(context)
                     .push(MaterialPageRoute(builder: (_) => TransactionDetailScreen(transactionId: tx.id))),
+                onLongPress: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => ReceiptModal(transaction: tx, currency: appState.config.currency),
+                  );
+                },
               ),
             ),
           ],

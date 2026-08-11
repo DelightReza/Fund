@@ -5,7 +5,10 @@ import '../models/transaction.dart';
 import '../providers/providers.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
-  const AddTransactionScreen({super.key});
+  const AddTransactionScreen({super.key, this.existingTransaction, this.initialType});
+  
+  final Transaction? existingTransaction;
+  final TransactionType? initialType;
 
   @override
   ConsumerState<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -15,10 +18,32 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
 
-  TransactionType _type = TransactionType.expense;
+  late TransactionType _type;
   String? _actor;
   String? _target;
   final Set<String> _participants = <String>{};
+  
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.initialType ?? TransactionType.expense;
+    
+    if (widget.existingTransaction != null) {
+      final tx = widget.existingTransaction!;
+      _type = tx.type;
+      _amountController.text = tx.amount.toString();
+      _noteController.text = tx.note;
+      _actor = tx.actorId;
+      _target = tx.targetId;
+      
+      if (tx.participantIds.isNotEmpty) {
+        _participants.addAll(tx.participantIds);
+      } else if (tx.exemptions.isNotEmpty) {
+        // Fallback for older transactions that relied purely on exemptions
+        // We will resolve this in build() once we have the members list
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,11 +52,16 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     final billTypes = appState.config.billTypes;
 
     if (_participants.isEmpty) {
-      _participants.addAll(members.map((e) => e.id));
+      if (widget.existingTransaction != null && widget.existingTransaction!.exemptions.isNotEmpty) {
+        final activeIds = members.map((e) => e.id).toList();
+        _participants.addAll(activeIds.where((id) => !widget.existingTransaction!.exemptions.contains(id)));
+      } else {
+        _participants.addAll(members.map((e) => e.id));
+      }
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Transaction')),
+      appBar: AppBar(title: Text(widget.existingTransaction == null ? 'Add Transaction' : 'Edit Transaction')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -139,19 +169,32 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       return;
     }
 
-    final tx = createTransaction(
+    final existing = widget.existingTransaction;
+    final tx = Transaction(
+      id: existing?.id ?? AppDateUtils.generateId(),
       type: _type,
       amount: amount,
       note: _noteController.text.trim(),
       actorId: _actor,
       targetId: _target,
-      participants: _participants.toList(),
+      participantIds: _participants.toList(),
+      exemptions: existing?.exemptions ?? const [],
+      parentId: existing?.parentId,
+      distributionTotal: existing?.distributionTotal,
+      timestamp: existing?.timestamp ?? AppDateUtils.nowIso(),
     );
 
-    await ref.read(appStateProvider.notifier).addTransaction(
-          tx,
-          message: 'Add ${_type.name} transaction (${tx.id})',
-        );
+    if (existing != null) {
+      await ref.read(appStateProvider.notifier).updateTransaction(
+            tx,
+            message: 'Edit ${_type.name} transaction (${tx.id})',
+          );
+    } else {
+      await ref.read(appStateProvider.notifier).addTransaction(
+            tx,
+            message: 'Add ${_type.name} transaction (${tx.id})',
+          );
+    }
 
     if (context.mounted) {
       Navigator.of(context).pop();
