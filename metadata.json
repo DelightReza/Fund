@@ -1,6 +1,6 @@
 {
-  "name": "Flutter Fund Tracker",
-  "description": "Fund \u0026 Expense Tracker",
+  "name": "Fund",
+  "description": "Fund & Expense Tracker",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
