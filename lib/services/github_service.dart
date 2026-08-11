@@ -26,18 +26,22 @@ class GitHubService {
       'X-GitHub-Api-Version': '2022-11-28',
     };
     if (token != null && token!.isNotEmpty) {
-      headers['Authorization'] = 'token $token';
+      headers['Authorization'] = 'Bearer $token';
     }
     return headers;
   }
 
   Future<bool> verifyToken(String tokenToVerify) async {
-    final uri = Uri.parse('https://api.github.com/user');
+    final uri = owner.isNotEmpty && repo.isNotEmpty
+        ? Uri.parse('https://api.github.com/repos/$owner/$repo')
+        : Uri.parse('https://api.github.com/user');
+    
     final response = await http.get(uri, headers: {
       'Accept': 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
-      'Authorization': 'token $tokenToVerify',
+      'Authorization': 'Bearer $tokenToVerify',
     });
+    
     return response.statusCode == 200;
   }
 

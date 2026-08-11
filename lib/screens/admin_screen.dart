@@ -195,10 +195,19 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text('Failed to save token: $e'),
-                              backgroundColor: Colors.red,
-                            ));
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Error Saving Token'),
+                                content: Text(e.toString().replaceAll('Exception: ', '')),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            );
                           }
                         }
                       },
