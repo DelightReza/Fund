@@ -18,6 +18,8 @@ class ProfileScreen extends ConsumerWidget {
 
     final matchedMembers = appState.config.people.where((p) => p.id == memberId).toList();
     final member = matchedMembers.isEmpty ? null : matchedMembers.first;
+    final memberName = member?.name ?? memberId;
+    final initial = memberName.isNotEmpty ? memberName[0].toUpperCase() : '?';
 
     // Filter transactions involving this user
     final related = appState.data.transactions.where((tx) {
@@ -25,9 +27,9 @@ class ProfileScreen extends ConsumerWidget {
       return tx.participantIds.contains(memberId);
     }).toList();
 
-    // Ensure they are sorted oldest to newest for running balance calculation
-    DateTime _parseTxTime(Transaction tx) => DateTime.tryParse(tx.timestamp) ?? DateTime.fromMillisecondsSinceEpoch(0);
-    related.sort((a, b) => _parseTxTime(a).compareTo(_parseTxTime(b)));
+    // Sort oldest to newest for running balance calculation
+    DateTime parseTxTime(Transaction tx) => DateTime.tryParse(tx.timestamp) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    related.sort((a, b) => parseTxTime(a).compareTo(parseTxTime(b)));
 
     double runningBalance = 0.0;
     final balanceMap = <String, double>{};
@@ -37,53 +39,111 @@ class ProfileScreen extends ConsumerWidget {
     }
 
     // Sort back to newest first for display
-    related.sort((a, b) => _parseTxTime(b).compareTo(_parseTxTime(a)));
+    related.sort((a, b) => parseTxTime(b).compareTo(parseTxTime(a)));
+
+    final netBal = balances[memberId] ?? 0.0;
+    final isPositive = netBal >= 0;
 
     return Scaffold(
-      appBar: AppBar(title: Text(member?.name ?? memberId)),
+      appBar: AppBar(title: Text('$memberName\'s Profile')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Net: ${FormatUtils.currency(balances[memberId] ?? 0, appState.config.currency)}',
-                style: Theme.of(context).textTheme.titleLarge,
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isPositive
+                    ? [Colors.emerald.shade800, Colors.emerald.shade900]
+                    : [Colors.red.shade800, Colors.red.shade900],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.white24,
+                  child: Text(
+                    initial,
+                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        memberName,
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Net Standing: ${FormatUtils.currency(netBal, appState.config.currency)}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Text('Transaction History & Running Balance', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 20),
+          Text(
+            'Transaction Audit & Running Ledger',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           ...related.map((tx) {
             final impact = _impactForMember(tx, memberId);
             final afterBal = balanceMap[tx.id] ?? 0.0;
             final beforeBal = afterBal - impact;
-            return ListTile(
-              title: Text(tx.note.isNotEmpty ? tx.note : tx.type.name.toUpperCase()),
-              subtitle: Text('Impact: ${FormatUtils.currency(impact, appState.config.currency)}'),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'After: ${FormatUtils.currency(afterBal, appState.config.currency)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+            final isImpPos = impact >= 0;
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: isImpPos ? Colors.emerald.shade100 : Colors.red.shade100,
+                  child: Icon(
+                    isImpPos ? Icons.add : Icons.remove,
+                    size: 16,
+                    color: isImpPos ? Colors.emerald.shade800 : Colors.red.shade800,
                   ),
-                  Text(
-                    'Before: ${FormatUtils.currency(beforeBal, appState.config.currency)}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                ),
+                title: Text(
+                  tx.note.isNotEmpty ? tx.note : tx.type.name.toUpperCase(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text('Impact: ${FormatUtils.currency(impact, appState.config.currency)}'),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'After: ${FormatUtils.currency(afterBal, appState.config.currency)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    Text(
+                      'Before: ${FormatUtils.currency(beforeBal, appState.config.currency)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TransactionDetailScreen(
+                      transactionId: tx.id,
+                      focusedMemberId: memberId,
+                      runningBalanceBefore: beforeBal,
+                      runningBalanceAfter: afterBal,
+                    ),
                   ),
-                ],
-              ),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => TransactionDetailScreen(
-                  transactionId: tx.id,
-                  focusedMemberId: memberId,
-                  runningBalanceBefore: beforeBal,
-                  runningBalanceAfter: afterBal,
-                )),
+                ),
               ),
             );
           }),

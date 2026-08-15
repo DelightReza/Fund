@@ -1,33 +1,82 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
 import '../utils/format_utils.dart';
+import '../widgets/hero_balance_card.dart';
 import '../widgets/member_card.dart';
 import '../widgets/transaction_card.dart';
 import '../widgets/receipt_modal.dart';
 import 'add_transaction_screen.dart';
 import 'admin_screen.dart';
 import 'profile_screen.dart';
+import 'repo_selection_screen.dart';
 import 'transaction_detail_screen.dart';
 import 'transaction_history_screen.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
     final balances = ref.watch(balancesProvider);
     final totals = ref.watch(totalsProvider);
     final bills = ref.watch(billTotalsProvider);
     final settlements = ref.watch(settlementsProvider);
+    final hasToken = appState.token != null && appState.token!.isNotEmpty;
+
+    final currentUserId = appState.userId ?? (appState.config.people.isNotEmpty ? appState.config.people.first.id : '');
+
+    final pages = [
+      _buildOverviewTab(context, appState, balances, totals, bills, settlements, hasToken),
+      hasToken ? const AdminScreen() : _buildLockedAdminTab(context),
+      ProfileScreen(memberId: currentUserId),
+    ];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(appState.config.siteTitle),
+        title: InkWell(
+          onTap: () => _showRepoSwitcherBottomSheet(context, ref),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      appState.config.siteTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    ),
+                    Text(
+                      '${appState.config.repoOwner}/${appState.config.repoName}',
+                      style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_drop_down, size: 20),
+              ],
+            ),
+          ),
+        ),
         actions: [
+          IconButton(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen())),
+            icon: const Icon(Icons.source_outlined),
+            tooltip: 'Repositories',
+          ),
           IconButton(
             onPressed: () {
               final currentMode = ref.read(themeModeProvider);
@@ -52,161 +101,253 @@ class DashboardScreen extends ConsumerWidget {
             icon: appState.syncing
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.sync),
-          ),
-          IconButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminScreen())),
-            icon: const Icon(Icons.admin_panel_settings),
+            tooltip: 'Sync with GitHub',
           ),
         ],
       ),
-      floatingActionButton: (appState.token != null && appState.token!.isNotEmpty)
-          ? FloatingActionButton.extended(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
-              icon: const Icon(Icons.add),
-              label: const Text('Add'),
-            )
-          : null,
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(appStateProvider.notifier).refreshReadOnly(),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: [
+          const NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Overview',
+          ),
+          NavigationDestination(
+            icon: Icon(hasToken ? Icons.admin_panel_settings_outlined : Icons.lock_outline),
+            selectedIcon: Icon(hasToken ? Icons.admin_panel_settings : Icons.lock),
+            label: 'Admin',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
+        icon: const Icon(Icons.add),
+        label: const Text('New Entry'),
+      ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
+    );
+  }
+
+  Widget _buildOverviewTab(
+    BuildContext context,
+    appState,
+    Map<String, double> balances,
+    totals,
+    Map<String, double> bills,
+    settlements,
+    bool hasToken,
+  ) {
+    return RefreshIndicator(
+      onRefresh: () => ref.read(appStateProvider.notifier).refreshReadOnly(),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          HeroBalanceCard(
+            netBalance: totals.credits - totals.debits,
+            totalCollected: totals.credits,
+            totalSpent: totals.debits,
+            currency: appState.config.currency,
+            siteTitle: appState.config.siteTitle,
+            repoOwner: appState.config.repoOwner,
+            repoName: appState.config.repoName,
+            hasToken: hasToken,
+            pendingCount: appState.pendingCount,
+            onTapRepo: () => _showRepoSwitcherBottomSheet(context, ref),
+          ),
+          const SizedBox(height: 16),
+          if (bills.isNotEmpty) ...[
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Current Balance', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    Text(
-                      FormatUtils.currency(totals.credits - totals.debits, appState.config.currency),
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(child: Text('Collected: ${FormatUtils.currency(totals.credits, appState.config.currency)}')),
-                        Expanded(child: Text('Spent: ${FormatUtils.currency(totals.debits, appState.config.currency)}')),
+                        const Icon(Icons.pie_chart_outline, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Expenses by Category', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                       ],
                     ),
-                    if (appState.pendingCount > 0) ...[
-                      const SizedBox(height: 8),
-                      Text('Pending sync: ${appState.pendingCount}', style: const TextStyle(color: Colors.orange)),
-                    ],
+                    const SizedBox(height: 16),
+                    ...bills.entries.map((entry) {
+                      final matched = appState.config.billTypes.where((e) => e.id == entry.key).toList();
+                      final type = matched.isEmpty ? null : matched.first;
+                      final name = '${type?.icon ?? '🧾'} ${type?.name ?? entry.key}';
+                      final amount = entry.value;
+                      final proportion = totals.debits > 0 ? amount / totals.debits : 0.0;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(
+                                  FormatUtils.currency(amount, appState.config.currency),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            LinearProgressIndicator(
+                              value: proportion,
+                              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              color: Theme.of(context).colorScheme.primary,
+                              minHeight: 8,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
             ),
-            if (bills.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Expenses by Category', style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 16),
-                      ...bills.entries.map((entry) {
-                        final matched = appState.config.billTypes.where((e) => e.id == entry.key).toList();
-                        final type = matched.isEmpty ? null : matched.first;
-                        final name = '${type?.icon ?? '🧾'} ${type?.name ?? entry.key}';
-                        final amount = entry.value;
-                        final proportion = totals.debits > 0 ? amount / totals.debits : 0.0;
-                        
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(name),
-                                  Text(FormatUtils.currency(amount, appState.config.currency)),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              LinearProgressIndicator(
-                                value: proportion,
-                                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                color: Theme.of(context).colorScheme.primary,
-                                minHeight: 8,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ),
+            const SizedBox(height: 16),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Members', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Text('${appState.config.people.length} active', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
             ],
-            const SizedBox(height: 12),
-            Text('Members', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            GridView.builder(
-              itemCount: appState.config.people.length,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1.4,
-              ),
-              itemBuilder: (context, index) {
-                final person = appState.config.people[index];
-                return MemberCard(
-                  name: person.name,
-                  net: balances[person.id] ?? 0,
-                  currency: appState.config.currency,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProfileScreen(memberId: person.id))),
-                );
-              },
+          ),
+          const SizedBox(height: 8),
+          GridView.builder(
+            itemCount: appState.config.people.length,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.5,
             ),
-            const SizedBox(height: 12),
-            if (settlements.isNotEmpty) ...[
-              Text('Debt Simplification', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 6),
-              ...settlements.map(
-                (s) => ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.arrow_right_alt),
-                  title: Text('${_memberName(appState, s.from)} → ${_memberName(appState, s.to)}'),
-                  trailing: Text(FormatUtils.currency(s.amount, appState.config.currency)),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Recent Transactions', style: Theme.of(context).textTheme.titleMedium),
-                TextButton(
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionHistoryScreen())),
-                  child: const Text('See All'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...appState.data.transactions.take(10).map(
-              (tx) => TransactionCard(
-                transaction: tx,
+            itemBuilder: (context, index) {
+              final person = appState.config.people[index];
+              return MemberCard(
+                name: person.name,
+                net: balances[person.id] ?? 0,
                 currency: appState.config.currency,
-                memberNameResolver: (id) => _memberName(appState, id),
-                billNameResolver: (id) => _billName(appState, id),
-                onTap: () => Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (_) => TransactionDetailScreen(transactionId: tx.id))),
-                onLongPress: () {
-                  showDialog(
-                    context: context,
-                    builder: (_) => ReceiptModal(transaction: tx, currency: appState.config.currency),
-                  );
-                },
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProfileScreen(memberId: person.id))),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          if (settlements.isNotEmpty) ...[
+            Text('Debt Simplification', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: settlements
+                      .map<Widget>(
+                        (s) => ListTile(
+                          dense: true,
+                          leading: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                            child: Icon(Icons.sync_alt, size: 16, color: Theme.of(context).colorScheme.onSecondaryContainer),
+                          ),
+                          title: Text(
+                            '${_memberName(appState, s.from)} → ${_memberName(appState, s.to)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: const Text('Suggested Settlement'),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              FormatUtils.currency(s.amount, appState.config.currency),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Recent Transactions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              TextButton(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionHistoryScreen())),
+                child: const Text('See All'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...appState.data.transactions.take(8).map(
+                (tx) => TransactionCard(
+                  transaction: tx,
+                  currency: appState.config.currency,
+                  memberNameResolver: (id) => _memberName(appState, id),
+                  billNameResolver: (id) => _billName(appState, id),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TransactionDetailScreen(transactionId: tx.id))),
+                  onLongPress: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => ReceiptModal(transaction: tx, currency: appState.config.currency),
+                    );
+                  },
+                ),
+              ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLockedAdminTab(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              'Admin Access Required',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please add and verify a GitHub Personal Access Token (PAT) in the settings to access admin features.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen())),
+              icon: const Icon(Icons.vpn_key),
+              label: const Text('Add Token'),
             ),
           ],
         ),
@@ -224,5 +365,80 @@ class DashboardScreen extends ConsumerWidget {
     final bill = matched.isEmpty ? null : matched.first;
     if (bill == null) return id;
     return '${bill.icon} ${bill.name}';
+  }
+
+  void _showRepoSwitcherBottomSheet(BuildContext context, WidgetRef ref) {
+    final state = ref.read(appStateProvider);
+    final savedRepos = state.savedRepos;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('Switch Repository', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              const Divider(),
+              if (savedRepos.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No saved repositories found.'),
+                )
+              else
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: savedRepos.length,
+                    itemBuilder: (context, index) {
+                      final repo = savedRepos[index];
+                      final isActive = state.config.repoOwner.toLowerCase() == repo.owner.toLowerCase() &&
+                          state.config.repoName.toLowerCase() == repo.repo.toLowerCase();
+
+                      return ListTile(
+                        leading: Icon(
+                          isActive ? Icons.folder_special : Icons.folder_outlined,
+                          color: isActive ? Theme.of(context).colorScheme.primary : Colors.grey,
+                        ),
+                        title: Text(repo.displayTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('${repo.owner}/${repo.repo} (${repo.branch})'),
+                        trailing: isActive
+                            ? const Chip(
+                                label: Text('Active', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                backgroundColor: Colors.blue,
+                              )
+                            : null,
+                        onTap: () {
+                          Navigator.pop(context);
+                          if (!isActive) {
+                            ref.read(appStateProvider.notifier).switchRepository(repo);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.add_circle_outline),
+                title: const Text('Add or Manage Repositories'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen()));
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

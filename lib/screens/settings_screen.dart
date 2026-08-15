@@ -106,9 +106,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             );
           }),
           const SizedBox(height: 32),
-          FilledButton(
-            onPressed: _saveSettings,
-            child: const Text('Save Configuration'),
+          FilledButton.icon(
+            onPressed: _saving ? null : _saveSettings,
+            icon: _saving
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.cloud_upload),
+            label: Text(_saving ? 'Pushing to GitHub...' : 'Save & Push Configuration'),
           ),
           const SizedBox(height: 32),
         ],
@@ -177,6 +180,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  bool _saving = false;
+
   Future<void> _saveSettings() async {
     final newConfig = AppConfig(
       siteTitle: _titleController.text.trim(),
@@ -190,9 +195,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       billTypes: _billTypes,
     );
 
-    await ref.read(appStateProvider.notifier).updateConfig(newConfig);
+    setState(() => _saving = true);
+
+    bool pushed = false;
+    try {
+      pushed = await ref.read(appStateProvider.notifier).updateConfig(newConfig);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Configuration saved!')));
+      if (pushed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Configuration saved and pushed to GitHub!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Configuration saved locally! (Push to GitHub required PAT)'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       Navigator.pop(context);
     }
   }

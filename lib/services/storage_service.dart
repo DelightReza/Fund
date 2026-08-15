@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/config.dart';
 import '../models/fund_data.dart';
 import '../models/pending_operation.dart';
+import '../models/saved_repo.dart';
 
 class StorageService {
   StorageService(this._prefs) {
@@ -13,6 +14,8 @@ class StorageService {
 
   final SharedPreferences _prefs;
   String _prefix = 'fund_';
+
+  static const String _savedReposKey = 'fund_saved_repos_v2';
 
   void _loadLastPrefix() {
     final last = _prefs.getString('fund_last_repo');
@@ -26,6 +29,39 @@ class StorageService {
       _prefix = '${owner}_${repo}_';
       _prefs.setString('fund_last_repo', _prefix);
     }
+  }
+
+  List<SavedRepo> loadSavedRepos() {
+    final raw = _prefs.getString(_savedReposKey);
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map((item) => SavedRepo.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> saveSavedRepo(SavedRepo repo) async {
+    final current = loadSavedRepos().toList();
+    final index = current.indexWhere((r) => r.id == repo.id || (r.owner.toLowerCase() == repo.owner.toLowerCase() && r.repo.toLowerCase() == repo.repo.toLowerCase() && r.branch == repo.branch && r.dataFileName == repo.dataFileName));
+    if (index >= 0) {
+      current[index] = repo;
+    } else {
+      current.add(repo);
+    }
+    final payload = current.map((e) => e.toJson()).toList();
+    await _prefs.setString(_savedReposKey, jsonEncode(payload));
+  }
+
+  Future<void> deleteSavedRepo(String id) async {
+    final current = loadSavedRepos().where((r) => r.id != id).toList();
+    final payload = current.map((e) => e.toJson()).toList();
+    await _prefs.setString(_savedReposKey, jsonEncode(payload));
   }
 
   String get _configKey => '${_prefix}config';

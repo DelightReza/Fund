@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../utils/format_utils.dart';
 
 class MemberCard extends StatelessWidget {
@@ -18,23 +17,81 @@ class MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isPositive = net >= 0;
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+    final badgeBg = isPositive
+        ? (theme.brightness == Brightness.dark ? Colors.emerald.shade900.withOpacity(0.4) : Colors.emerald.shade50)
+        : (theme.brightness == Brightness.dark ? Colors.red.shade900.withOpacity(0.4) : Colors.red.shade50);
+
+    final badgeFg = isPositive
+        ? (theme.brightness == Brightness.dark ? Colors.emerald.shade300 : Colors.emerald.shade800)
+        : (theme.brightness == Brightness.dark ? Colors.red.shade300 : Colors.red.shade800);
+
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(name, style: Theme.of(context).textTheme.titleMedium),
-              const Spacer(),
-              Text(
-                FormatUtils.currency(net, currency),
-                style: TextStyle(
-                  color: isPositive ? Colors.green : Colors.red,
-                  fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: theme.colorScheme.primaryContainer,
+                    child: Text(
+                      initial,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isPositive ? Icons.trending_up : Icons.trending_down,
+                      size: 14,
+                      color: badgeFg,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      FormatUtils.currency(net, currency),
+                      style: TextStyle(
+                        color: badgeFg,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

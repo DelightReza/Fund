@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/config.dart';
 import '../models/fund_data.dart';
+import '../models/saved_repo.dart';
 import '../models/settlement.dart';
 import '../models/transaction.dart';
 import '../services/calculations.dart';
@@ -23,6 +24,7 @@ class AppState {
     this.stage = LaunchStage.loading,
     this.config = const AppConfig(),
     this.data = const FundData(),
+    this.savedRepos = const [],
     this.token,
     this.userId,
     this.syncing = false,
@@ -33,6 +35,7 @@ class AppState {
   final LaunchStage stage;
   final AppConfig config;
   final FundData data;
+  final List<SavedRepo> savedRepos;
   final String? token;
   final String? userId;
   final bool syncing;
@@ -43,6 +46,7 @@ class AppState {
     LaunchStage? stage,
     AppConfig? config,
     FundData? data,
+    List<SavedRepo>? savedRepos,
     Object? token = _unset,
     Object? userId = _unset,
     bool? syncing,
@@ -53,6 +57,7 @@ class AppState {
       stage: stage ?? this.stage,
       config: config ?? this.config,
       data: data ?? this.data,
+      savedRepos: savedRepos ?? this.savedRepos,
       token: identical(token, _unset) ? this.token : token as String?,
       userId: identical(userId, _unset) ? this.userId : userId as String?,
       syncing: syncing ?? this.syncing,
@@ -108,11 +113,27 @@ class AppNotifier extends StateNotifier<AppState> {
 
     try {
       final storage = ref.read(storageProvider);
+      var savedRepos = storage.loadSavedRepos();
       final token = storage.loadToken();
       final userId = storage.loadUser();
       final localConfig = storage.loadConfig() ?? const AppConfig();
       final localData = storage.loadData() ?? const FundData();
       final pending = ref.read(syncServiceProvider).loadQueue().length;
+
+      // Ensure localConfig repo is in savedRepos if present
+      if (localConfig.hasRepository && savedRepos.isEmpty) {
+        final initialRepo = SavedRepo(
+          id: '${localConfig.repoOwner}/${localConfig.repoName}',
+          owner: localConfig.repoOwner,
+          repo: localConfig.repoName,
+          branch: localConfig.repoBranch,
+          dataFileName: localConfig.dataFileName,
+          title: localConfig.siteTitle,
+          token: token,
+        );
+        await storage.saveSavedRepo(initialRepo);
+        savedRepos = [initialRepo];
+      }
 
       if (_isWeb) {
         final webService = GitHubService(owner: '', repo: '', branch: 'main', dataFileName: localConfig.dataFileName);
@@ -134,6 +155,7 @@ class AppNotifier extends StateNotifier<AppState> {
           stage: LaunchStage.dashboard,
           config: config,
           data: data,
+          savedRepos: savedRepos,
           token: null,
           userId: userId,
           pendingCount: 0,
@@ -142,11 +164,12 @@ class AppNotifier extends StateNotifier<AppState> {
         return;
       }
 
-      if (!localConfig.hasRepository) {
+      if (!localConfig.hasRepository && savedRepos.isEmpty) {
         state = state.copyWith(
           stage: LaunchStage.repoSelection,
           config: localConfig,
           data: localData,
+          savedRepos: savedRepos,
           token: token,
           userId: userId,
           pendingCount: pending,
@@ -154,14 +177,22 @@ class AppNotifier extends StateNotifier<AppState> {
         return;
       }
 
-      final merged = await _pullLatestFromRemote(localConfig, token, fallbackData: localData);
+      final activeRepo = savedRepos.firstWhere(
+        (r) => r.owner == localConfig.repoOwner && r.repo == localConfig.repoName,
+        orElse: () => savedRepos.first,
+      );
+
+      final activeToken = activeRepo.token ?? token;
+
+      final merged = await _pullLatestFromRemote(localConfig, activeToken, fallbackData: localData);
       final nextStage = (userId == null || userId.isEmpty) ? LaunchStage.userSelection : LaunchStage.dashboard;
 
       state = state.copyWith(
         stage: nextStage,
         config: merged.$1,
         data: merged.$2,
-        token: token,
+        savedRepos: savedRepos,
+        token: activeToken,
         userId: userId,
         pendingCount: pending,
         error: null,
@@ -179,6 +210,7 @@ class AppNotifier extends StateNotifier<AppState> {
     String branch = 'main',
     String dataFileName = 'data.json',
     String? token,
+    String? title,
   }) async {
     state = state.copyWith(stage: LaunchStage.loading, error: null);
 
@@ -186,6 +218,7 @@ class AppNotifier extends StateNotifier<AppState> {
     storage.setRepo(owner, repo);
 
     final baseConfig = state.config.copyWith(
+      siteTitle: (title != null && title.isNotEmpty) ? title : (state.config.siteTitle.isNotEmpty ? state.config.siteTitle : 'Fund'),
       repoOwner: owner,
       repoName: repo,
       repoBranch: branch,
@@ -209,18 +242,84 @@ class AppNotifier extends StateNotifier<AppState> {
       await storage.saveToken(token);
     }
 
+    final newSavedRepo = SavedRepo(
+      id: '$owner/$repo',
+      owner: owner,
+      repo: repo,
+      branch: branch,
+      dataFileName: dataFileName,
+      title: title ?? merged.$1.siteTitle,
+      token: token,
+    );
+
+    await storage.saveSavedRepo(newSavedRepo);
+    final updatedSavedRepos = storage.loadSavedRepos();
+
     await storage.saveConfig(merged.$1);
     await storage.saveData(merged.$2);
 
     state = state.copyWith(
-      stage: LaunchStage.userSelection,
+      stage: (state.userId == null || state.userId!.isEmpty) ? LaunchStage.userSelection : LaunchStage.dashboard,
       config: merged.$1,
       data: merged.$2,
+      savedRepos: updatedSavedRepos,
       token: token ?? state.token,
       error: null,
     );
 
     _startPeriodicSync();
+  }
+
+  Future<void> switchRepository(SavedRepo repo) async {
+    state = state.copyWith(stage: LaunchStage.loading, error: null);
+    final storage = ref.read(storageProvider);
+    storage.setRepo(repo.owner, repo.repo);
+
+    final baseConfig = AppConfig(
+      siteTitle: repo.displayTitle,
+      repoOwner: repo.owner,
+      repoName: repo.repo,
+      repoBranch: repo.branch,
+      dataFileName: repo.dataFileName,
+    );
+
+    final localData = storage.loadData() ?? const FundData();
+    final localConfig = storage.loadConfig() ?? baseConfig;
+
+    final merged = await _pullLatestFromRemote(localConfig, repo.token, fallbackData: localData);
+
+    if (repo.token != null) {
+      await storage.saveToken(repo.token!);
+    } else {
+      await storage.clearToken();
+    }
+
+    await storage.saveConfig(merged.$1);
+    await storage.saveData(merged.$2);
+
+    state = state.copyWith(
+      stage: (state.userId == null || state.userId!.isEmpty) ? LaunchStage.userSelection : LaunchStage.dashboard,
+      config: merged.$1,
+      data: merged.$2,
+      token: repo.token,
+      error: null,
+    );
+
+    _startPeriodicSync();
+  }
+
+  Future<void> deleteSavedRepository(String id) async {
+    final storage = ref.read(storageProvider);
+    await storage.deleteSavedRepo(id);
+    final updatedList = storage.loadSavedRepos();
+
+    state = state.copyWith(savedRepos: updatedList);
+
+    if (updatedList.isEmpty) {
+      state = state.copyWith(stage: LaunchStage.repoSelection);
+    } else if ('${state.config.repoOwner}/${state.config.repoName}' == id) {
+      await switchRepository(updatedList.first);
+    }
   }
 
   Future<void> selectUser(String userId) async {
@@ -233,6 +332,15 @@ class AppNotifier extends StateNotifier<AppState> {
     if (token == null || token.isEmpty) {
       await storage.clearToken();
       state = state.copyWith(token: null);
+      
+      // Update SavedRepo
+      final currentRepoId = '${state.config.repoOwner}/${state.config.repoName}';
+      final match = state.savedRepos.where((r) => r.id == currentRepoId).toList();
+      if (match.isNotEmpty) {
+        final updated = match.first.copyWith(token: null);
+        await storage.saveSavedRepo(updated);
+        state = state.copyWith(savedRepos: storage.loadSavedRepos());
+      }
       return;
     }
 
@@ -249,31 +357,39 @@ class AppNotifier extends StateNotifier<AppState> {
     }
 
     await storage.saveToken(token);
-    state = state.copyWith(token: token);
+
+    final currentRepoId = '${state.config.repoOwner}/${state.config.repoName}';
+    final match = state.savedRepos.where((r) => r.id == currentRepoId).toList();
+    if (match.isNotEmpty) {
+      final updated = match.first.copyWith(token: token);
+      await storage.saveSavedRepo(updated);
+    }
+
+    state = state.copyWith(token: token, savedRepos: storage.loadSavedRepos());
   }
 
-  Future<void> addTransaction(Transaction tx, {String? message}) async {
+  Future<bool> addTransaction(Transaction tx, {String? message}) async {
     final updatedTx = [tx, ...state.data.transactions];
-    await _saveAndUpdateData(updatedTx, state.config, message ?? 'Update fund data (${tx.type.name})');
+    return await _saveAndUpdateData(updatedTx, state.config, message ?? 'Update fund data (${tx.type.name})');
   }
 
-  Future<void> updateTransaction(Transaction updatedTx, {String? message}) async {
+  Future<bool> updateTransaction(Transaction updatedTx, {String? message}) async {
     final updatedList = state.data.transactions.map((tx) => tx.id == updatedTx.id ? updatedTx : tx).toList();
-    await _saveAndUpdateData(updatedList, state.config, message ?? 'Update transaction (${updatedTx.id})');
+    return await _saveAndUpdateData(updatedList, state.config, message ?? 'Update transaction (${updatedTx.id})');
   }
 
-  Future<void> deleteTransaction(String id) async {
+  Future<bool> deleteTransaction(String id) async {
     final updatedTx = state.data.transactions.where((tx) => tx.id != id).toList();
-    await _saveAndUpdateData(updatedTx, state.config, 'Delete transaction ($id)');
+    return await _saveAndUpdateData(updatedTx, state.config, 'Delete transaction ($id)');
   }
 
-  Future<void> updateConfig(AppConfig newConfig) async {
+  Future<bool> updateConfig(AppConfig newConfig) async {
     final storage = ref.read(storageProvider);
     await storage.saveConfig(newConfig);
-    await _saveAndUpdateData(state.data.transactions, newConfig, 'Update configuration');
+    return await _saveAndUpdateData(state.data.transactions, newConfig, 'Update configuration');
   }
 
-  Future<void> _saveAndUpdateData(List<Transaction> transactions, AppConfig config, String message) async {
+  Future<bool> _saveAndUpdateData(List<Transaction> transactions, AppConfig config, String message) async {
     final tempFundData = state.data.copyWith(transactions: transactions);
     final balances = Calculations.calculateBalances(tempFundData, config.people);
     final billTotals = Calculations.calculateBillTotals(tempFundData);
@@ -294,7 +410,32 @@ class AppNotifier extends StateNotifier<AppState> {
         );
 
     state = state.copyWith(pendingCount: pendingCount);
-    await syncNow();
+
+    if (state.token != null && state.token!.isNotEmpty && state.config.hasRepository) {
+      try {
+        state = state.copyWith(syncing: true, error: null);
+        final github = GitHubService(
+          owner: state.config.repoOwner,
+          repo: state.config.repoName,
+          branch: state.config.repoBranch,
+          dataFileName: state.config.dataFileName,
+          token: state.token,
+        );
+
+        await ref.read(syncServiceProvider).flushQueue(github);
+        await github.commitConfig(config, message: message);
+        await github.commitData(updated, message: message);
+
+        state = state.copyWith(syncing: false, pendingCount: 0, error: null);
+        return true;
+      } catch (e) {
+        final errMessage = e.toString().replaceAll('Exception: ', '');
+        state = state.copyWith(syncing: false, error: 'Push failed: $errMessage');
+        return false;
+      }
+    }
+
+    return false;
   }
 
   Future<void> pullOnly() async {

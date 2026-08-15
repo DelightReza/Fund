@@ -6,237 +6,397 @@ import '../providers/providers.dart';
 import '../utils/date_utils.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
-  const AddTransactionScreen({super.key, this.existingTransaction, this.initialType});
-  
-  final Transaction? existingTransaction;
+  const AddTransactionScreen({
+    super.key,
+    this.initialType,
+    this.existingTransaction,
+  });
+
   final TransactionType? initialType;
+  final Transaction? existingTransaction;
 
   @override
   ConsumerState<AddTransactionScreen> createState() => _AddTransactionScreenState();
 }
 
 class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
+  late TransactionType _type;
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
 
-  late TransactionType _type;
-  String? _actor;
-  String? _target;
-  final Set<String> _participants = <String>{};
-  
+  String? _actorId;
+  String? _targetId;
+  final Set<String> _selectedParticipants = {};
+  bool _saving = false;
+
   @override
   void initState() {
     super.initState();
-    _type = widget.initialType ?? TransactionType.expense;
-    
-    final appState = ref.read(appStateProvider);
-    final members = appState.config.people.where((p) => p.active).toList();
-    
-    if (widget.existingTransaction != null) {
-      final tx = widget.existingTransaction!;
-      _type = tx.type;
-      _amountController.text = tx.amount.toString();
-      _noteController.text = tx.note;
-      _actor = tx.actorId;
-      _target = tx.targetId;
-      
-      if (tx.participantIds.isNotEmpty) {
-        _participants.addAll(tx.participantIds);
-      } else if (tx.exemptions.isNotEmpty) {
-        final activeIds = members.map((e) => e.id).toList();
-        _participants.addAll(activeIds.where((id) => !tx.exemptions.contains(id)));
+    final existing = widget.existingTransaction;
+    if (existing != null) {
+      _type = existing.type;
+      _amountController.text = existing.amount.toString();
+      _noteController.text = existing.note;
+      _actorId = existing.actorId;
+      _targetId = existing.targetId;
+      _selectedParticipants.addAll(existing.participantIds);
+    } else {
+      _type = widget.initialType ?? TransactionType.expense;
+      final people = ref.read(appStateProvider).config.people;
+      if (people.isNotEmpty) {
+        _actorId = people.first.id;
+        _selectedParticipants.addAll(people.map((p) => p.id));
+      }
+      final billTypes = ref.read(appStateProvider).config.billTypes;
+      if (billTypes.isNotEmpty) {
+        _targetId = billTypes.first.id;
       }
     }
-    
-    if (_participants.isEmpty && _needsParticipants) {
-      _participants.addAll(members.map((e) => e.id));
-    }
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
-    final members = appState.config.people.where((p) => p.active).toList();
+    final people = appState.config.people;
     final billTypes = appState.config.billTypes;
 
+    final isEdit = widget.existingTransaction != null;
+
     return Scaffold(
-      appBar: AppBar(title: Text(widget.existingTransaction == null ? 'Add Transaction' : 'Edit Transaction')),
+      appBar: AppBar(
+        title: Text(isEdit ? 'Edit Transaction' : 'New Transaction Entry'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          DropdownButtonFormField<TransactionType>(
-            value: _type,
-            items: TransactionType.values
-                .map((type) => DropdownMenuItem(value: type, child: Text(type.name.toUpperCase())))
-                .toList(),
-            onChanged: (value) => setState(() => _type = value ?? TransactionType.expense),
-            decoration: const InputDecoration(labelText: 'Type'),
+          Text(
+            'TRANSACTION TYPE',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Amount'),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: TransactionType.values.map((t) {
+                final isSelected = _type == t;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(t.name.toUpperCase()),
+                    selected: isSelected,
+                    onSelected: (sel) {
+                      if (sel) setState(() => _type = t);
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
           ),
-          const SizedBox(height: 12),
-          if (_needsActor)
-            DropdownButtonFormField<String>(
-              value: _actor,
-              items: members.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name))).toList(),
-              onChanged: (value) => setState(() => _actor = value),
-              decoration: const InputDecoration(labelText: 'From / Actor'),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      labelText: 'Amount (${appState.config.currency})',
+                      prefixIcon: const Icon(Icons.attach_money),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _noteController,
+                    decoration: const InputDecoration(
+                      labelText: 'Note / Description',
+                      hintText: 'e.g. Grocery shopping, Electricity bill...',
+                      prefixIcon: Icon(Icons.notes),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          if (_needsActor) const SizedBox(height: 12),
-          if (_needsTarget)
-            DropdownButtonFormField<String>(
-              value: _target,
-              items: (_type == TransactionType.debit || _type == TransactionType.expense)
-                  ? billTypes.map((b) => DropdownMenuItem(value: b.id, child: Text('${b.icon} ${b.name}'))).toList()
-                  : members.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name))).toList(),
-              onChanged: (value) => setState(() => _target = value),
-              decoration: InputDecoration(labelText: _type == TransactionType.debit || _type == TransactionType.expense ? 'Bill Type' : 'To'),
-            ),
-          if (_needsTarget) const SizedBox(height: 12),
-          if (_needsParticipants)
-            _ParticipantsSelector(
-              members: members.map((e) => MapEntry(e.id, e.name)).toList(),
-              selected: _participants,
-              onToggle: (id) {
-                setState(() {
-                  if (_participants.contains(id)) {
-                    _participants.remove(id);
-                  } else {
-                    _participants.add(id);
-                  }
-                });
-              },
-            ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _noteController,
-            decoration: const InputDecoration(labelText: 'Note'),
           ),
           const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => _save(context),
-            child: const Text('Save'),
+          if (_requiresActor) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _actorLabel,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      children: people.map((p) {
+                        final isSel = _actorId == p.id;
+                        return ChoiceChip(
+                          avatar: CircleAvatar(child: Text(p.name[0])),
+                          label: Text(p.name),
+                          selected: isSel,
+                          onSelected: (sel) {
+                            if (sel) setState(() => _actorId = p.id);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (_requiresTarget) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _targetLabel,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 10),
+                    if (_type == TransactionType.expense || _type == TransactionType.debit) ...[
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: billTypes.map((b) {
+                          final isSel = _targetId == b.id;
+                          return ChoiceChip(
+                            label: Text('${b.icon} ${b.name}'),
+                            selected: isSel,
+                            onSelected: (sel) {
+                              if (sel) setState(() => _targetId = b.id);
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ] else ...[
+                      Wrap(
+                        spacing: 8,
+                        children: people.map((p) {
+                          final isSel = _targetId == p.id;
+                          return ChoiceChip(
+                            avatar: CircleAvatar(child: Text(p.name[0])),
+                            label: Text(p.name),
+                            selected: isSel,
+                            onSelected: (sel) {
+                              if (sel) setState(() => _targetId = p.id);
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (_requiresParticipants) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'SPLIT AMONG PARTICIPANTS',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              if (_selectedParticipants.length == people.length) {
+                                _selectedParticipants.clear();
+                              } else {
+                                _selectedParticipants.addAll(people.map((p) => p.id));
+                              }
+                            });
+                          },
+                          child: Text(_selectedParticipants.length == people.length ? 'Deselect All' : 'Select All'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: people.map((p) {
+                        final isSel = _selectedParticipants.contains(p.id);
+                        return FilterChip(
+                          avatar: CircleAvatar(child: Text(p.name[0])),
+                          label: Text(p.name),
+                          selected: isSel,
+                          onSelected: (sel) {
+                            setState(() {
+                              if (sel) {
+                                _selectedParticipants.add(p.id);
+                              } else {
+                                _selectedParticipants.remove(p.id);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: _saving ? null : () => _save(context),
+            icon: _saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.cloud_upload),
+            label: Text(_saving ? 'Pushing to GitHub...' : (isEdit ? 'Update & Sync to GitHub' : 'Save & Push to GitHub')),
           ),
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  bool get _needsActor => {
-        TransactionType.expense,
+  bool get _requiresActor => const {
         TransactionType.credit,
         TransactionType.settlement,
         TransactionType.transfer,
       }.contains(_type);
 
-  bool get _needsTarget => {
-        TransactionType.expense,
+  bool get _requiresTarget => const {
         TransactionType.debit,
+        TransactionType.expense,
         TransactionType.settlement,
         TransactionType.transfer,
       }.contains(_type);
 
-  bool get _needsParticipants => {
-        TransactionType.expense,
+  bool get _requiresParticipants => const {
         TransactionType.debit,
+        TransactionType.expense,
         TransactionType.distribution,
       }.contains(_type);
+
+  String get _actorLabel => switch (_type) {
+        TransactionType.credit => 'Payer (Who deposited into fund?)',
+        TransactionType.settlement => 'Payer (Who gave the money?)',
+        TransactionType.transfer => 'From (Source member)',
+        _ => 'Actor',
+      };
+
+  String get _targetLabel => switch (_type) {
+        TransactionType.expense => 'Category (What was paid for?)',
+        TransactionType.debit => 'Category (What bill?)',
+        TransactionType.settlement => 'Receiver (Who received the settlement?)',
+        TransactionType.transfer => 'To (Destination member)',
+        _ => 'Target',
+      };
 
   Future<void> _save(BuildContext context) async {
     final amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
-      _showError(context, 'Please enter a valid amount.');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid amount greater than 0')));
       return;
     }
 
-    if (_needsActor && (_actor == null || _actor!.isEmpty)) {
-      _showError(context, 'Please select actor.');
+    if (_requiresActor && (_actorId == null || _actorId!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select an actor / payer')));
       return;
     }
 
-    if (_needsTarget && (_target == null || _target!.isEmpty)) {
-      _showError(context, 'Please select target.');
+    if (_requiresTarget && (_targetId == null || _targetId!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a target / category')));
       return;
     }
 
-    if (_needsParticipants && _participants.isEmpty) {
-      _showError(context, 'Please select at least one participant.');
+    if (_requiresParticipants && _selectedParticipants.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select at least one participant')));
       return;
     }
+
+    setState(() => _saving = true);
 
     final existing = widget.existingTransaction;
     final tx = Transaction(
       id: existing?.id ?? AppDateUtils.generateId(),
       type: _type,
       amount: amount,
+      actorId: _requiresActor ? _actorId : null,
+      targetId: _requiresTarget ? _targetId : null,
+      participantIds: _requiresParticipants ? _selectedParticipants.toList() : [],
       note: _noteController.text.trim(),
-      actorId: _actor,
-      targetId: _target,
-      participantIds: _participants.toList(),
-      exemptions: existing?.exemptions ?? const [],
-      parentId: existing?.parentId,
-      distributionTotal: existing?.distributionTotal,
       timestamp: existing?.timestamp ?? AppDateUtils.nowIso(),
     );
 
-    if (existing != null) {
-      await ref.read(appStateProvider.notifier).updateTransaction(
-            tx,
-            message: 'Edit ${_type.name} transaction (${tx.id})',
-          );
-    } else {
-      await ref.read(appStateProvider.notifier).addTransaction(
-            tx,
-            message: 'Add ${_type.name} transaction (${tx.id})',
-          );
+    bool pushed = false;
+    try {
+      if (existing != null) {
+        pushed = await ref.read(appStateProvider.notifier).updateTransaction(
+              tx,
+              message: 'Edit ${_type.name} transaction (${tx.id})',
+            );
+      } else {
+        pushed = await ref.read(appStateProvider.notifier).addTransaction(
+              tx,
+              message: 'Add ${_type.name} transaction (${tx.id})',
+            );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
 
     if (context.mounted) {
+      if (pushed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Saved and pushed directly to GitHub!'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved locally! (Configure PAT to push to GitHub)'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       Navigator.of(context).pop();
     }
-  }
-
-  void _showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
-}
-
-class _ParticipantsSelector extends StatelessWidget {
-  const _ParticipantsSelector({
-    required this.members,
-    required this.selected,
-    required this.onToggle,
-  });
-
-  final List<MapEntry<String, String>> members;
-  final Set<String> selected;
-  final void Function(String id) onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Participants'),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: members
-              .map(
-                (member) => FilterChip(
-                  label: Text(member.value),
-                  selected: selected.contains(member.key),
-                  onSelected: (_) => onToggle(member.key),
-                ),
-              )
-              .toList(),
-        ),
-      ],
-    );
   }
 }
