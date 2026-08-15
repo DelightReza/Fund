@@ -44,7 +44,7 @@ ThemeData get lightTheme {
         color: scheme.onBackground,
       ),
     ),
-    cardTheme: CardThemeData(
+    cardTheme: CardTheme(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -82,7 +82,7 @@ ThemeData get lightTheme {
       height: 72,
       backgroundColor: scheme.surface,
       indicatorColor: scheme.primaryContainer,
-      labelBehavior: NavigationBarDestinationLabelBehavior.alwaysShow,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return IconThemeData(color: scheme.primary);
@@ -99,12 +99,6 @@ ThemeData get lightTheme {
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       side: BorderSide.none,
-    ),
-    segmentedButtonTheme: SegmentedButtonThemeData(
-      style: SegmentedButtonStyle.fromCutOffPath(
-        path: Path(),
-        backgroundColor: scheme.surfaceVariant,
-      ),
     ),
   );
 }
@@ -152,7 +146,7 @@ ThemeData get darkTheme {
         color: scheme.onBackground,
       ),
     ),
-    cardTheme: CardThemeData(
+    cardTheme: CardTheme(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -190,7 +184,7 @@ ThemeData get darkTheme {
       height: 72,
       backgroundColor: scheme.surface,
       indicatorColor: scheme.primaryContainer,
-      labelBehavior: NavigationBarDestinationLabelBehavior.alwaysShow,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return IconThemeData(color: scheme.primary);

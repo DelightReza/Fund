@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/transaction.dart';
 import '../providers/providers.dart';
+import '../theme/colors.dart';
 import '../utils/format_utils.dart';
 import 'transaction_detail_screen.dart';
 
@@ -54,8 +55,8 @@ class ProfileScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: isPositive
-                    ? [Colors.emerald.shade800, Colors.emerald.shade900]
-                    : [Colors.red.shade800, Colors.red.shade900],
+                    ? [AppColors.emerald800, AppColors.emerald900]
+                    : [AppColors.rose800, AppColors.rose900],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -108,11 +109,11 @@ class ProfileScreen extends ConsumerWidget {
               child: ListTile(
                 leading: CircleAvatar(
                   radius: 16,
-                  backgroundColor: isImpPos ? Colors.emerald.shade100 : Colors.red.shade100,
+                  backgroundColor: isImpPos ? AppColors.emerald100 : AppColors.rose100,
                   child: Icon(
                     isImpPos ? Icons.add : Icons.remove,
                     size: 16,
-                    color: isImpPos ? Colors.emerald.shade800 : Colors.red.shade800,
+                    color: isImpPos ? AppColors.emerald800 : AppColors.rose800,
                   ),
                 ),
                 title: Text(

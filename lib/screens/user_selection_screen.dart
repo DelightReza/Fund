@@ -34,7 +34,7 @@ class UserSelectionScreen extends ConsumerWidget {
               Text(
                 'Who are you?',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.extrabold,
+                      fontWeight: FontWeight.w800,
                     ),
               ),
               const SizedBox(height: 8),

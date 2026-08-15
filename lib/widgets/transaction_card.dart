@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/transaction.dart';
+import '../theme/colors.dart';
 import '../utils/date_utils.dart';
 import '../utils/format_utils.dart';
 
@@ -30,15 +31,15 @@ class TransactionCard extends StatelessWidget {
     final (IconData icon, Color iconBg, Color amountColor, String title, String prefix) = switch (transaction.type) {
       TransactionType.credit => (
           Icons.arrow_downward_rounded,
-          Colors.emerald.shade100,
-          Colors.emerald.shade700,
+          AppColors.emerald100,
+          AppColors.emerald700,
           'Credit • ${memberNameResolver(transaction.actorId ?? '-')}',
           '+',
         ),
       TransactionType.debit => (
           Icons.arrow_upward_rounded,
-          Colors.red.shade100,
-          Colors.red.shade700,
+          AppColors.rose100,
+          AppColors.rose700,
           'Debit • ${billNameResolver(transaction.targetId ?? '-')}',
           '-',
         ),
@@ -156,7 +157,7 @@ class TransactionCard extends StatelessWidget {
                     '$prefix${FormatUtils.currency(transaction.amount, currency)}',
                     style: TextStyle(
                       color: isDark ? amountColor.withOpacity(0.9) : amountColor,
-                      fontWeight: FontWeight.extrabold,
+                      fontWeight: FontWeight.w800,
                       fontSize: 15,
                     ),
                   ),

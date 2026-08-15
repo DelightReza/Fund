@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/colors.dart';
 import '../utils/format_utils.dart';
 
 class MemberCard extends StatelessWidget {
@@ -22,12 +23,12 @@ class MemberCard extends StatelessWidget {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
     final badgeBg = isPositive
-        ? (theme.brightness == Brightness.dark ? Colors.emerald.shade900.withOpacity(0.4) : Colors.emerald.shade50)
-        : (theme.brightness == Brightness.dark ? Colors.red.shade900.withOpacity(0.4) : Colors.red.shade50);
+        ? (theme.brightness == Brightness.dark ? AppColors.emerald900.withOpacity(0.4) : AppColors.emerald50)
+        : (theme.brightness == Brightness.dark ? AppColors.rose900.withOpacity(0.4) : AppColors.rose50);
 
     final badgeFg = isPositive
-        ? (theme.brightness == Brightness.dark ? Colors.emerald.shade300 : Colors.emerald.shade800)
-        : (theme.brightness == Brightness.dark ? Colors.red.shade300 : Colors.red.shade800);
+        ? (theme.brightness == Brightness.dark ? AppColors.emerald300 : AppColors.emerald800)
+        : (theme.brightness == Brightness.dark ? AppColors.rose300 : AppColors.rose800);
 
     return Card(
       clipBehavior: Clip.antiAlias,
