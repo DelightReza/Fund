@@ -275,7 +275,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                         ),

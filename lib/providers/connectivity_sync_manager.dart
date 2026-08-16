@@ -53,16 +53,7 @@ class ConnectivitySyncManager {
 
     _isSyncing = true;
     try {
-      final github = GitHubService(
-        owner: appState.config.repoOwner,
-        repo: appState.config.repoName,
-        branch: appState.config.repoBranch,
-        dataFileName: appState.config.dataFileName,
-        token: token,
-      );
-
-      final remainingCount = await syncService.flushQueue(github);
-      ref.read(appStateProvider.notifier).syncPendingOperations();
+      await ref.read(appStateProvider.notifier).syncNow();
     } catch (_) {
       // Keep in queue for next connectivity check
     } finally {
