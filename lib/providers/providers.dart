@@ -243,7 +243,7 @@ class AppNotifier extends StateNotifier<AppState> {
     final merged = await _pullLatestFromRemote(baseConfig, token, fallbackData: state.data);
 
     if (token != null && token.isNotEmpty) {
-      final isValid = await GitHubService(
+      final result = await GitHubService(
         owner: owner,
         repo: repo,
         branch: branch,
@@ -251,8 +251,8 @@ class AppNotifier extends StateNotifier<AppState> {
         token: token,
       ).verifyToken(token);
 
-      if (!isValid) {
-        throw Exception('Invalid Personal Access Token provided.');
+      if (!result.isVerified) {
+        throw Exception(result.error ?? 'Invalid Personal Access Token provided.');
       }
       await storage.saveToken(token);
     }
