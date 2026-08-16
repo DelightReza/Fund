@@ -99,6 +99,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       }
     } else {
       _type = widget.initialType ?? TransactionType.expense;
+      if (_type == TransactionType.expense) {
+        _isGroupedExpense = true;
+      }
       if (activePeople.isNotEmpty) {
         _actorId = activePeople.first.id;
         _selectedParticipants.addAll(activePeople.map((p) => p.id));
@@ -106,6 +109,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       final billTypes = appConfig.billTypes;
       if (billTypes.isNotEmpty) {
         _targetId = billTypes.first.id;
+      }
+      if (_isGroupedExpense) {
+        _addSubItem();
       }
     }
   }
@@ -196,7 +202,10 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                         if (sel) {
                           setState(() {
                             _type = t;
-                            if (_type != TransactionType.expense) {
+                            if (_type == TransactionType.expense && !isEdit) {
+                              _isGroupedExpense = true;
+                              if (_subItems.isEmpty) _addSubItem();
+                            } else if (_type != TransactionType.expense) {
                               _isGroupedExpense = false;
                             }
                             if (_requiresActor && (_actorId == null || _actorId!.isEmpty)) {
@@ -225,23 +234,6 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               ),
             ),
             const SizedBox(height: 20),
-          ],
-          if (_type == TransactionType.expense && !isEdit) ...[
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Grouped Expense Breakdown', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('Split receipt across multiple items/categories under one transaction group'),
-              value: _isGroupedExpense,
-              onChanged: (val) {
-                setState(() {
-                  _isGroupedExpense = val;
-                  if (val && _subItems.isEmpty) {
-                    _addSubItem();
-                  }
-                });
-              },
-            ),
-            const SizedBox(height: 12),
           ],
           if (!_isGroupedExpense) ...[
             Card(
@@ -837,11 +829,87 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     bool pushed = false;
     try {
+      final config = ref.read(appStateProvider).config;
+      final currency = config.currency;
+      final noteRaw = _noteController.text.trim();
+      final noteWithSpace = noteRaw.isNotEmpty ? ' for $noteRaw' : '';
+      final noteWithParens = noteRaw.isNotEmpty ? ' ($noteRaw)' : '';
+      final noteWithDash = noteRaw.isNotEmpty ? ' - $noteRaw' : '';
+      
+      String getPersonName(String? id) {
+        if (id == null) return 'Unknown';
+        final match = config.people.where((p) => p.id == id).toList();
+        return match.isNotEmpty ? match.first.name : id;
+      }
+      
+      String getBillTypeName(String? id) {
+        if (id == null) return 'Unknown';
+        final match = config.billTypes.where((b) => b.id == id).toList();
+        return match.isNotEmpty ? match.first.name : id;
+      }
+      
+      String commitMessage = '';
+
+      if (_isGroupedExpense && _subItems.isNotEmpty) {
+        if (isEdit) {
+          commitMessage = 'Edited Expense: ${getPersonName(_actorId)} paid $currency$amount for ${getBillTypeName(_targetId)}$noteWithParens - Split among ${_selectedParticipants.length}';
+        } else {
+          commitMessage = 'Expense: ${getPersonName(_actorId)} paid $currency$amount for ${getBillTypeName(_targetId)}$noteWithParens - Split among ${_selectedParticipants.length}';
+        }
+      } else if (_type == TransactionType.distribution) {
+        if (isEdit) {
+          commitMessage = 'Edited Distribution Item ($currency$amount)$noteWithDash';
+        } else {
+          commitMessage = 'Distributed $currency$amount among ${_selectedParticipants.length} people$noteWithSpace';
+        }
+      } else if (_type == TransactionType.expense) {
+        if (isEdit) {
+          commitMessage = 'Edited Expense: ${getPersonName(_actorId)} paid $currency$amount for ${getBillTypeName(_targetId)}$noteWithParens';
+        } else {
+          commitMessage = 'Expense: ${getPersonName(_actorId)} paid $currency$amount for ${getBillTypeName(_targetId)}$noteWithParens - Split among ${_selectedParticipants.length}';
+        }
+      } else if (_type == TransactionType.credit) {
+        if (isEdit) {
+          commitMessage = 'Edited Credit: ${getPersonName(_actorId)} added $currency$amount$noteWithSpace';
+        } else {
+          commitMessage = 'Credit: ${getPersonName(_actorId)} added $currency$amount$noteWithSpace';
+        }
+      } else if (_type == TransactionType.debit) {
+        if (isEdit) {
+          commitMessage = 'Edited Debit: $currency$amount used for ${getBillTypeName(_targetId)}$noteWithParens';
+        } else {
+          commitMessage = 'Debit: $currency$amount used for ${getBillTypeName(_targetId)}$noteWithParens - Split among ${_selectedParticipants.length}';
+        }
+      } else if (_type == TransactionType.transfer) {
+        if (isEdit) {
+          commitMessage = 'Edited Transfer: ${getPersonName(_actorId)} to ${getPersonName(_targetId)} ($currency$amount)$noteWithDash';
+        } else {
+          commitMessage = 'Transfer: ${getPersonName(_actorId)} transferred $currency$amount to ${getPersonName(_targetId)}';
+        }
+      } else if (_type == TransactionType.settlement) {
+        if (isEdit) {
+          commitMessage = 'Edited Settlement: ${getPersonName(_actorId)} to ${getPersonName(_targetId)} ($currency$amount)$noteWithDash';
+        } else {
+          commitMessage = 'Settlement: ${getPersonName(_actorId)} paid $currency$amount to ${getPersonName(_targetId)}';
+        }
+      }
+
       if (_isGroupedExpense && _subItems.isNotEmpty) {
         final childTransactions = <Transaction>[];
         for (final item in _subItems) {
           final itemAmount = double.tryParse(item.amountController.text.trim()) ?? 0.0;
           if (itemAmount <= 0) continue;
+
+          String itemNote = item.noteController.text.trim();
+          if (itemNote.isEmpty) {
+            itemNote = _noteController.text.trim();
+          }
+          if (itemNote.isEmpty) {
+            final personName = getPersonName(_actorId);
+            final billTypeName = getBillTypeName(item.categoryId);
+            itemNote = '$personName paid for $billTypeName';
+          }
+
           childTransactions.add(
             Transaction(
               id: AppDateUtils.generateId(),
@@ -850,9 +918,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               actorId: _actorId,
               targetId: item.categoryId,
               participantIds: _selectedParticipants.toList(),
-              note: item.noteController.text.trim().isNotEmpty 
-                  ? item.noteController.text.trim() 
-                  : _noteController.text.trim(),
+              note: itemNote,
               timestamp: nowIso,
               parentId: parentId,
               distributionTotal: amount,
@@ -870,13 +936,13 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           pushed = await ref.read(appStateProvider.notifier).updateGroupedExpense(
             parentId: parentId,
             newChildren: childTransactions,
-            message: 'Update grouped expense ($parentId)',
+            message: commitMessage,
           );
         } else {
           pushed = await ref.read(appStateProvider.notifier).addGroupedExpense(
             parentId: parentId,
             children: childTransactions,
-            message: 'Add grouped expense breakdown (${childTransactions.length} items)',
+            message: commitMessage,
           );
         }
       } else if (_type == TransactionType.distribution && !isEdit) {
@@ -903,9 +969,16 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         pushed = await ref.read(appStateProvider.notifier).addGroupedExpense(
           parentId: distParentId,
           children: childCredits,
-          message: 'Distribute funds among ${participants.length} members',
+          message: commitMessage,
         );
       } else {
+        String finalNote = _noteController.text.trim();
+        if (_type == TransactionType.expense && finalNote.isEmpty) {
+          final personName = getPersonName(_actorId);
+          final billTypeName = getBillTypeName(_targetId);
+          finalNote = '$personName paid for $billTypeName';
+        }
+
         final tx = Transaction(
           id: existing?.id ?? parentId,
           type: _type,
@@ -913,19 +986,19 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           actorId: _requiresActor ? _actorId : null,
           targetId: _requiresTarget ? _targetId : null,
           participantIds: _requiresParticipants ? _selectedParticipants.toList() : [],
-          note: _noteController.text.trim(),
+          note: finalNote,
           timestamp: nowIso,
         );
 
         if (existing != null) {
           pushed = await ref.read(appStateProvider.notifier).updateTransaction(
                 tx,
-                message: 'Edit ${_type.name} transaction (${tx.id})',
+                message: commitMessage,
               );
         } else {
           pushed = await ref.read(appStateProvider.notifier).addTransaction(
                 tx,
-                message: 'Add ${_type.name} transaction (${tx.id})',
+                message: commitMessage,
               );
         }
       }

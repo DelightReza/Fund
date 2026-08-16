@@ -27,6 +27,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _currentIndex = 0;
+  String? _selectedCategoryFilter;
 
   @override
   void initState() {
@@ -208,61 +209,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onTapRepo: kIsWeb ? () {} : () => _showRepoSwitcherBottomSheet(context, ref),
           ),
           const SizedBox(height: 16),
-          if (bills.isNotEmpty) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.pie_chart_outline, size: 20),
-                        const SizedBox(width: 8),
-                        Text('Expenses by Category', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    ...bills.entries.map((entry) {
-                      final matched = appState.config.billTypes.where((e) => e.id == entry.key).toList();
-                      final type = matched.isEmpty ? null : matched.first;
-                      final name = '${type?.icon ?? '🧾'} ${type?.name ?? entry.key}';
-                      final amount = entry.value;
-                      final proportion = totals.debits > 0 ? amount / totals.debits : 0.0;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                Text(
-                                  FormatUtils.currency(amount, appState.config.currency),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            LinearProgressIndicator(
-                              value: proportion,
-                              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                              color: Theme.of(context).colorScheme.primary,
-                              minHeight: 8,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -275,11 +221,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             itemCount: appState.config.people.length,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 200,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
-              childAspectRatio: 1.5,
+              mainAxisExtent: 100,
             ),
             itemBuilder: (context, index) {
               final person = appState.config.people[index];
@@ -292,6 +238,74 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
           ),
           const SizedBox(height: 16),
+          if (bills.isNotEmpty) ...[
+            Text('Expenses by Category', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 100,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                children: bills.entries.map((entry) {
+                  final matched = appState.config.billTypes.where((e) => e.id == entry.key).toList();
+                  final type = matched.isEmpty ? null : matched.first;
+                  final name = '${type?.icon ?? '🧾'} ${type?.name ?? entry.key}';
+                  final amount = entry.value;
+                  final isSelected = _selectedCategoryFilter == entry.key;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          setState(() {
+                            if (_selectedCategoryFilter == entry.key) {
+                              _selectedCategoryFilter = null;
+                            } else {
+                              _selectedCategoryFilter = entry.key;
+                            }
+                          });
+                        },
+                        child: Ink(
+                          width: 140,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isSelected 
+                                ? Theme.of(context).colorScheme.primaryContainer 
+                                : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const Spacer(),
+                              Text(
+                                FormatUtils.currency(amount, appState.config.currency),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -303,7 +317,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          ...appState.data.transactions.take(8).map(
+          ...appState.data.transactions.where((tx) {
+            if (_selectedCategoryFilter == null) return true;
+            if (tx.targetId == _selectedCategoryFilter || tx.actorId == _selectedCategoryFilter) return true;
+            final children = appState.data.transactions.where((child) => child.parentId == tx.id);
+            if (children.any((child) => child.targetId == _selectedCategoryFilter || child.actorId == _selectedCategoryFilter)) {
+              return true;
+            }
+            return false;
+          }).take(8).map(
                 (tx) => TransactionCard(
                   transaction: tx,
                   currency: appState.config.currency,

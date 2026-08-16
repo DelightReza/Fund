@@ -64,7 +64,7 @@ class Calculations {
       }
     }
 
-    return balances;
+    return balances.map((key, value) => MapEntry(key, double.parse(value.toStringAsFixed(2))));
   }
 
   static double impactForMember(Transaction tx, String memberId, {List<String>? activeIds}) {
@@ -106,7 +106,7 @@ class Calculations {
         totals[key] = (totals[key] ?? 0.0) + tx.amount;
       }
     }
-    return totals;
+    return totals.map((key, value) => MapEntry(key, double.parse(value.toStringAsFixed(2))));
   }
 
   static List<Settlement> calculateDebtSettlements(Map<String, double> balances) {

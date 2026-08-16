@@ -32,6 +32,17 @@ class TransactionCard extends StatelessWidget {
     // settlements and transfers as plain `credit` rows with a *signed*
     // amount (negative = money left this person). Detect that case so we
     // don't mislabel an outgoing leg as an incoming "Deposit".
+    final dateStr = AppDateUtils.formatDate(transaction.timestamp);
+    final noteText = transaction.note.trim();
+
+    String resolveBillName() {
+      final name = billNameResolver(transaction.targetId ?? '-');
+      if (name.toLowerCase().contains('other') && noteText.isNotEmpty) {
+        return noteText;
+      }
+      return name;
+    }
+
     final isOutgoingCreditLeg = transaction.type == TransactionType.credit && transaction.amount < 0;
 
     final (IconData icon, Color iconBg, Color amountColor, String title, String prefix) = switch (transaction.type) {
@@ -53,14 +64,14 @@ class TransactionCard extends StatelessWidget {
           Icons.arrow_upward_rounded,
           AppColors.rose100,
           AppColors.rose700,
-          'Fund Debit • ${billNameResolver(transaction.targetId ?? '-')}',
+          'Fund Debit • ${resolveBillName()}',
           '-',
         ),
       TransactionType.expense => (
           Icons.shopping_bag_outlined,
           Colors.amber.shade100,
           Colors.amber.shade900,
-          '${memberNameResolver(transaction.actorId ?? '-')} • ${billNameResolver(transaction.targetId ?? '-')}',
+          '${memberNameResolver(transaction.actorId ?? '-')} • ${resolveBillName()}',
           '-',
         ),
       TransactionType.distribution => (
@@ -86,8 +97,7 @@ class TransactionCard extends StatelessWidget {
         ),
     };
 
-    final dateStr = AppDateUtils.formatDate(transaction.timestamp);
-    final noteText = transaction.note.trim();
+    final bool notePromoted = title.contains(noteText) && noteText.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -139,7 +149,7 @@ class TransactionCard extends StatelessWidget {
                             fontSize: 12,
                           ),
                         ),
-                        if (noteText.isNotEmpty) ...[
+                        if (noteText.isNotEmpty && !notePromoted) ...[
                           Text(
                             ' • ',
                             style: TextStyle(color: theme.colorScheme.onSurfaceVariant),

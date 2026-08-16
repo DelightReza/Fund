@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../models/config.dart';
 import '../models/fund_data.dart';
@@ -431,18 +432,70 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   Future<bool> deleteTransaction(String id) async {
-    // If target transaction has a parentId, delete all transactions with that same parentId
     final target = state.data.transactions.where((tx) => tx.id == id).toList();
-    final parentId = target.isNotEmpty ? target.first.parentId : null;
+    if (target.isEmpty) return false;
+    
+    final targetTx = target.first;
+    final parentId = targetTx.parentId;
+    final currency = state.config.currency;
+    
+    String getPersonName(String? id) {
+      if (id == null) return 'Unknown';
+      final match = state.config.people.where((p) => p.id == id).toList();
+      return match.isNotEmpty ? match.first.name : id;
+    }
+    
+    String getBillTypeName(String? id) {
+      if (id == null) return 'Unknown';
+      final match = state.config.billTypes.where((b) => b.id == id).toList();
+      return match.isNotEmpty ? match.first.name : id;
+    }
 
     final List<Transaction> updatedTx;
     final String msg;
+
     if (parentId != null && parentId.isNotEmpty) {
+      final group = state.data.transactions.where((tx) => tx.parentId == parentId || tx.id == parentId).toList();
+      if (group.any((t) => t.type == TransactionType.credit) && group.any((t) => t.type == TransactionType.debit)) {
+        if (group.length > 2 && group.any((t) => t.type == TransactionType.expense || t.type == TransactionType.debit)) {
+          final creditTx = group.firstWhere((t) => t.type == TransactionType.credit || t.type == TransactionType.expense);
+          final debitTx = group.firstWhere((t) => t.type == TransactionType.debit);
+          final personName = getPersonName(creditTx.actorId ?? creditTx.targetId);
+          final billName = getBillTypeName(debitTx.targetId ?? debitTx.actorId);
+          msg = 'Deleted Expense: $personName paid $currency${creditTx.amount} for $billName';
+        } else if (group.length == 2) {
+          final creditTx = group.firstWhere((t) => t.type == TransactionType.credit);
+          final debitTx = group.firstWhere((t) => t.type == TransactionType.debit);
+          
+          final positiveTx = creditTx.amount > 0 ? creditTx : debitTx;
+          final negativeTx = creditTx.amount < 0 ? creditTx : debitTx;
+          final fromName = getPersonName(negativeTx.actorId ?? negativeTx.targetId);
+          final toName = getPersonName(positiveTx.actorId ?? positiveTx.targetId);
+          
+          final typeName = (positiveTx.note?.toLowerCase().contains('settlement') ?? false) ? 'Settlement' : 'Transfer';
+          msg = 'Deleted $typeName: $fromName to $toName ($currency${positiveTx.amount.abs()})';
+        } else {
+          final total = group.fold(0.0, (sum, t) => sum + t.amount.abs()) / 2;
+          msg = 'Deleted Group Transaction ($currency$total)';
+        }
+      } else if (group.any((t) => t.type == TransactionType.distribution)) {
+          final distTx = group.firstWhere((t) => t.distributionTotal != null, orElse: () => group.first);
+          final total = distTx.distributionTotal ?? (group.fold(0.0, (sum, t) => sum + t.amount.abs()) / 2);
+          msg = 'Deleted Distribution ($currency$total)';
+      } else {
+          final total = group.fold(0.0, (sum, t) => sum + t.amount.abs()) / 2;
+          msg = 'Deleted Group Transaction ($currency$total)';
+      }
       updatedTx = state.data.transactions.where((tx) => tx.parentId != parentId && tx.id != parentId).toList();
-      msg = 'Delete grouped transaction ($parentId)';
     } else {
+      if (targetTx.type == TransactionType.credit) {
+        msg = 'Deleted Credit: ${getPersonName(targetTx.actorId)} ($currency${targetTx.amount})';
+      } else if (targetTx.type == TransactionType.debit || targetTx.type == TransactionType.expense) {
+        msg = 'Deleted Debit: ${getBillTypeName(targetTx.targetId)} ($currency${targetTx.amount})';
+      } else {
+        msg = 'Deleted Transaction: $currency${targetTx.amount}';
+      }
       updatedTx = state.data.transactions.where((tx) => tx.id != id).toList();
-      msg = 'Delete transaction ($id)';
     }
 
     return await _saveAndUpdateData(updatedTx, state.config, msg);
@@ -451,7 +504,31 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> updateConfig(AppConfig newConfig) async {
     final storage = ref.read(storageProvider);
     await storage.saveConfig(newConfig);
-    return await _saveAndUpdateData(state.data.transactions, newConfig, 'Update configuration');
+    
+    final dateStr = DateFormat('M/d/yyyy, h:mm:ss a').format(DateTime.now());
+    
+    bool dataPushed = await _saveAndUpdateData(state.data.transactions, newConfig, 'Update fund data - $dateStr');
+
+    if (state.token != null && state.token!.isNotEmpty && newConfig.hasRepository) {
+      try {
+        state = state.copyWith(syncing: true, error: null);
+        final github = GitHubService(
+          owner: newConfig.repoOwner,
+          repo: newConfig.repoName,
+          branch: newConfig.repoBranch,
+          dataFileName: newConfig.dataFileName,
+          token: state.token,
+        );
+        await github.commitConfig(newConfig, message: 'Update config - $dateStr');
+        state = state.copyWith(syncing: false, error: null);
+      } catch (e) {
+        final errMessage = e.toString().replaceAll('Exception: ', '');
+        state = state.copyWith(syncing: false, error: 'Push config failed: $errMessage');
+        return false;
+      }
+    }
+
+    return dataPushed;
   }
 
   Future<bool> _saveAndUpdateData(List<Transaction> transactions, AppConfig config, String message) async {

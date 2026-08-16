@@ -348,7 +348,37 @@ class GitHubService {
     while (attempt < maxAttempts) {
       attempt++;
       final sha = await _getFileSha(path);
-      final rawJson = const JsonEncoder.withIndent('  ').convert(payload);
+      
+      var rawJson = const JsonEncoder.withIndent('  ').convert(payload);
+      
+      // Format flat arrays (like splitAmong) to single line
+      rawJson = rawJson.replaceAllMapped(RegExp(r'\[\n\s+([^\[\]]+?)\n\s+\]'), (m) {
+        final inner = m.group(1)!;
+        if (!inner.contains('{')) {
+          final singleLine = inner.replaceAll(RegExp(r'\n\s+'), ' ');
+          return '[$singleLine]';
+        }
+        return m.group(0)!;
+      });
+
+      // Format empty string arrays
+      rawJson = rawJson.replaceAll(RegExp(r'\[\n\s+\]'), '[]');
+
+      // Format Person objects in config to single line
+      rawJson = rawJson.replaceAllMapped(RegExp(r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"active":\s*(?:true|false)\n\s+\}'), (m) {
+        return m.group(0)!.replaceAll(RegExp(r'\n\s+'), ' ');
+      });
+
+      // Format BillType objects in config to single line
+      rawJson = rawJson.replaceAllMapped(RegExp(r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"icon":\s*"[^"]+"\n\s+\}'), (m) {
+        return m.group(0)!.replaceAll(RegExp(r'\n\s+'), ' ');
+      });
+      
+      // Ensure the file ends with a trailing newline
+      if (!rawJson.endsWith('\n')) {
+        rawJson += '\n';
+      }
+
       final body = <String, dynamic>{
         'message': message,
         'content': base64Encode(utf8.encode(rawJson)),
