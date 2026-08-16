@@ -101,10 +101,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, color: Colors.red),
-                              onPressed: () {
-                                setState(() {
-                                  _people.removeAt(index);
-                                });
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Remove this person?'),
+                                    content: const Text(
+                                        'Historical data will still exist but won\'t be linked directly in dropdowns.'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                      FilledButton(
+                                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                        onPressed: () => Navigator.pop(context, true),
+                                        child: const Text('Remove'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  setState(() {
+                                    _people.removeAt(index);
+                                  });
+                                }
                               },
                             ),
                           ],
@@ -135,10 +153,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         subtitle: Text(bill.id),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () {
-                            setState(() {
-                              _billTypes.removeAt(index);
-                            });
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Remove this bill category?'),
+                                content: const Text('Existing transactions using this category will keep their data, but it will disappear from pickers.'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Remove'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              setState(() {
+                                _billTypes.removeAt(index);
+                              });
+                            }
                           },
                         ),
                       );
@@ -160,63 +195,120 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   );
 }
 
+  /// Matches the slugification used by the TypeScript web app and the
+  /// Kotlin app's expectations for member/bill-type ids, so ids generated
+  /// here stay consistent with ids created by the other clients against
+  /// the same shared config.json.
+  String _slugify(String input) {
+    final lower = input.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+    return lower.replaceAll(RegExp(r'[^a-z0-9_]'), '');
+  }
+
   Future<void> _addMember() async {
-    final idCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
+    String? errorText;
+
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Member'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: idCtrl, decoration: const InputDecoration(labelText: 'ID (e.g. johndoe)')),
-            const SizedBox(height: 12),
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Display Name')),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Member'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: InputDecoration(labelText: 'Display Name', errorText: errorText),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) {
+                  setDialogState(() => errorText = 'Name is required');
+                  return;
+                }
+                final id = _slugify(name);
+                final duplicate = _people.any((p) => p.id == id || p.name.toLowerCase() == name.toLowerCase());
+                if (id.isEmpty || duplicate) {
+                  setDialogState(() => errorText = 'Person already exists');
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              child: const Text('Add'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add')),
-        ],
       ),
     );
 
-    if (result == true && idCtrl.text.isNotEmpty && nameCtrl.text.isNotEmpty) {
+    if (result == true && nameCtrl.text.trim().isNotEmpty) {
+      final name = nameCtrl.text.trim();
       setState(() {
-        _people.add(MemberConfig(id: idCtrl.text.trim(), name: nameCtrl.text.trim()));
+        _people.add(MemberConfig(id: _slugify(name), name: name));
       });
     }
   }
 
   Future<void> _addBillType() async {
-    final idCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
     final iconCtrl = TextEditingController(text: '🧾');
+    String? errorText;
+
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Bill Type'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: idCtrl, decoration: const InputDecoration(labelText: 'ID (e.g. internet)')),
-            const SizedBox(height: 12),
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name')),
-            const SizedBox(height: 12),
-            TextField(controller: iconCtrl, decoration: const InputDecoration(labelText: 'Emoji Icon')),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Bill Type'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: iconCtrl,
+                decoration: const InputDecoration(labelText: 'Emoji Icon'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: InputDecoration(labelText: 'Bill Type Name', errorText: errorText),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) {
+                  setDialogState(() => errorText = 'Name is required');
+                  return;
+                }
+                final id = _slugify(name);
+                final duplicate = _billTypes.any((b) => b.id == id || b.name.toLowerCase() == name.toLowerCase());
+                if (id.isEmpty || duplicate) {
+                  setDialogState(() => errorText = 'Bill type already exists');
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              child: const Text('Add'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add')),
-        ],
       ),
     );
 
-    if (result == true && idCtrl.text.isNotEmpty && nameCtrl.text.isNotEmpty) {
+    if (result == true && nameCtrl.text.trim().isNotEmpty) {
+      final name = nameCtrl.text.trim();
+      final icon = iconCtrl.text.trim().isEmpty ? '🧾' : iconCtrl.text.trim();
       setState(() {
-        _billTypes.add(BillTypeConfig(id: idCtrl.text.trim(), name: nameCtrl.text.trim(), icon: iconCtrl.text.trim()));
+        _billTypes.add(BillTypeConfig(id: _slugify(name), name: name, icon: icon));
       });
     }
   }

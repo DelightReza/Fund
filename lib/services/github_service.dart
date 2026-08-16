@@ -294,11 +294,21 @@ class GitHubService {
     await _commitJsonFile(path: dataFileName, payload: data.toJson(), message: message);
   }
 
+  /// The branch to read/write via the Contents API. GitHub's Contents API
+  /// silently falls back to the repo's *default* branch whenever no
+  /// explicit branch/ref is given, regardless of what's configured here.
+  /// Always resolve to a concrete value so reads/writes never drift onto
+  /// the wrong branch.
+  String get _effectiveBranch => branch.trim().isEmpty ? 'main' : branch.trim();
+
   Future<Map<String, dynamic>> _getRepoFile(String path) async {
-    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path');
+    final uri = Uri.parse(
+      'https://api.github.com/repos/$owner/$repo/contents/$path'
+      '?ref=${Uri.encodeQueryComponent(_effectiveBranch)}',
+    );
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode != 200) {
-      throw Exception('Unable to fetch $path (${response.statusCode})');
+      throw Exception('Unable to fetch $path on branch $_effectiveBranch (${response.statusCode})');
     }
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -309,7 +319,10 @@ class GitHubService {
 
   Future<String?> _getFileSha(String path) async {
     try {
-      final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path');
+      final uri = Uri.parse(
+        'https://api.github.com/repos/$owner/$repo/contents/$path'
+        '?ref=${Uri.encodeQueryComponent(_effectiveBranch)}',
+      );
       final response = await http.get(uri, headers: _headers);
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -327,6 +340,7 @@ class GitHubService {
   }) async {
     _assertToken();
     final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path');
+    final targetBranch = _effectiveBranch;
 
     int attempt = 0;
     int backoffMs = 400;
@@ -338,6 +352,7 @@ class GitHubService {
       final body = <String, dynamic>{
         'message': message,
         'content': base64Encode(utf8.encode(rawJson)),
+        'branch': targetBranch,
         if (sha != null && sha.isNotEmpty) 'sha': sha,
       };
 
@@ -377,4 +392,3 @@ class GitHubService {
     }
   }
 }
-
