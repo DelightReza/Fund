@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -323,14 +324,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResetCommitScreen())),
           ),
         ],
-        ListTile(
-          leading: const Icon(Icons.person_remove),
-          title: const Text('Switch user'),
-          onTap: () {
-            ref.read(appStateProvider.notifier).logoutUser();
-            Navigator.of(context).pop();
-          },
-        ),
+        if (!kIsWeb)
+          ListTile(
+            leading: const Icon(Icons.person_remove),
+            title: const Text('Switch user'),
+            onTap: () {
+              ref.read(appStateProvider.notifier).logoutUser();
+              Navigator.of(context).pop();
+            },
+          ),
         ListTile(
           leading: const Icon(Icons.delete_forever, color: Colors.red),
           title: const Text('Clear local cache & restart', style: TextStyle(color: Colors.red)),

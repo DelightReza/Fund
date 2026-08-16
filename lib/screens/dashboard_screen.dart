@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -44,50 +45,96 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final currentUserId = appState.userId ?? (appState.config.people.isNotEmpty ? appState.config.people.first.id : '');
 
+    // On Android, show Profile tab bound to active user. On Web, omit Profile tab (accessed via member cards).
     final pages = [
       _buildOverviewTab(context, appState, balances, totals, bills, settlements, hasToken),
       if (hasToken) const AuthGuard(child: AdminScreen()),
-      ProfileScreen(memberId: currentUserId),
+      if (!kIsWeb) ProfileScreen(memberId: currentUserId),
+    ];
+
+    final destinations = [
+      const NavigationDestination(
+        icon: Icon(Icons.dashboard_outlined),
+        selectedIcon: Icon(Icons.dashboard),
+        label: 'Overview',
+      ),
+      if (hasToken)
+        const NavigationDestination(
+          icon: Icon(Icons.admin_panel_settings_outlined),
+          selectedIcon: Icon(Icons.admin_panel_settings),
+          label: 'Admin',
+        ),
+      if (!kIsWeb)
+        const NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person),
+          label: 'Profile',
+        ),
     ];
 
     final safeIndex = _currentIndex.clamp(0, pages.length - 1);
 
     return Scaffold(
       appBar: AppBar(
-        title: InkWell(
-          onTap: () => _showRepoSwitcherBottomSheet(context, ref),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      appState.config.siteTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                    ),
+        title: kIsWeb
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    appState.config.siteTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  if (appState.config.repoOwner.isNotEmpty && appState.config.repoName.isNotEmpty)
                     Text(
                       '${appState.config.repoOwner}/${appState.config.repoName}',
                       style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
-                  ],
+                ],
+              )
+            : InkWell(
+                onTap: () => _showRepoSwitcherBottomSheet(context, ref),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            appState.config.siteTitle,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                          Text(
+                            '${appState.config.repoOwner}/${appState.config.repoName}',
+                            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_drop_down, size: 20),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.arrow_drop_down, size: 20),
-              ],
-            ),
-          ),
-        ),
+              ),
         actions: [
           IconButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen())),
-            icon: const Icon(Icons.source_outlined),
-            tooltip: 'Repositories',
+            onPressed: () => _showTokenDialog(context, ref),
+            icon: Icon(
+              hasToken ? Icons.admin_panel_settings : Icons.admin_panel_settings_outlined,
+              color: hasToken ? Theme.of(context).colorScheme.primary : null,
+            ),
+            tooltip: hasToken ? 'Admin Access Active' : 'Admin Authentication',
           ),
+          if (!kIsWeb)
+            IconButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen())),
+              icon: const Icon(Icons.source_outlined),
+              tooltip: 'Repositories',
+            ),
           IconButton(
             onPressed: () {
               final currentMode = ref.read(themeModeProvider);
@@ -110,34 +157,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           IconButton(
             onPressed: appState.syncing ? null : () => ref.read(appStateProvider.notifier).syncNow(),
             icon: appState.syncing
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.sync),
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.sync),
             tooltip: 'Sync with GitHub',
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: safeIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Overview',
-          ),
-          if (hasToken)
-            const NavigationDestination(
-              icon: Icon(Icons.admin_panel_settings_outlined),
-              selectedIcon: Icon(Icons.admin_panel_settings),
-              label: 'Admin',
-            ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      bottomNavigationBar: destinations.length > 1
+          ? NavigationBar(
+              selectedIndex: safeIndex,
+              onDestinationSelected: (index) => setState(() => _currentIndex = index),
+              destinations: destinations,
+            )
+          : null,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
         icon: const Icon(Icons.add),
@@ -336,6 +368,139 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  void _showTokenDialog(BuildContext context, WidgetRef ref) {
+    final currentToken = ref.read(appStateProvider).token ?? '';
+    final controller = TextEditingController(text: currentToken);
+    bool isVerifying = false;
+    String? errorMessage;
+
+    showDialog(
+      context: context,
+      barrierDismissible: !isVerifying,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isCurrentlyAuthenticated = currentToken.isNotEmpty;
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  isCurrentlyAuthenticated ? Icons.verified_user : Icons.admin_panel_settings_outlined,
+                  color: isCurrentlyAuthenticated ? Theme.of(context).colorScheme.primary : null,
+                ),
+                const SizedBox(width: 8),
+                Text(isCurrentlyAuthenticated ? 'Admin Authentication' : 'GitHub Admin Access'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isCurrentlyAuthenticated
+                        ? 'Your GitHub Token is authenticated and verified for repository access.'
+                        : 'Enter a GitHub Personal Access Token (PAT) with repo access to unlock Admin controls.',
+                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    enabled: !isVerifying,
+                    decoration: InputDecoration(
+                      labelText: 'Personal Access Token',
+                      hintText: 'ghp_...',
+                      prefixIcon: const Icon(Icons.key),
+                      errorText: errorMessage,
+                      suffixIcon: isVerifying
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                            )
+                          : null,
+                    ),
+                    obscureText: true,
+                  ),
+                  if (isCurrentlyAuthenticated) ...[
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: isVerifying
+                          ? null
+                          : () async {
+                              setDialogState(() {
+                                isVerifying = true;
+                                errorMessage = null;
+                              });
+                              try {
+                                await ref.read(appStateProvider.notifier).setToken(null);
+                                if (ctx.mounted) {
+                                  Navigator.pop(ctx);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Logged out of Admin session')),
+                                  );
+                                }
+                              } catch (e) {
+                                setDialogState(() {
+                                  errorMessage = e.toString();
+                                  isVerifying = false;
+                                });
+                              }
+                            },
+                      icon: const Icon(Icons.logout, color: Colors.red),
+                      label: const Text('Remove Token / Log Out', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isVerifying ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: isVerifying
+                    ? null
+                    : () async {
+                        final token = controller.text.trim();
+                        if (token.isEmpty) {
+                          setDialogState(() => errorMessage = 'Please enter a token');
+                          return;
+                        }
+
+                        setDialogState(() {
+                          isVerifying = true;
+                          errorMessage = null;
+                        });
+
+                        try {
+                          await ref.read(appStateProvider.notifier).setToken(token);
+                          await ref.read(appStateProvider.notifier).syncNow();
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('GitHub repository access verified successfully!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setDialogState(() {
+                            isVerifying = false;
+                            errorMessage = 'Verification failed: Make sure token has repo access to this repository.';
+                          });
+                        }
+                      },
+                child: Text(isVerifying ? 'Verifying...' : 'Verify & Unlock'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildLockedAdminTab(BuildContext context) {
     return Center(
       child: Padding(
@@ -351,13 +516,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Please add and verify a GitHub Personal Access Token (PAT) in the settings to access admin features.',
+              'Please add and verify a GitHub Personal Access Token (PAT) in settings to access admin features.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen())),
+              onPressed: () {
+                if (kIsWeb) {
+                  _showTokenDialog(context, ref);
+                } else {
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen()));
+                }
+              },
               icon: const Icon(Icons.vpn_key),
               label: const Text('Add Token'),
             ),

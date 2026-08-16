@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,7 +15,7 @@ class AuthGuard extends ConsumerWidget {
     required this.child,
     this.fallback,
     this.title = 'Admin Access Required',
-    this.message = 'A valid GitHub Personal Access Token (PAT) is required to access administrative controls and repository management.',
+    this.message = 'A valid GitHub Personal Access Token (PAT) is required to access administrative controls.',
     this.onAuthenticated,
   });
 
@@ -23,6 +24,49 @@ class AuthGuard extends ConsumerWidget {
   final String title;
   final String message;
   final VoidCallback? onAuthenticated;
+
+  void _showTokenDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController(text: ref.read(appStateProvider).token ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter GitHub PAT'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Provide a Personal Access Token with repo scope to authenticate for administrative actions.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Personal Access Token',
+                hintText: 'ghp_...',
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final token = controller.text.trim();
+              if (token.isNotEmpty) {
+                await ref.read(appStateProvider.notifier).setToken(token);
+                ref.read(appStateProvider.notifier).syncNow();
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save & Authenticate'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -91,11 +135,15 @@ class AuthGuard extends ConsumerWidget {
                     const SizedBox(height: 24),
                     FilledButton.icon(
                       onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const RepoSelectionScreen(),
-                          ),
-                        );
+                        if (kIsWeb) {
+                          _showTokenDialog(context, ref);
+                        } else {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const RepoSelectionScreen(),
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.vpn_key_outlined),
                       label: const Text('Authenticate with Token'),
