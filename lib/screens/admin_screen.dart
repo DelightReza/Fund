@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../models/transaction.dart';
 import '../utils/format_utils.dart';
+import '../widgets/auth_guard.dart';
 import 'add_transaction_screen.dart';
 import 'reset_commit_screen.dart';
 import 'settings_screen.dart';
@@ -42,23 +43,25 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       return matched.isEmpty ? id : matched.first.name;
     }
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Admin Panel'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Controls'),
-              Tab(text: 'Balances'),
+    return AuthGuard(
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Admin Panel'),
+            bottom: const TabBar(
+              tabs: [
+                Tab(text: 'Controls'),
+                Tab(text: 'Balances'),
+              ],
+            ),
+          ),
+          body: TabBarView(
+            children: [
+              _buildControlsTab(context, appState, ref),
+              _buildBalancesTab(context, appState, balances, settlements, resolveMember),
             ],
           ),
-        ),
-        body: TabBarView(
-          children: [
-            _buildControlsTab(context, appState, ref),
-            _buildBalancesTab(context, appState, balances, settlements, resolveMember),
-          ],
         ),
       ),
     );

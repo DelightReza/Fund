@@ -151,14 +151,29 @@ class AppNotifier extends StateNotifier<AppState> {
           config = localConfig;
           data = localData;
         }
+
+        final activeRepo = savedRepos.firstWhere(
+          (r) => r.owner == config.repoOwner && r.repo == config.repoName,
+          orElse: () => savedRepos.isNotEmpty ? savedRepos.first : SavedRepo(
+            id: '${config.repoOwner}/${config.repoName}',
+            owner: config.repoOwner,
+            repo: config.repoName,
+            branch: config.repoBranch,
+            dataFileName: config.dataFileName,
+            token: token,
+          ),
+        );
+
+        final activeToken = activeRepo.token ?? token;
+
         state = state.copyWith(
           stage: LaunchStage.dashboard,
           config: config,
           data: data,
           savedRepos: savedRepos,
-          token: null,
+          token: activeToken,
           userId: userId,
-          pendingCount: 0,
+          pendingCount: pending,
           error: null,
         );
         return;
@@ -597,6 +612,15 @@ final totalsProvider = Provider<({double credits, double debits})>((ref) {
 final billTotalsProvider = Provider<Map<String, double>>((ref) {
   final data = ref.watch(appStateProvider.select((s) => s.data));
   return Calculations.calculateBillTotals(data);
+});
+
+final authSessionTokenProvider = Provider<String?>((ref) {
+  return ref.watch(appStateProvider.select((s) => s.token));
+});
+
+final isAuthenticatedProvider = Provider<bool>((ref) {
+  final token = ref.watch(authSessionTokenProvider);
+  return token != null && token.trim().isNotEmpty;
 });
 
 Transaction createTransaction({

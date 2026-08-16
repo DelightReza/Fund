@@ -52,12 +52,15 @@ class Transaction {
     String? legacyActor;
     String? legacyTarget;
     if (parsedType == TransactionType.credit ||
+        parsedType == TransactionType.expense ||
         parsedType == TransactionType.transfer ||
         parsedType == TransactionType.settlement) {
-      legacyActor = (json['payerId'] ?? json['whoOrBill'])?.toString();
+      legacyActor = (json['actorId'] ?? json['payerId'] ?? json['paidBy'] ?? json['fromId'] ?? (parsedType == TransactionType.credit ? json['whoOrBill'] : null))?.toString();
     }
     if (parsedType == TransactionType.debit || parsedType == TransactionType.expense) {
-      legacyTarget = (json['billTypeId'] ?? json['whoOrBill'])?.toString();
+      legacyTarget = (json['targetId'] ?? json['billTypeId'] ?? json['whoOrBill'])?.toString();
+    } else if (parsedType == TransactionType.transfer || parsedType == TransactionType.settlement) {
+      legacyTarget = (json['targetId'] ?? json['payeeId'] ?? json['toId'])?.toString();
     }
 
     return Transaction(

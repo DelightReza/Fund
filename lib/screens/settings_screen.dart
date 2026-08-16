@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/config.dart';
 import '../providers/providers.dart';
+import '../widgets/auth_guard.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -41,11 +42,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+    return AuthGuard(
+      title: 'Configuration Settings',
+      message: 'A valid Personal Access Token is required to modify repository configuration and settings.',
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Settings')),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
           const Text('Basic Info', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 12),
           TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Site Title')),
@@ -70,41 +74,77 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Members', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              IconButton(onPressed: _addMember, icon: const Icon(Icons.add)),
+              TextButton.icon(onPressed: _addMember, icon: const Icon(Icons.person_add), label: const Text('Add Member')),
             ],
           ),
-          ..._people.asMap().entries.map((entry) {
-            final index = entry.key;
-            final person = entry.value;
-            return ListTile(
-              title: Text(person.name),
-              subtitle: Text(person.id),
-              trailing: Switch(
-                value: person.active,
-                onChanged: (val) {
-                  setState(() {
-                    _people[index] = person.copyWith(active: val);
-                  });
-                },
-              ),
-            );
-          }),
+          Card(
+            child: _people.isEmpty
+                ? const Padding(padding: EdgeInsets.all(16), child: Text('No members configured.'))
+                : Column(
+                    children: _people.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final person = entry.value;
+                      return ListTile(
+                        leading: CircleAvatar(child: Text(person.name.isNotEmpty ? person.name[0].toUpperCase() : '?')),
+                        title: Text(person.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(person.id),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Switch(
+                              value: person.active,
+                              onChanged: (val) {
+                                setState(() {
+                                  _people[index] = person.copyWith(active: val);
+                                });
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              onPressed: () {
+                                setState(() {
+                                  _people.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+          ),
           const SizedBox(height: 24),
 
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Bill Types', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              IconButton(onPressed: _addBillType, icon: const Icon(Icons.add)),
+              const Text('Bill Types / Categories', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              TextButton.icon(onPressed: _addBillType, icon: const Icon(Icons.add_circle_outline), label: const Text('Add Category')),
             ],
           ),
-          ..._billTypes.map((bill) {
-            return ListTile(
-              leading: Text(bill.icon, style: const TextStyle(fontSize: 24)),
-              title: Text(bill.name),
-              subtitle: Text(bill.id),
-            );
-          }),
+          Card(
+            child: _billTypes.isEmpty
+                ? const Padding(padding: EdgeInsets.all(16), child: Text('No bill types configured.'))
+                : Column(
+                    children: _billTypes.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final bill = entry.value;
+                      return ListTile(
+                        leading: Text(bill.icon, style: const TextStyle(fontSize: 24)),
+                        title: Text(bill.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(bill.id),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () {
+                            setState(() {
+                              _billTypes.removeAt(index);
+                            });
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+          ),
           const SizedBox(height: 32),
           FilledButton.icon(
             onPressed: _saving ? null : _saveSettings,
@@ -116,8 +156,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 32),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Future<void> _addMember() async {
     final idCtrl = TextEditingController();

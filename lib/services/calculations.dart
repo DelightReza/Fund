@@ -6,7 +6,7 @@ import '../models/transaction.dart';
 class Calculations {
   static Map<String, double> calculateBalances(FundData data, List<MemberConfig> members) {
     final balances = <String, double>{
-      for (final member in members) member.id: 0,
+      for (final member in members) member.id: 0.0,
     };
 
     final activeIds = members.where((m) => m.active).map((m) => m.id).toList();
@@ -15,7 +15,7 @@ class Calculations {
       switch (tx.type) {
         case TransactionType.credit:
           if (tx.actorId case final actor?) {
-            balances[actor] = (balances[actor] ?? 0) + tx.amount;
+            balances[actor] = (balances[actor] ?? 0.0) + tx.amount;
           }
           break;
         case TransactionType.debit:
@@ -23,18 +23,18 @@ class Calculations {
           if (participants.isEmpty) continue;
           final each = tx.amount / participants.length;
           for (final id in participants) {
-            balances[id] = (balances[id] ?? 0) - each;
+            balances[id] = (balances[id] ?? 0.0) - each;
           }
           break;
         case TransactionType.expense:
           if (tx.actorId case final actor?) {
-            balances[actor] = (balances[actor] ?? 0) + tx.amount;
+            balances[actor] = (balances[actor] ?? 0.0) + tx.amount;
           }
           final participants = _participants(tx, activeIds);
           if (participants.isEmpty) continue;
           final each = tx.amount / participants.length;
           for (final id in participants) {
-            balances[id] = (balances[id] ?? 0) - each;
+            balances[id] = (balances[id] ?? 0.0) - each;
           }
           break;
         case TransactionType.distribution:
@@ -42,23 +42,23 @@ class Calculations {
           if (participants.isEmpty) continue;
           final each = tx.amount / participants.length;
           for (final id in participants) {
-            balances[id] = (balances[id] ?? 0) + each;
+            balances[id] = (balances[id] ?? 0.0) + each;
           }
           break;
         case TransactionType.settlement:
           if (tx.actorId case final from?) {
-            balances[from] = (balances[from] ?? 0) + tx.amount;
+            balances[from] = (balances[from] ?? 0.0) + tx.amount;
           }
           if (tx.targetId case final to?) {
-            balances[to] = (balances[to] ?? 0) - tx.amount;
+            balances[to] = (balances[to] ?? 0.0) - tx.amount;
           }
           break;
         case TransactionType.transfer:
           if (tx.actorId case final from?) {
-            balances[from] = (balances[from] ?? 0) - tx.amount;
+            balances[from] = (balances[from] ?? 0.0) - tx.amount;
           }
           if (tx.targetId case final to?) {
-            balances[to] = (balances[to] ?? 0) + tx.amount;
+            balances[to] = (balances[to] ?? 0.0) + tx.amount;
           }
           break;
       }
@@ -67,12 +67,43 @@ class Calculations {
     return balances;
   }
 
+  static double impactForMember(Transaction tx, String memberId, {List<String>? activeIds}) {
+    final participants = _participants(tx, activeIds ?? const []);
+    switch (tx.type) {
+      case TransactionType.credit:
+        return tx.actorId == memberId ? tx.amount : 0.0;
+      case TransactionType.debit:
+        if (!participants.contains(memberId) || participants.isEmpty) return 0.0;
+        return -(tx.amount / participants.length);
+      case TransactionType.expense:
+        double impact = 0.0;
+        if (tx.actorId == memberId) {
+          impact += tx.amount;
+        }
+        if (participants.contains(memberId) && participants.isNotEmpty) {
+          impact -= (tx.amount / participants.length);
+        }
+        return impact;
+      case TransactionType.distribution:
+        if (!participants.contains(memberId) || participants.isEmpty) return 0.0;
+        return (tx.amount / participants.length);
+      case TransactionType.settlement:
+        if (tx.actorId == memberId) return tx.amount;
+        if (tx.targetId == memberId) return -tx.amount;
+        return 0.0;
+      case TransactionType.transfer:
+        if (tx.actorId == memberId) return -tx.amount;
+        if (tx.targetId == memberId) return tx.amount;
+        return 0.0;
+    }
+  }
+
   static Map<String, double> calculateBillTotals(FundData data) {
     final totals = <String, double>{};
     for (final tx in data.transactions) {
       if (tx.type == TransactionType.debit || tx.type == TransactionType.expense) {
         final key = tx.targetId ?? 'others';
-        totals[key] = (totals[key] ?? 0) + tx.amount;
+        totals[key] = (totals[key] ?? 0.0) + tx.amount;
       }
     }
     return totals;
@@ -115,10 +146,11 @@ class Calculations {
     var debits = 0.0;
 
     for (final tx in data.transactions) {
-      if (tx.type == TransactionType.credit || tx.type == TransactionType.expense || tx.type == TransactionType.distribution) {
+      if (tx.type == TransactionType.credit) {
         credits += tx.amount;
-      }
-      if (tx.type == TransactionType.debit || tx.type == TransactionType.expense) {
+      } else if (tx.type == TransactionType.debit ||
+          tx.type == TransactionType.expense ||
+          tx.type == TransactionType.distribution) {
         debits += tx.amount;
       }
     }

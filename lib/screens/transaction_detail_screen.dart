@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/transaction.dart';
 import '../providers/providers.dart';
+import '../services/calculations.dart';
 import '../utils/date_utils.dart';
 import '../utils/format_utils.dart';
 import '../widgets/receipt_modal.dart';
@@ -29,8 +30,13 @@ class TransactionDetailScreen extends ConsumerWidget {
     final tx = matchedTx.isEmpty ? null : matchedTx.first;
 
     if (tx == null) {
-      return const Scaffold(body: Center(child: Text('Transaction not found')));
+      return Scaffold(
+        appBar: AppBar(title: const Text('Transaction Detail')),
+        body: const Center(child: Text('Transaction not found or deleted.')),
+      );
     }
+
+    final activeIds = appState.config.people.where((m) => m.active).map((m) => m.id).toList();
 
     String resolveMember(String? id) {
       if (id == null || id.isEmpty) return '-';
@@ -47,7 +53,7 @@ class TransactionDetailScreen extends ConsumerWidget {
 
     double? impact;
     if (focusedMemberId != null) {
-      impact = _impactForMember(tx, focusedMemberId!);
+      impact = Calculations.impactForMember(tx, focusedMemberId!, activeIds: activeIds);
     }
 
     return Scaffold(
@@ -55,6 +61,7 @@ class TransactionDetailScreen extends ConsumerWidget {
         title: const Text('Transaction Detail'),
         actions: [
           IconButton(
+            tooltip: 'View Receipt',
             onPressed: () {
               showDialog(
                 context: context,
@@ -63,95 +70,175 @@ class TransactionDetailScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.receipt_long),
           ),
-          if (appState.token != null && appState.token!.isNotEmpty)
+          if (appState.token != null && appState.token!.isNotEmpty) ...[
             IconButton(
+              tooltip: 'Edit Transaction',
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => AddTransactionScreen(existingTransaction: tx)),
-                ).then((_) {
-                  // Return to previous screen after edit
-                  if (context.mounted) Navigator.of(context).pop();
-                });
+                );
               },
-              icon: const Icon(Icons.edit),
+              icon: const Icon(Icons.edit_outlined),
             ),
+            IconButton(
+              tooltip: 'Delete Transaction',
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Delete Transaction?'),
+                    content: const Text('This will remove the transaction from the ledger. Continue?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm == true && context.mounted) {
+                  await ref.read(appStateProvider.notifier).deleteTransaction(tx.id);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transaction deleted.')));
+                    Navigator.of(context).pop();
+                  }
+                }
+              },
+            ),
+          ],
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           if (focusedMemberId != null) ...[
-            ListTile(
-              tileColor: Theme.of(context).colorScheme.primaryContainer,
-              title: Text('Impact on ${resolveMember(focusedMemberId)}'),
-              trailing: Text(
-                FormatUtils.currency(impact ?? 0.0, appState.config.currency),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            Card(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Impact on ${resolveMember(focusedMemberId)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                        Text(
+                          '${(impact ?? 0) >= 0 ? "+" : ""}${FormatUtils.currency(impact ?? 0.0, appState.config.currency)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (runningBalanceBefore != null && runningBalanceAfter != null) ...[
+                      const Divider(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Balance Before', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onPrimaryContainer)),
+                          Text(
+                            FormatUtils.currency(runningBalanceBefore!, appState.config.currency),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Balance After', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onPrimaryContainer)),
+                          Text(
+                            FormatUtils.currency(runningBalanceAfter!, appState.config.currency),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            if (runningBalanceBefore != null && runningBalanceAfter != null) ...[
-              ListTile(
-                tileColor: Theme.of(context).colorScheme.secondaryContainer,
-                title: const Text('Balance Before'),
-                trailing: Text(
-                  FormatUtils.currency(runningBalanceBefore!, appState.config.currency),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-              ListTile(
-                tileColor: Theme.of(context).colorScheme.secondaryContainer,
-                title: const Text('Balance After'),
-                trailing: Text(
-                  FormatUtils.currency(runningBalanceAfter!, appState.config.currency),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-            ],
             const SizedBox(height: 16),
           ],
-          ListTile(title: const Text('ID'), subtitle: SelectableText(tx.id)),
-          ListTile(title: const Text('Type'), subtitle: Text(tx.type.name.toUpperCase())),
-          ListTile(
-            title: const Text('Amount'),
-            subtitle: Text(FormatUtils.currency(tx.amount, appState.config.currency)),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('Amount', style: TextStyle(fontWeight: FontWeight.bold)),
+                  trailing: Text(
+                    FormatUtils.currency(tx.amount, appState.config.currency),
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  title: const Text('Type'),
+                  trailing: Chip(
+                    label: Text(tx.type.name.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                ListTile(title: const Text('Date & Time'), subtitle: Text(AppDateUtils.formatDateTime(tx.timestamp))),
+                if (tx.actorId != null && tx.actorId!.isNotEmpty)
+                  ListTile(
+                    title: Text(tx.type == TransactionType.expense ? 'Paid Out of Pocket By' : (tx.type == TransactionType.credit ? 'Deposited By' : 'From / Payer')),
+                    subtitle: Text(resolveMember(tx.actorId), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                if (tx.targetId != null && tx.targetId!.isNotEmpty)
+                  ListTile(
+                    title: Text((tx.type == TransactionType.debit || tx.type == TransactionType.expense) ? 'Category / Bill' : 'To / Recipient'),
+                    subtitle: Text(
+                      (tx.type == TransactionType.debit || tx.type == TransactionType.expense)
+                          ? resolveBill(tx.targetId)
+                          : resolveMember(tx.targetId),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                if (tx.note.isNotEmpty)
+                  ListTile(title: const Text('Note'), subtitle: Text(tx.note)),
+                ListTile(title: const Text('Transaction ID'), subtitle: SelectableText(tx.id)),
+              ],
+            ),
           ),
-          ListTile(title: const Text('Date'), subtitle: Text(AppDateUtils.formatDateTime(tx.timestamp))),
-          ListTile(title: const Text('Actor'), subtitle: Text(resolveMember(tx.actorId))),
-          ListTile(
-            title: const Text('Target'),
-            subtitle: Text((tx.type.name == 'debit' || tx.type.name == 'expense')
-                ? resolveBill(tx.targetId)
-                : resolveMember(tx.targetId)),
-          ),
-          ListTile(
-            title: const Text('Participants'), 
-            subtitle: Text(tx.participantIds.map(resolveMember).join(', ')),
-          ),
-          ListTile(title: const Text('Note'), subtitle: Text(tx.note.isEmpty ? '-' : tx.note)),
+          if (tx.participantIds.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Participants & Split Breakdown (${tx.participantIds.length} members)',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: tx.participantIds.map((id) {
+                  final splitShare = tx.amount / tx.participantIds.length;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      radius: 14,
+                      child: Text(resolveMember(id).substring(0, 1).toUpperCase(), style: const TextStyle(fontSize: 12)),
+                    ),
+                    title: Text(resolveMember(id)),
+                    trailing: Text(
+                      FormatUtils.currency(splitShare, appState.config.currency),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
         ],
       ),
     );
-  }
-
-  double _impactForMember(Transaction tx, String memberId) {
-    switch (tx.type) {
-      case TransactionType.credit:
-        return tx.actorId == memberId ? tx.amount : 0;
-      case TransactionType.debit:
-      case TransactionType.expense:
-        if (!tx.participantIds.contains(memberId)) return 0;
-        return -(tx.amount / tx.participantIds.length);
-      case TransactionType.distribution:
-        if (!tx.participantIds.contains(memberId)) return 0;
-        return tx.amount / tx.participantIds.length;
-      case TransactionType.settlement:
-        if (tx.actorId == memberId) return tx.amount;
-        if (tx.targetId == memberId) return -tx.amount;
-        return 0;
-      case TransactionType.transfer:
-        if (tx.actorId == memberId) return -tx.amount;
-        if (tx.targetId == memberId) return tx.amount;
-        return 0;
-    }
   }
 }

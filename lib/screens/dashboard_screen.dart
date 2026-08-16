@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/connectivity_sync_manager.dart';
 import '../providers/providers.dart';
 import '../utils/format_utils.dart';
+import '../widgets/auth_guard.dart';
 import '../widgets/hero_balance_card.dart';
 import '../widgets/member_card.dart';
 import '../widgets/transaction_card.dart';
@@ -25,6 +27,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _currentIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Initialize background connectivity sync watcher
+    ref.read(connectivitySyncManagerProvider);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
     final balances = ref.watch(balancesProvider);
@@ -37,9 +46,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final pages = [
       _buildOverviewTab(context, appState, balances, totals, bills, settlements, hasToken),
-      hasToken ? const AdminScreen() : _buildLockedAdminTab(context),
+      if (hasToken) const AuthGuard(child: AdminScreen()),
       ProfileScreen(memberId: currentUserId),
     ];
+
+    final safeIndex = _currentIndex.clamp(0, pages.length - 1);
 
     return Scaffold(
       appBar: AppBar(
@@ -106,7 +117,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
+        selectedIndex: safeIndex,
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
         destinations: [
           const NavigationDestination(
@@ -114,11 +125,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             selectedIcon: Icon(Icons.dashboard),
             label: 'Overview',
           ),
-          NavigationDestination(
-            icon: Icon(hasToken ? Icons.admin_panel_settings_outlined : Icons.lock_outline),
-            selectedIcon: Icon(hasToken ? Icons.admin_panel_settings : Icons.lock),
-            label: 'Admin',
-          ),
+          if (hasToken)
+            const NavigationDestination(
+              icon: Icon(Icons.admin_panel_settings_outlined),
+              selectedIcon: Icon(Icons.admin_panel_settings),
+              label: 'Admin',
+            ),
           const NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
@@ -132,7 +144,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         label: const Text('New Entry'),
       ),
       body: IndexedStack(
-        index: _currentIndex,
+        index: safeIndex,
         children: pages,
       ),
     );

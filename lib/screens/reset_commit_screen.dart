@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
 import '../services/github_service.dart';
+import '../widgets/auth_guard.dart';
 
 class ResetCommitScreen extends ConsumerStatefulWidget {
   const ResetCommitScreen({super.key});
@@ -59,25 +60,29 @@ class _ResetCommitScreenState extends ConsumerState<ResetCommitScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Reset Commit')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : ListView.builder(
-                  itemCount: _commits.length,
-                  itemBuilder: (context, index) {
-                    final commit = _commits[index];
-                    final sha = (commit['sha'] ?? '').toString();
-                    final message = (commit['commit']?['message'] ?? '').toString();
-                    return ListTile(
-                      title: Text(message),
-                      subtitle: Text(sha),
-                      onTap: () => _confirmReset(sha),
-                    );
-                  },
-                ),
+    return AuthGuard(
+      title: 'Reset Remote Branch',
+      message: 'A valid Personal Access Token is required to inspect and reset remote Git commits.',
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Reset Commit')),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(child: Text(_error!))
+                : ListView.builder(
+                    itemCount: _commits.length,
+                    itemBuilder: (context, index) {
+                      final commit = _commits[index];
+                      final sha = (commit['sha'] ?? '').toString();
+                      final message = (commit['commit']?['message'] ?? '').toString();
+                      return ListTile(
+                        title: Text(message),
+                        subtitle: Text(sha),
+                        onTap: () => _confirmReset(sha),
+                      );
+                    },
+                  ),
+      ),
     );
   }
 

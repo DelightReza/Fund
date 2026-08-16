@@ -187,25 +187,44 @@ class GitHubService {
     required String path,
     required Map<String, dynamic> payload,
     required String message,
+    int maxAttempts = 3,
   }) async {
     _assertToken();
     final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path');
-    final sha = await _getFileSha(path);
-    final body = {
-      'message': message,
-      'content': base64Encode(utf8.encode(const JsonEncoder.withIndent('  ').convert(payload))),
-      'branch': branch,
-      if (sha != null) 'sha': sha,
-    };
 
-    final response = await http.put(
-      uri,
-      headers: {..._headers, 'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    );
+    int attempt = 0;
+    int backoffMs = 400;
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Commit failed for $path (${response.statusCode})');
+    while (attempt < maxAttempts) {
+      attempt++;
+      final sha = await _getFileSha(path);
+      final body = {
+        'message': message,
+        'content': base64Encode(utf8.encode(const JsonEncoder.withIndent('  ').convert(payload))),
+        'branch': branch,
+        if (sha != null) 'sha': sha,
+      };
+
+      final response = await http.put(
+        uri,
+        headers: {..._headers, 'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return;
+      }
+
+      // Handle 409 Conflict (remote SHA changed) or transient 5xx
+      if (response.statusCode == 409 && attempt < maxAttempts) {
+        await Future.delayed(Duration(milliseconds: backoffMs));
+        backoffMs *= 2;
+        continue;
+      }
+
+      if (attempt >= maxAttempts || (response.statusCode != 409 && response.statusCode != 500 && response.statusCode != 502 && response.statusCode != 503)) {
+        throw Exception('Commit failed for $path (${response.statusCode}): ${response.body}');
+      }
     }
   }
 
