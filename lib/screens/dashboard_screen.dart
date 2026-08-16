@@ -323,7 +323,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   void _showTokenDialog(BuildContext context, WidgetRef ref) {
-    final currentToken = ref.read(appStateProvider).token ?? '';
+    final appState = ref.read(appStateProvider);
+    final currentToken = appState.token ?? '';
     final controller = TextEditingController(text: currentToken);
     bool isVerifying = false;
     String? errorMessage;
