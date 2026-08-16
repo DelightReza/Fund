@@ -4,7 +4,7 @@ import 'package:fund/models/fund_data.dart';
 import 'package:fund/models/transaction.dart';
 
 void main() {
-  group('Models Serialization', () {
+  group('Models Serialization and Legacy Compatibility', () {
     test('AppConfig toJson and fromJson roundtrip', () {
       const config = AppConfig(
         siteTitle: 'My Fund',
@@ -42,6 +42,8 @@ void main() {
         participantIds: ['p1', 'p2'],
         note: 'Pizza night',
         timestamp: '2026-08-15T12:00:00Z',
+        parentId: 'parent_abc',
+        distributionTotal: 100.0,
       );
 
       final json = tx.toJson();
@@ -53,6 +55,41 @@ void main() {
       expect(parsed.targetId, 'food');
       expect(parsed.participantIds, ['p1', 'p2']);
       expect(parsed.note, 'Pizza night');
+      expect(parsed.parentId, 'parent_abc');
+      expect(parsed.distributionTotal, 100.0);
+    });
+
+    test('Legacy React and Kotlin JSON format compatibility', () {
+      final legacyExpense = {
+        'id': 'legacy_1',
+        'type': 'expense',
+        'amount': '75.50',
+        'date': '2026-08-10T12:00:00Z',
+        'payerId': 'user_1',
+        'billTypeId': 'electricity',
+        'splitAmong': ['user_1', 'user_2'],
+        'note': 'Power bill',
+      };
+
+      final parsed = Transaction.fromJson(legacyExpense);
+      expect(parsed.id, 'legacy_1');
+      expect(parsed.type, TransactionType.expense);
+      expect(parsed.amount, 75.50);
+      expect(parsed.actorId, 'user_1');
+      expect(parsed.targetId, 'electricity');
+      expect(parsed.participantIds, ['user_1', 'user_2']);
+
+      final legacyCredit = {
+        'id': 'legacy_2',
+        'type': 'credit',
+        'amount': 200,
+        'whoOrBill': 'user_3',
+        'timestamp': '2026-08-11T12:00:00Z',
+      };
+
+      final parsedCredit = Transaction.fromJson(legacyCredit);
+      expect(parsedCredit.actorId, 'user_3');
+      expect(parsedCredit.amount, 200.0);
     });
 
     test('FundData roundtrip', () {

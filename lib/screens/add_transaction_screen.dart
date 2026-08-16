@@ -49,18 +49,19 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   // Grouped expense state
   bool _isGroupedExpense = false;
   final List<_GroupedSubItem> _subItems = [];
+  String? _groupedParentId;
+  List<Transaction> _existingGroupedChildren = [];
 
   @override
   void initState() {
     super.initState();
     final existing = widget.existingTransaction;
-    final appConfig = ref.read(appStateProvider).config;
+    final appState = ref.read(appStateProvider);
+    final appConfig = appState.config;
     final activePeople = appConfig.people.where((p) => p.active).toList();
 
     if (existing != null) {
       _type = existing.type;
-      _amountController.text = existing.amount.toString();
-      _noteController.text = existing.note;
       _actorId = existing.actorId;
       _targetId = existing.targetId;
       _selectedParticipants.addAll(
@@ -68,6 +69,33 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           ? existing.participantIds 
           : activePeople.map((p) => p.id),
       );
+
+      // Check if this existing transaction is part of a grouped expense
+      final parentId = (existing.parentId != null && existing.parentId!.isNotEmpty) ? existing.parentId : null;
+      if (parentId != null) {
+        _groupedParentId = parentId;
+        final siblings = appState.data.transactions.where((t) => t.parentId == parentId).toList();
+        if (siblings.isNotEmpty) {
+          _existingGroupedChildren = siblings;
+          _isGroupedExpense = true;
+          final totalAmount = siblings.fold(0.0, (sum, t) => sum + t.amount);
+          _amountController.text = totalAmount.toStringAsFixed(2);
+          _noteController.text = siblings.first.note;
+          for (final s in siblings) {
+            _subItems.add(_GroupedSubItem(
+              amountController: TextEditingController(text: s.amount.toString()),
+              noteController: TextEditingController(text: s.note),
+              categoryId: s.targetId ?? (appConfig.billTypes.isNotEmpty ? appConfig.billTypes.first.id : 'others'),
+            ));
+          }
+        } else {
+          _amountController.text = existing.amount.toString();
+          _noteController.text = existing.note;
+        }
+      } else {
+        _amountController.text = existing.amount.toString();
+        _noteController.text = existing.note;
+      }
     } else {
       _type = widget.initialType ?? TransactionType.expense;
       if (activePeople.isNotEmpty) {
@@ -133,69 +161,75 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'Edit Transaction' : 'New Transaction Entry'),
+        title: Text(
+          isEdit 
+            ? (_isGroupedExpense ? 'Edit Grouped Expense' : 'Edit Transaction') 
+            : 'New Transaction Entry'
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            'TRANSACTION TYPE',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.1,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          if (!isEdit || !_isGroupedExpense) ...[
+            Text(
+              'TRANSACTION TYPE',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.1,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: TransactionType.values.map((t) {
-                final isSelected = _type == t;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(t.name.toUpperCase()),
-                    selected: isSelected,
-                    onSelected: (sel) {
-                      if (sel) {
-                        setState(() {
-                          _type = t;
-                          if (_type != TransactionType.expense) {
-                            _isGroupedExpense = false;
-                          }
-                          if (_requiresActor && (_actorId == null || _actorId!.isEmpty)) {
-                            if (activePeople.isNotEmpty) _actorId = activePeople.first.id;
-                          }
-                          if (_requiresTarget) {
-                            if (_type == TransactionType.expense || _type == TransactionType.debit) {
-                              if (billTypes.isNotEmpty && (billTypes.every((b) => b.id != _targetId))) {
-                                _targetId = billTypes.first.id;
-                              }
-                            } else {
-                              if (activePeople.isNotEmpty && (activePeople.every((p) => p.id != _targetId))) {
-                                _targetId = activePeople.first.id;
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: TransactionType.values.map((t) {
+                  final isSelected = _type == t;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(t.name.toUpperCase()),
+                      selected: isSelected,
+                      onSelected: (sel) {
+                        if (sel) {
+                          setState(() {
+                            _type = t;
+                            if (_type != TransactionType.expense) {
+                              _isGroupedExpense = false;
+                            }
+                            if (_requiresActor && (_actorId == null || _actorId!.isEmpty)) {
+                              if (activePeople.isNotEmpty) _actorId = activePeople.first.id;
+                            }
+                            if (_requiresTarget) {
+                              if (_type == TransactionType.expense || _type == TransactionType.debit) {
+                                if (billTypes.isNotEmpty && (billTypes.every((b) => b.id != _targetId))) {
+                                  _targetId = billTypes.first.id;
+                                }
+                              } else {
+                                if (activePeople.isNotEmpty && (activePeople.every((p) => p.id != _targetId))) {
+                                  _targetId = activePeople.first.id;
+                                }
                               }
                             }
-                          }
-                          if (_requiresParticipants && _selectedParticipants.isEmpty) {
-                            _selectedParticipants.addAll(activePeople.map((p) => p.id));
-                          }
-                        });
-                      }
-                    },
-                  ),
-                );
-              }).toList(),
+                            if (_requiresParticipants && _selectedParticipants.isEmpty) {
+                              _selectedParticipants.addAll(activePeople.map((p) => p.id));
+                            }
+                          });
+                        }
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
+          ],
           if (_type == TransactionType.expense && !isEdit) ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Grouped Expense Breakdown', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('Split receipt across multiple items/categories under one transaction'),
+              subtitle: const Text('Split receipt across multiple items/categories under one transaction group'),
               value: _isGroupedExpense,
               onChanged: (val) {
                 setState(() {
@@ -566,7 +600,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     setState(() => _saving = true);
 
     final existing = widget.existingTransaction;
-    final parentId = existing?.id ?? AppDateUtils.generateId();
+    final parentId = _groupedParentId ?? existing?.parentId ?? existing?.id ?? AppDateUtils.generateId();
     final nowIso = existing?.timestamp ?? AppDateUtils.nowIso();
 
     bool pushed = false;
@@ -600,16 +634,48 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           return;
         }
 
-        // Add all sub transactions
-        for (final childTx in childTransactions) {
-          pushed = await ref.read(appStateProvider.notifier).addTransaction(
-            childTx,
-            message: 'Add grouped sub-item (${childTx.id})',
+        if (isEdit && (_groupedParentId != null || existing?.parentId != null)) {
+          pushed = await ref.read(appStateProvider.notifier).updateGroupedExpense(
+            parentId: parentId,
+            newChildren: childTransactions,
+            message: 'Update grouped expense ($parentId)',
+          );
+        } else {
+          pushed = await ref.read(appStateProvider.notifier).addGroupedExpense(
+            parentId: parentId,
+            children: childTransactions,
+            message: 'Add grouped expense breakdown (${childTransactions.length} items)',
           );
         }
+      } else if (_type == TransactionType.distribution && !isEdit) {
+        // Kotlin/Android compatible distribution: creates linked credit entries for each participant
+        final participants = _selectedParticipants.toList();
+        final shareAmount = amount / participants.length;
+        final distParentId = AppDateUtils.generateId();
+        final childCredits = participants.map((pId) {
+          return Transaction(
+            id: AppDateUtils.generateId(),
+            type: TransactionType.credit,
+            amount: shareAmount,
+            actorId: pId,
+            note: _noteController.text.trim().isNotEmpty 
+                ? _noteController.text.trim() 
+                : 'Distribution share',
+            timestamp: nowIso,
+            parentId: distParentId,
+            distributionTotal: amount,
+            participantIds: participants,
+          );
+        }).toList();
+
+        pushed = await ref.read(appStateProvider.notifier).addGroupedExpense(
+          parentId: distParentId,
+          children: childCredits,
+          message: 'Distribute funds among ${participants.length} members',
+        );
       } else {
         final tx = Transaction(
-          id: parentId,
+          id: existing?.id ?? parentId,
           type: _type,
           amount: amount,
           actorId: _requiresActor ? _actorId : null,

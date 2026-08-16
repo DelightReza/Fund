@@ -182,6 +182,20 @@ class TransactionDetailScreen extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
                   ),
                 ),
+                if (tx.parentId != null && tx.parentId!.isNotEmpty) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.folder_shared_outlined),
+                    title: const Text('Grouped Expense Item', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('Group ID: ${tx.parentId}'),
+                    trailing: tx.distributionTotal != null
+                        ? Text(
+                            'Group Total: ${FormatUtils.currency(tx.distributionTotal!, appState.config.currency)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          )
+                        : null,
+                  ),
+                ],
                 const Divider(height: 1),
                 ListTile(
                   title: const Text('Type'),
@@ -211,6 +225,40 @@ class TransactionDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (tx.parentId != null && tx.parentId!.isNotEmpty) ...[
+            final siblings = appState.data.transactions.where((t) => t.parentId == tx.parentId).toList();
+            if (siblings.length > 1) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Group Items (${siblings.length} items • Total: ${FormatUtils.currency(siblings.fold(0.0, (s, t) => s + t.amount), appState.config.currency)})',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                child: Column(
+                  children: siblings.map((sibling) {
+                    final isCurrent = sibling.id == tx.id;
+                    return ListTile(
+                      dense: true,
+                      selected: isCurrent,
+                      selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                      leading: Icon(
+                        isCurrent ? Icons.check_circle : Icons.subdirectory_arrow_right,
+                        size: 18,
+                        color: isCurrent ? Theme.of(context).colorScheme.primary : null,
+                      ),
+                      title: Text(resolveBill(sibling.targetId), style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
+                      subtitle: sibling.note.isNotEmpty ? Text(sibling.note) : null,
+                      trailing: Text(
+                        FormatUtils.currency(sibling.amount, appState.config.currency),
+                        style: TextStyle(fontWeight: isCurrent ? FontWeight.w800 : FontWeight.bold),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ],
           if (tx.participantIds.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(

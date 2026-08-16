@@ -388,14 +388,64 @@ class AppNotifier extends StateNotifier<AppState> {
     return await _saveAndUpdateData(updatedTx, state.config, message ?? 'Update fund data (${tx.type.name})');
   }
 
+  Future<bool> addGroupedExpense({
+    required String parentId,
+    required List<Transaction> children,
+    String? message,
+  }) async {
+    final updatedTx = [...children, ...state.data.transactions];
+    return await _saveAndUpdateData(
+      updatedTx,
+      state.config,
+      message ?? 'Add grouped expense breakdown (${children.length} items)',
+    );
+  }
+
+  Future<bool> updateGroupedExpense({
+    required String parentId,
+    required List<Transaction> newChildren,
+    String? message,
+  }) async {
+    // Atomically replace all items having parentId or id == parentId with newChildren
+    final filtered = state.data.transactions.where((tx) => tx.parentId != parentId && tx.id != parentId).toList();
+    final updatedTx = [...newChildren, ...filtered];
+    return await _saveAndUpdateData(
+      updatedTx,
+      state.config,
+      message ?? 'Update grouped expense breakdown ($parentId)',
+    );
+  }
+
+  Future<bool> deleteGroupedExpense(String parentId, {String? message}) async {
+    final updatedTx = state.data.transactions.where((tx) => tx.parentId != parentId && tx.id != parentId).toList();
+    return await _saveAndUpdateData(
+      updatedTx,
+      state.config,
+      message ?? 'Delete grouped transaction ($parentId)',
+    );
+  }
+
   Future<bool> updateTransaction(Transaction updatedTx, {String? message}) async {
     final updatedList = state.data.transactions.map((tx) => tx.id == updatedTx.id ? updatedTx : tx).toList();
     return await _saveAndUpdateData(updatedList, state.config, message ?? 'Update transaction (${updatedTx.id})');
   }
 
   Future<bool> deleteTransaction(String id) async {
-    final updatedTx = state.data.transactions.where((tx) => tx.id != id).toList();
-    return await _saveAndUpdateData(updatedTx, state.config, 'Delete transaction ($id)');
+    // If target transaction has a parentId, delete all transactions with that same parentId
+    final target = state.data.transactions.where((tx) => tx.id == id).toList();
+    final parentId = target.isNotEmpty ? target.first.parentId : null;
+
+    final List<Transaction> updatedTx;
+    final String msg;
+    if (parentId != null && parentId.isNotEmpty) {
+      updatedTx = state.data.transactions.where((tx) => tx.parentId != parentId && tx.id != parentId).toList();
+      msg = 'Delete grouped transaction ($parentId)';
+    } else {
+      updatedTx = state.data.transactions.where((tx) => tx.id != id).toList();
+      msg = 'Delete transaction ($id)';
+    }
+
+    return await _saveAndUpdateData(updatedTx, state.config, msg);
   }
 
   Future<bool> updateConfig(AppConfig newConfig) async {

@@ -50,7 +50,10 @@ class _TransactionHistoryScreenState extends ConsumerState<TransactionHistoryScr
       }).toList();
     }
     if (_selectedCategory != null) {
-      transactions = transactions.where((tx) => tx.type == TransactionType.expense && tx.targetId == _selectedCategory).toList();
+      transactions = transactions.where((tx) => 
+        (tx.type == TransactionType.expense || tx.type == TransactionType.debit) && 
+        tx.targetId == _selectedCategory
+      ).toList();
     }
     if (_selectedMember != null) {
       transactions = transactions.where((tx) => 
