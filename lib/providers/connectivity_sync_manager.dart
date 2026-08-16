@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import 'providers.dart';
-import '../services/github_service.dart';
 
 class ConnectivitySyncManager {
   ConnectivitySyncManager(this.ref) {
@@ -17,18 +16,18 @@ class ConnectivitySyncManager {
   bool _isSyncing = false;
 
   void _init() {
-    if (kIsWeb) return;
-
-    // Check connectivity periodically (every 15s) and trigger sync immediately on reconnection
-    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) => _checkConnectivity());
+    // Check connectivity periodically (every 20s) and trigger sync immediately on reconnection
+    _pollingTimer = Timer.periodic(const Duration(seconds: 20), (_) => _checkConnectivity());
   }
 
   Future<void> _checkConnectivity() async {
     if (_isSyncing) return;
     try {
-      final result = await InternetAddress.lookup('api.github.com').timeout(const Duration(seconds: 4));
-      final online = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-      
+      final res = await http
+          .head(Uri.parse('https://api.github.com'))
+          .timeout(const Duration(seconds: 4));
+      final online = res.statusCode > 0;
+
       if (online && !_isOnline) {
         _isOnline = true;
         await triggerAutoSync();
@@ -71,3 +70,4 @@ final connectivitySyncManagerProvider = Provider<ConnectivitySyncManager>((ref) 
   ref.onDispose(manager.dispose);
   return manager;
 });
+
