@@ -6,7 +6,6 @@ import '../providers/providers.dart';
 import '../services/calculations.dart';
 import '../utils/date_utils.dart';
 import '../utils/format_utils.dart';
-import '../widgets/receipt_modal.dart';
 import 'add_transaction_screen.dart';
 
 class TransactionDetailScreen extends ConsumerWidget {
@@ -64,16 +63,6 @@ class TransactionDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Transaction Detail'),
         actions: [
-          IconButton(
-            tooltip: 'View Receipt',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (_) => ReceiptModal(transaction: tx, currency: appState.config.currency),
-              );
-            },
-            icon: const Icon(Icons.receipt_long),
-          ),
           if (appState.token != null && appState.token!.isNotEmpty) ...[
             IconButton(
               tooltip: 'Edit Transaction',
