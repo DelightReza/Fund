@@ -600,6 +600,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     setState(() => _saving = true);
 
     final existing = widget.existingTransaction;
+    final isEdit = existing != null;
     final parentId = _groupedParentId ?? existing?.parentId ?? existing?.id ?? AppDateUtils.generateId();
     final nowIso = existing?.timestamp ?? AppDateUtils.nowIso();
 

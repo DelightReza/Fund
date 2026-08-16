@@ -56,6 +56,10 @@ class TransactionDetailScreen extends ConsumerWidget {
       impact = Calculations.impactForMember(tx, focusedMemberId!, activeIds: activeIds);
     }
 
+    final siblings = (tx.parentId != null && tx.parentId!.isNotEmpty)
+        ? appState.data.transactions.where((t) => t.parentId == tx.parentId).toList()
+        : <Transaction>[];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transaction Detail'),
@@ -225,39 +229,36 @@ class TransactionDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
-          if (tx.parentId != null && tx.parentId!.isNotEmpty) ...[
-            final siblings = appState.data.transactions.where((t) => t.parentId == tx.parentId).toList();
-            if (siblings.length > 1) ...[
-              const SizedBox(height: 16),
-              Text(
-                'Group Items (${siblings.length} items • Total: ${FormatUtils.currency(siblings.fold(0.0, (s, t) => s + t.amount), appState.config.currency)})',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+          if (siblings.length > 1) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Group Items (${siblings.length} items • Total: ${FormatUtils.currency(siblings.fold(0.0, (s, t) => s + t.amount), appState.config.currency)})',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: siblings.map((sibling) {
+                  final isCurrent = sibling.id == tx.id;
+                  return ListTile(
+                    dense: true,
+                    selected: isCurrent,
+                    selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                    leading: Icon(
+                      isCurrent ? Icons.check_circle : Icons.subdirectory_arrow_right,
+                      size: 18,
+                      color: isCurrent ? Theme.of(context).colorScheme.primary : null,
+                    ),
+                    title: Text(resolveBill(sibling.targetId), style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
+                    subtitle: sibling.note.isNotEmpty ? Text(sibling.note) : null,
+                    trailing: Text(
+                      FormatUtils.currency(sibling.amount, appState.config.currency),
+                      style: TextStyle(fontWeight: isCurrent ? FontWeight.w800 : FontWeight.bold),
+                    ),
+                  );
+                }).toList(),
               ),
-              const SizedBox(height: 8),
-              Card(
-                child: Column(
-                  children: siblings.map((sibling) {
-                    final isCurrent = sibling.id == tx.id;
-                    return ListTile(
-                      dense: true,
-                      selected: isCurrent,
-                      selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-                      leading: Icon(
-                        isCurrent ? Icons.check_circle : Icons.subdirectory_arrow_right,
-                        size: 18,
-                        color: isCurrent ? Theme.of(context).colorScheme.primary : null,
-                      ),
-                      title: Text(resolveBill(sibling.targetId), style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
-                      subtitle: sibling.note.isNotEmpty ? Text(sibling.note) : null,
-                      trailing: Text(
-                        FormatUtils.currency(sibling.amount, appState.config.currency),
-                        style: TextStyle(fontWeight: isCurrent ? FontWeight.w800 : FontWeight.bold),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
+            ),
           ],
           if (tx.participantIds.isNotEmpty) ...[
             const SizedBox(height: 16),
