@@ -85,8 +85,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       debits[p.id] = 0.0;
     }
     for (var tx in appState.data.transactions) {
-      if (tx.type == TransactionType.credit && credits.containsKey(tx.actorId)) {
-        credits[tx.actorId] = (credits[tx.actorId] ?? 0.0) + tx.amount;
+      final actorId = tx.actorId;
+      if (tx.type == TransactionType.credit && actorId != null && credits.containsKey(actorId)) {
+        credits[actorId] = (credits[actorId] ?? 0.0) + tx.amount;
       } else if (tx.type == TransactionType.debit || tx.type == TransactionType.expense) {
         if (tx.participantIds.isNotEmpty) {
           final split = tx.amount / tx.participantIds.length;
