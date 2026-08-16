@@ -487,8 +487,8 @@ class AppNotifier extends StateNotifier<AppState> {
           token: state.token,
         );
 
-        await ref.read(syncServiceProvider).flushQueue(github);
         await github.commitData(updated, message: message);
+        await ref.read(storageProvider).savePendingOperations([]);
 
         state = state.copyWith(syncing: false, pendingCount: 0, error: null);
         return true;
