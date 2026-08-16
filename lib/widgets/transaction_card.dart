@@ -28,7 +28,20 @@ class TransactionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    // Historical data written by the Kotlin/TypeScript apps encodes
+    // settlements and transfers as plain `credit` rows with a *signed*
+    // amount (negative = money left this person). Detect that case so we
+    // don't mislabel an outgoing leg as an incoming "Deposit".
+    final isOutgoingCreditLeg = transaction.type == TransactionType.credit && transaction.amount < 0;
+
     final (IconData icon, Color iconBg, Color amountColor, String title, String prefix) = switch (transaction.type) {
+      TransactionType.credit when isOutgoingCreditLeg => (
+          Icons.arrow_upward_rounded,
+          AppColors.rose100,
+          AppColors.rose700,
+          'Sent • ${memberNameResolver(transaction.actorId ?? '-')}',
+          '-',
+        ),
       TransactionType.credit => (
           Icons.arrow_downward_rounded,
           AppColors.emerald100,
@@ -154,7 +167,7 @@ class TransactionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '$prefix${FormatUtils.currency(transaction.amount, currency)}',
+                    '$prefix${FormatUtils.currency(transaction.amount.abs(), currency)}',
                     style: TextStyle(
                       color: isDark ? amountColor.withOpacity(0.9) : amountColor,
                       fontWeight: FontWeight.w800,

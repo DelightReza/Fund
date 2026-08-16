@@ -27,43 +27,71 @@ class AuthGuard extends ConsumerWidget {
 
   void _showTokenDialog(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController(text: ref.read(appStateProvider).token ?? '');
+    bool submitting = false;
+    String? errorText;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Enter GitHub PAT'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Provide a Personal Access Token with repo scope to authenticate for administrative actions.'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Personal Access Token',
-                hintText: 'ghp_...',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Enter GitHub PAT'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Provide a Personal Access Token with repo scope to authenticate for administrative actions.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                enabled: !submitting,
+                decoration: InputDecoration(
+                  labelText: 'Personal Access Token',
+                  hintText: 'ghp_...',
+                  errorText: errorText,
+                ),
+                obscureText: true,
               ),
-              obscureText: true,
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: submitting ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      final token = controller.text.trim();
+                      if (token.isEmpty) {
+                        setDialogState(() => errorText = 'Token is required');
+                        return;
+                      }
+                      setDialogState(() {
+                        submitting = true;
+                        errorText = null;
+                      });
+                      try {
+                        await ref.read(appStateProvider.notifier).setToken(token);
+                        ref.read(appStateProvider.notifier).syncNow();
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      } catch (e) {
+                        setDialogState(() {
+                          submitting = false;
+                          errorText = e.toString().replaceAll('Exception: ', '');
+                        });
+                      }
+                    },
+              child: submitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save & Authenticate'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final token = controller.text.trim();
-              if (token.isNotEmpty) {
-                await ref.read(appStateProvider.notifier).setToken(token);
-                ref.read(appStateProvider.notifier).syncNow();
-              }
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Save & Authenticate'),
-          ),
-        ],
       ),
     );
   }

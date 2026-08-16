@@ -99,7 +99,7 @@ class HeroBalanceCard extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                '${FormatUtils.currency(netBalance, currency)} $currency',
+                FormatUtils.currency(netBalance, currency),
                 style: const TextStyle(
                   fontSize: 40,
                   fontWeight: FontWeight.w400,
