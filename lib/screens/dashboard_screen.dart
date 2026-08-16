@@ -170,11 +170,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               destinations: destinations,
             )
           : null,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionScreen())),
-        icon: const Icon(Icons.add),
-        label: const Text('New Entry'),
-      ),
       body: IndexedStack(
         index: safeIndex,
         children: pages,
@@ -293,49 +288,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
           ),
           const SizedBox(height: 16),
-          if (settlements.isNotEmpty) ...[
-            Text('Debt Simplification', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  children: settlements
-                      .map<Widget>(
-                        (s) => ListTile(
-                          dense: true,
-                          leading: CircleAvatar(
-                            radius: 14,
-                            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                            child: Icon(Icons.sync_alt, size: 16, color: Theme.of(context).colorScheme.onSecondaryContainer),
-                          ),
-                          title: Text(
-                            '${_memberName(appState, s.from)} → ${_memberName(appState, s.to)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: const Text('Suggested Settlement'),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              FormatUtils.currency(s.amount, appState.config.currency),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
