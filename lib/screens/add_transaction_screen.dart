@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/transaction.dart';
 import '../providers/providers.dart';
 import '../utils/date_utils.dart';
+import '../widgets/status_popup.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
   const AddTransactionScreen({
@@ -526,7 +527,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            onPressed: _saving ? null : () => _save(context),
+            onPressed: _saving ? null : () => _handleSavePressed(context),
             icon: _saving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Icon(Icons.cloud_upload),
@@ -574,7 +575,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         _ => 'Target',
       };
 
-  Future<void> _save(BuildContext context) async {
+  Future<void> _handleSavePressed(BuildContext context) async {
     _recalculateGroupedTotal();
     final amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
@@ -597,6 +598,236 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       return;
     }
 
+    final confirmed = await _showConfirmationDialog(context, amount);
+    if (confirmed == true && mounted) {
+      await _executeSave(context, amount);
+    }
+  }
+
+  Future<bool?> _showConfirmationDialog(BuildContext context, double amount) {
+    final appState = ref.read(appStateProvider);
+    final config = appState.config;
+    final actorName = config.people.where((p) => p.id == _actorId).map((p) => p.name).firstOrNull ?? _actorId ?? 'N/A';
+    final targetName = config.billTypes.where((b) => b.id == _targetId).map((b) => b.name).firstOrNull ?? _targetId ?? 'N/A';
+    final note = _noteController.text.trim();
+    final isEdit = widget.existingTransaction != null;
+
+    final typeColor = switch (_type) {
+      TransactionType.credit => Colors.green,
+      TransactionType.expense => Colors.blue,
+      TransactionType.debit => Colors.orange,
+      TransactionType.distribution => Colors.purple,
+      TransactionType.settlement => Colors.teal,
+      TransactionType.transfer => Colors.indigo,
+    };
+
+    final typeIcon = switch (_type) {
+      TransactionType.credit => Icons.arrow_downward,
+      TransactionType.expense => Icons.receipt_long,
+      TransactionType.debit => Icons.arrow_upward,
+      TransactionType.distribution => Icons.pie_chart,
+      TransactionType.settlement => Icons.handshake,
+      TransactionType.transfer => Icons.swap_horiz,
+    };
+
+    final splitCount = _selectedParticipants.length;
+    final perPerson = splitCount > 0 ? (amount / splitCount) : amount;
+
+    return showGeneralDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Confirm Transaction',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (context, anim1, anim2) => const SizedBox.shrink(),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnim = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1.0).animate(curvedAnim),
+          child: FadeTransition(
+            opacity: animation,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: typeColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(typeIcon, color: typeColor, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isEdit ? 'Confirm Edit' : 'Confirm ${_type.name[0].toUpperCase()}${_type.name.substring(1)}',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          isEdit ? 'Update transaction details' : 'Review before committing',
+                          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.of(context).pop(false),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'AMOUNT',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${config.currency} ${amount.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              color: typeColor,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          if (_requiresParticipants && splitCount > 1) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '${config.currency} ${perPerson.toStringAsFixed(2)} per person ($splitCount paying)',
+                              style: TextStyle(fontSize: 12, color: typeColor.withOpacity(0.85), fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (_requiresActor)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_outline, size: 18, color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              _type == TransactionType.expense ? 'Paid By: ' : 'Payer: ',
+                              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
+                            Expanded(
+                              child: Text(
+                                actorName,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_requiresTarget && !_isGroupedExpense)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Icon(Icons.category_outlined, size: 18, color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Category: ',
+                              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
+                            Expanded(
+                              child: Text(
+                                targetName,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (note.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.notes, size: 18, color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Note: ',
+                              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
+                            Expanded(
+                              child: Text(
+                                note,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_isGroupedExpense && _subItems.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          '${_subItems.length} category items in grouped breakdown',
+                          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: typeColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(true),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: Text(isEdit ? 'Save Changes' : 'Confirm & Save'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _executeSave(BuildContext context, double amount) async {
     setState(() => _saving = true);
 
     final existing = widget.existingTransaction;
@@ -704,44 +935,42 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     if (context.mounted) {
       final appStateAfter = ref.read(appStateProvider);
+      final nav = Navigator.of(context);
+      final parentContext = context;
+      nav.pop();
+
       if (pushed) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 8),
-                Text('Saved and pushed directly to GitHub!'),
-              ],
-            ),
-            backgroundColor: Colors.green,
-          ),
+        StatusPopup.show(
+          parentContext,
+          title: 'Changes Pushed to GitHub',
+          message: 'Transaction successfully saved and committed to remote repository.',
+          type: StatusPopupType.success,
+          autoDismissDuration: const Duration(seconds: 3),
         );
       } else if (appStateAfter.error != null && appStateAfter.error!.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Saved locally. Push to GitHub failed: ${appStateAfter.error}'),
-            backgroundColor: Colors.red.shade700,
-            duration: const Duration(seconds: 5),
-          ),
+        StatusPopup.show(
+          parentContext,
+          title: 'Push Failed (Saved Locally)',
+          message: appStateAfter.error!,
+          type: StatusPopupType.error,
         );
       } else if (appStateAfter.token == null || appStateAfter.token!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Saved locally. Click the Admin (shield) icon in top bar to set your GitHub PAT and push remotely.'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-          ),
+        StatusPopup.show(
+          parentContext,
+          title: 'Saved to Local Queue',
+          message: 'Saved locally. Add a GitHub PAT in the Admin panel to sync changes to GitHub.',
+          type: StatusPopupType.info,
+          autoDismissDuration: const Duration(seconds: 4),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Saved locally to queue!'),
-            backgroundColor: Colors.blueGrey,
-          ),
+        StatusPopup.show(
+          parentContext,
+          title: 'Queued for Sync',
+          message: 'Saved locally and queued for synchronization.',
+          type: StatusPopupType.info,
+          autoDismissDuration: const Duration(seconds: 3),
         );
       }
-      Navigator.of(context).pop();
     }
   }
 }

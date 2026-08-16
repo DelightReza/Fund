@@ -6,6 +6,7 @@ import '../providers/providers.dart';
 import '../models/transaction.dart';
 import '../utils/format_utils.dart';
 import '../widgets/auth_guard.dart';
+import '../widgets/status_popup.dart';
 import 'add_transaction_screen.dart';
 import 'reset_commit_screen.dart';
 import 'settings_screen.dart';
@@ -191,26 +192,22 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                         try {
                           await ref.read(appStateProvider.notifier).setToken(token);
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                              content: Text('Token saved successfully.'),
-                              backgroundColor: Colors.green,
-                            ));
+                            StatusPopup.show(
+                              context,
+                              title: 'PAT Verified & Saved',
+                              message: 'Authenticated successfully for ${appState.config.repoOwner}/${appState.config.repoName}.',
+                              type: StatusPopupType.success,
+                              autoDismissDuration: const Duration(seconds: 3),
+                            );
                             ref.read(appStateProvider.notifier).syncNow();
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Error Saving Token'),
-                                content: Text(e.toString().replaceAll('Exception: ', '')),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
-                                    child: const Text('OK'),
-                                  ),
-                                ],
-                              ),
+                            StatusPopup.show(
+                              context,
+                              title: 'Authentication Failed',
+                              message: e.toString().replaceAll('Exception: ', ''),
+                              type: StatusPopupType.error,
                             );
                           }
                         }
