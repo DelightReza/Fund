@@ -132,12 +132,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             tooltip: hasToken ? 'Admin Access Active' : 'Admin Authentication',
           ),
-          if (!kIsWeb)
-            IconButton(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen())),
-              icon: const Icon(Icons.source_outlined),
-              tooltip: 'Repositories',
-            ),
+          IconButton(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen())),
+            icon: const Icon(Icons.source_outlined),
+            tooltip: 'Switch or Manage Repositories',
+          ),
           IconButton(
             onPressed: () {
               final currentMode = ref.read(themeModeProvider);
@@ -354,8 +353,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 children: [
                   Text(
                     isCurrentlyAuthenticated
-                        ? 'Your GitHub Token is authenticated and verified for repository access.'
-                        : 'Enter a GitHub Personal Access Token (PAT) with repo access to unlock Admin controls.',
+                        ? 'Authenticated for repo: ${appState.config.repoOwner}/${appState.config.repoName} (${appState.config.repoBranch})'
+                        : 'Enter a GitHub Personal Access Token (PAT) for ${appState.config.repoOwner}/${appState.config.repoName} to unlock saving & pushing changes.',
                     style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 16),

@@ -198,11 +198,12 @@ class GitHubService {
     while (attempt < maxAttempts) {
       attempt++;
       final sha = await _getFileSha(path);
-      final body = {
+      final rawJson = const JsonEncoder.withIndent('  ').convert(payload);
+      final body = <String, dynamic>{
         'message': message,
-        'content': base64Encode(utf8.encode(const JsonEncoder.withIndent('  ').convert(payload))),
-        'branch': branch,
-        if (sha != null) 'sha': sha,
+        'content': base64Encode(utf8.encode(rawJson)),
+        if (branch.isNotEmpty) 'branch': branch,
+        if (sha != null && sha.isNotEmpty) 'sha': sha,
       };
 
       final response = await http.put(
@@ -215,15 +216,22 @@ class GitHubService {
         return;
       }
 
-      // Handle 409 Conflict (remote SHA changed) or transient 5xx
-      if (response.statusCode == 409 && attempt < maxAttempts) {
+      // Handle 409 Conflict (remote SHA changed) or 422
+      if ((response.statusCode == 409 || response.statusCode == 422) && attempt < maxAttempts) {
         await Future.delayed(Duration(milliseconds: backoffMs));
         backoffMs *= 2;
         continue;
       }
 
-      if (attempt >= maxAttempts || (response.statusCode != 409 && response.statusCode != 500 && response.statusCode != 502 && response.statusCode != 503)) {
-        throw Exception('Commit failed for $path (${response.statusCode}): ${response.body}');
+      if (attempt >= maxAttempts || (response.statusCode != 409 && response.statusCode != 422 && response.statusCode != 500 && response.statusCode != 502 && response.statusCode != 503)) {
+        String detail = response.body;
+        try {
+          final errMap = jsonDecode(response.body);
+          if (errMap is Map && errMap.containsKey('message')) {
+            detail = errMap['message'].toString();
+          }
+        } catch (_) {}
+        throw Exception('Commit failed for $path (${response.statusCode}): $detail');
       }
     }
   }

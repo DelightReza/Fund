@@ -488,7 +488,6 @@ class AppNotifier extends StateNotifier<AppState> {
         );
 
         await ref.read(syncServiceProvider).flushQueue(github);
-        await github.commitConfig(config, message: message);
         await github.commitData(updated, message: message);
 
         state = state.copyWith(syncing: false, pendingCount: 0, error: null);
