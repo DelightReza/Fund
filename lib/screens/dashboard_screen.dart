@@ -74,6 +74,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final safeIndex = _currentIndex.clamp(0, pages.length - 1);
 
+    final hasSubtitle = appState.config.siteSubtitle.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: kIsWeb
@@ -85,9 +87,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     appState.config.siteTitle,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
-                  if (appState.config.repoOwner.isNotEmpty && appState.config.repoName.isNotEmpty)
+                  if (hasSubtitle)
                     Text(
-                      '${appState.config.repoOwner}/${appState.config.repoName}',
+                      appState.config.siteSubtitle,
                       style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                 ],
@@ -108,10 +110,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             appState.config.siteTitle,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                           ),
-                          Text(
-                            '${appState.config.repoOwner}/${appState.config.repoName}',
-                            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                          ),
+                          if (hasSubtitle)
+                            Text(
+                              appState.config.siteSubtitle,
+                              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
                         ],
                       ),
                       const SizedBox(width: 4),
