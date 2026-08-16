@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/settlement.dart';
 import '../providers/connectivity_sync_manager.dart';
 import '../providers/providers.dart';
 import '../utils/format_utils.dart';
@@ -11,7 +12,6 @@ import '../widgets/member_card.dart';
 import '../widgets/transaction_card.dart';
 import '../widgets/receipt_modal.dart';
 import '../widgets/status_popup.dart';
-import 'add_transaction_screen.dart';
 import 'admin_screen.dart';
 import 'profile_screen.dart';
 import 'repo_selection_screen.dart';
@@ -174,13 +174,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               destinations: destinations,
             )
           : null,
-      floatingActionButton: safeIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => _showQuickActionMenu(context),
-              icon: const Icon(Icons.add),
-              label: const Text('Add Transaction'),
-            )
-          : null,
       body: IndexedStack(
         index: safeIndex,
         children: pages,
@@ -188,113 +181,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  void _showQuickActionMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text(
-                    'Record Transaction',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFFEF3C7),
-                    child: Icon(Icons.shopping_bag_outlined, color: Color(0xFFB45309)),
-                  ),
-                  title: const Text('Expense', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Record shared expense or itemized receipt'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialType: TransactionType.expense)),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFD1FAE5),
-                    child: Icon(Icons.arrow_downward, color: Color(0xFF047857)),
-                  ),
-                  title: const Text('Deposit / Credit', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Add money into the fund pool'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialType: TransactionType.credit)),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFF3E8FF),
-                    child: Icon(Icons.call_split, color: Color(0xFF7E22CE)),
-                  ),
-                  title: const Text('Distribute Funds', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Payout fund pool equally to active members'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialType: TransactionType.distribution)),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFCCFBF1),
-                    child: Icon(Icons.handshake_outlined, color: Color(0xFF0F766E)),
-                  ),
-                  title: const Text('Settle Debt', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Record debt settlement between two members'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialType: TransactionType.settlement)),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFDBEAFE),
-                    child: Icon(Icons.swap_horiz, color: Color(0xFF1D4ED8)),
-                  ),
-                  title: const Text('Transfer Balance', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Direct balance transfer between members'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialType: TransactionType.transfer)),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildOverviewTab(
     BuildContext context,
-    appState,
+    AppState appState,
     Map<String, double> balances,
-    totals,
+    ({double credits, double debits}) totals,
     Map<String, double> bills,
-    settlements,
+    List<Settlement> settlements,
     bool hasToken,
   ) {
     return RefreshIndicator(
@@ -312,7 +205,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             repoName: appState.config.repoName,
             hasToken: hasToken,
             pendingCount: appState.pendingCount,
-            onTapRepo: () => _showRepoSwitcherBottomSheet(context, ref),
+            onTapRepo: kIsWeb ? () {} : () => _showRepoSwitcherBottomSheet(context, ref),
           ),
           const SizedBox(height: 16),
           if (bills.isNotEmpty) ...[

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
+import '../models/settlement.dart';
 import '../models/transaction.dart';
 import '../utils/format_utils.dart';
 import '../widgets/auth_guard.dart';
@@ -71,9 +72,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
   Widget _buildBalancesTab(
     BuildContext context, 
-    appState, 
+    AppState appState, 
     Map<String, double> balances, 
-    settlements, 
+    List<Settlement> settlements, 
     String Function(String) resolveMember
   ) {
     // Compute total credits and debits per member
@@ -150,7 +151,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     );
   }
 
-  Widget _buildControlsTab(BuildContext context, appState, WidgetRef ref) {
+  Widget _buildControlsTab(BuildContext context, AppState appState, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
