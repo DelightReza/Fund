@@ -359,7 +359,7 @@ class AppNotifier extends StateNotifier<AppState> {
       return;
     }
 
-    final isValid = await GitHubService(
+    final result = await GitHubService(
       owner: state.config.repoOwner,
       repo: state.config.repoName,
       branch: state.config.repoBranch,
@@ -367,8 +367,8 @@ class AppNotifier extends StateNotifier<AppState> {
       token: token,
     ).verifyToken(token);
 
-    if (!isValid) {
-      throw Exception('Invalid Personal Access Token');
+    if (!result.isVerified) {
+      throw Exception(result.error ?? 'Invalid Personal Access Token');
     }
 
     await storage.saveToken(token);

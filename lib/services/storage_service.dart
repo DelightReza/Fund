@@ -98,11 +98,29 @@ class StorageService {
     await _prefs.setString(_dataKey, jsonEncode(data.toJson()));
   }
 
-  String? loadToken() => _prefs.getString(_tokenKey);
+  String? loadToken() {
+    final token = _prefs.getString(_tokenKey);
+    if (token != null && token.isNotEmpty) return token;
+    final fallback = _prefs.getString('fund_token');
+    if (fallback != null && fallback.isNotEmpty) return fallback;
+    // Check saved repos
+    for (final repo in loadSavedRepos()) {
+      if (repo.token != null && repo.token!.isNotEmpty) {
+        return repo.token;
+      }
+    }
+    return null;
+  }
 
-  Future<void> saveToken(String token) async => _prefs.setString(_tokenKey, token);
+  Future<void> saveToken(String token) async {
+    await _prefs.setString(_tokenKey, token);
+    await _prefs.setString('fund_token', token);
+  }
 
-  Future<void> clearToken() async => _prefs.remove(_tokenKey);
+  Future<void> clearToken() async {
+    await _prefs.remove(_tokenKey);
+    await _prefs.remove('fund_token');
+  }
 
   String? loadUser() => _prefs.getString(_userKey);
 

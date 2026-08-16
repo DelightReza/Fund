@@ -5,6 +5,18 @@ import 'package:http/http.dart' as http;
 import '../models/config.dart';
 import '../models/fund_data.dart';
 
+class TokenVerificationResult {
+  const TokenVerificationResult({
+    required this.isVerified,
+    this.adminHandle,
+    this.error,
+  });
+
+  final bool isVerified;
+  final String? adminHandle;
+  final String? error;
+}
+
 class GitHubService {
   GitHubService({
     required this.owner,
@@ -36,7 +48,7 @@ class GitHubService {
 
   Map<String, String> get _headers {
     final headers = <String, String>{
-      'Accept': 'application/vnd.github+json',
+      'Accept': 'application/vnd.github.v3+json',
       'X-GitHub-Api-Version': '2022-11-28',
     };
     final auth = _authHeaderValue;
@@ -46,35 +58,71 @@ class GitHubService {
     return headers;
   }
 
-  Future<bool> verifyToken(String tokenToVerify) async {
-    var clean = tokenToVerify.trim();
-    if (clean.toLowerCase().startsWith('bearer ')) {
-      clean = clean.substring(7).trim();
-    } else if (clean.toLowerCase().startsWith('token ')) {
-      clean = clean.substring(6).trim();
+  Future<TokenVerificationResult> verifyToken(String tokenToVerify) async {
+    final clean = tokenToVerify.trim();
+    if (clean.isEmpty) {
+      return const TokenVerificationResult(isVerified: false, error: 'Token is empty');
     }
-    final authVal = clean.startsWith('github_pat_') ? 'Bearer $clean' : 'token $clean';
 
-    if (owner.isNotEmpty && repo.isNotEmpty) {
-      try {
-        final repoUri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$dataFileName');
-        final repoRes = await http.get(repoUri, headers: {
-          'Accept': 'application/vnd.github+json',
-          'Authorization': authVal,
-        });
-        if (repoRes.statusCode == 200 || repoRes.statusCode == 404) return true;
-      } catch (_) {}
+    var cleanAuth = clean;
+    if (cleanAuth.toLowerCase().startsWith('bearer ')) {
+      cleanAuth = cleanAuth.substring(7).trim();
+    } else if (cleanAuth.toLowerCase().startsWith('token ')) {
+      cleanAuth = cleanAuth.substring(6).trim();
     }
+    final authVal = cleanAuth.startsWith('github_pat_') ? 'Bearer $cleanAuth' : 'token $cleanAuth';
 
     try {
-      final uri = Uri.parse('https://api.github.com/user');
-      final response = await http.get(uri, headers: {
-        'Accept': 'application/vnd.github+json',
+      final userUri = Uri.parse('https://api.github.com/user');
+      final userRes = await http.get(userUri, headers: {
+        'Accept': 'application/vnd.github.v3+json',
         'Authorization': authVal,
       });
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
+
+      if (userRes.statusCode != 200) {
+        return const TokenVerificationResult(isVerified: false, error: 'Invalid GitHub token');
+      }
+
+      final userData = jsonDecode(userRes.body) as Map<String, dynamic>;
+      final adminHandle = userData['login']?.toString();
+
+      if (owner.isNotEmpty && repo.isNotEmpty) {
+        final repoUri = Uri.parse('https://api.github.com/repos/$owner/$repo');
+        final repoRes = await http.get(repoUri, headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'Authorization': authVal,
+        });
+
+        if (repoRes.statusCode != 200) {
+          return TokenVerificationResult(
+            isVerified: false,
+            adminHandle: adminHandle,
+            error: 'Repository not found or access denied ($owner/$repo)',
+          );
+        }
+
+        final repoData = jsonDecode(repoRes.body) as Map<String, dynamic>;
+        final permissions = repoData['permissions'] as Map<String, dynamic>?;
+        final hasPush = permissions?['push'] == true || permissions?['admin'] == true;
+        if (!hasPush) {
+          return TokenVerificationResult(
+            isVerified: false,
+            adminHandle: adminHandle,
+            error: 'Token lacks write/push permissions for $owner/$repo',
+          );
+        }
+      }
+
+      return TokenVerificationResult(
+        isVerified: true,
+        adminHandle: adminHandle,
+        error: null,
+      );
+    } catch (e) {
+      return TokenVerificationResult(
+        isVerified: false,
+        error: 'Network error during verification: $e',
+      );
     }
   }
 
@@ -93,9 +141,20 @@ class GitHubService {
       }
     }
 
-    final uri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/$branch/config.json');
+    final targetBranch = branch.trim().isEmpty ? 'main' : branch.trim();
+    final uri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/$targetBranch/config.json');
     final response = await http.get(uri);
     if (response.statusCode != 200) {
+      // Try fallback to master branch
+      if (targetBranch == 'main') {
+        final masterUri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/master/config.json');
+        final masterRes = await http.get(masterUri);
+        if (masterRes.statusCode == 200) {
+          final json = jsonDecode(masterRes.body) as Map<String, dynamic>;
+          return AppConfig.fromJson(json)
+              .copyWith(repoOwner: owner, repoName: repo, repoBranch: 'master', dataFileName: dataFileName);
+        }
+      }
       throw Exception('Failed to load config.json (${response.statusCode})');
     }
 
@@ -118,9 +177,18 @@ class GitHubService {
       }
     }
 
-    final uri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/$branch/$dataFileName');
+    final targetBranch = branch.trim().isEmpty ? 'main' : branch.trim();
+    final uri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/$targetBranch/$dataFileName');
     final response = await http.get(uri);
     if (response.statusCode != 200) {
+      if (targetBranch == 'main') {
+        final masterUri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/master/$dataFileName');
+        final masterRes = await http.get(masterUri);
+        if (masterRes.statusCode == 200) {
+          final json = jsonDecode(masterRes.body) as Map<String, dynamic>;
+          return FundData.fromJson(json);
+        }
+      }
       throw Exception('Failed to load $dataFileName (${response.statusCode})');
     }
 
@@ -131,10 +199,12 @@ class GitHubService {
   Future<AppConfig> fetchRelativeConfig() async {
     final candidates = _relativeCandidates('config.json');
     for (final uri in candidates) {
-      final response = await http.get(uri);
-      if (response.statusCode == 200) {
-        return AppConfig.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
-      }
+      try {
+        final response = await http.get(uri);
+        if (response.statusCode == 200) {
+          return AppConfig.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        }
+      } catch (_) {}
     }
     throw Exception('Failed to load web config.json');
   }
@@ -142,10 +212,12 @@ class GitHubService {
   Future<FundData> fetchRelativeData(String fileName) async {
     final candidates = _relativeCandidates(fileName);
     for (final uri in candidates) {
-      final response = await http.get(uri);
-      if (response.statusCode == 200) {
-        return FundData.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
-      }
+      try {
+        final response = await http.get(uri);
+        if (response.statusCode == 200) {
+          return FundData.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        }
+      } catch (_) {}
     }
     throw Exception('Failed to load web $fileName');
   }
@@ -164,10 +236,23 @@ class GitHubService {
     return candidates.toList();
   }
 
-  Future<List<Map<String, dynamic>>> getCommits({int perPage = 20}) async {
-    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/commits?sha=$branch&per_page=$perPage');
+  Future<List<Map<String, dynamic>>> getCommits({int perPage = 15}) async {
+    final cleanBranch = branch.trim();
+    final url = cleanBranch.isNotEmpty
+        ? 'https://api.github.com/repos/$owner/$repo/commits?sha=${Uri.encodeComponent(cleanBranch)}&per_page=$perPage'
+        : 'https://api.github.com/repos/$owner/$repo/commits?per_page=$perPage';
+    final uri = Uri.parse(url);
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode != 200) {
+      // Fallback without sha
+      if (cleanBranch.isNotEmpty) {
+        final fallbackUri = Uri.parse('https://api.github.com/repos/$owner/$repo/commits?per_page=$perPage');
+        final fallbackRes = await http.get(fallbackUri, headers: _headers);
+        if (fallbackRes.statusCode == 200) {
+          final list = jsonDecode(fallbackRes.body) as List;
+          return list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+        }
+      }
       throw Exception('Failed to fetch commits (${response.statusCode})');
     }
     final list = jsonDecode(response.body) as List;
@@ -176,15 +261,29 @@ class GitHubService {
 
   Future<void> resetToCommit(String sha) async {
     _assertToken();
-    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/git/refs/heads/$branch');
+    final cleanBranch = branch.trim().isEmpty ? 'main' : branch.trim();
+    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/git/refs/heads/${Uri.encodeComponent(cleanBranch)}');
     final response = await http.patch(
       uri,
       headers: {..._headers, 'Content-Type': 'application/json'},
       body: jsonEncode({'sha': sha, 'force': true}),
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Reset failed (${response.statusCode})');
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
     }
+    // Fallback for master branch
+    if (cleanBranch == 'main') {
+      final masterUri = Uri.parse('https://api.github.com/repos/$owner/$repo/git/refs/heads/master');
+      final masterRes = await http.patch(
+        masterUri,
+        headers: {..._headers, 'Content-Type': 'application/json'},
+        body: jsonEncode({'sha': sha, 'force': true}),
+      );
+      if (masterRes.statusCode >= 200 && masterRes.statusCode < 300) {
+        return;
+      }
+    }
+    throw Exception('Reset failed (${response.statusCode}): ${response.body}');
   }
 
   Future<void> commitConfig(AppConfig config, {required String message}) async {
@@ -196,40 +295,27 @@ class GitHubService {
   }
 
   Future<Map<String, dynamic>> _getRepoFile(String path) async {
-    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path?ref=$branch');
+    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path');
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode != 200) {
       throw Exception('Unable to fetch $path (${response.statusCode})');
     }
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final content = (body['content'] as String).replaceAll('\n', '');
+    final content = (body['content'] as String).replaceAll('\n', '').replaceAll('\r', '');
     final decoded = utf8.decode(base64Decode(content));
     return jsonDecode(decoded) as Map<String, dynamic>;
   }
 
   Future<String?> _getFileSha(String path) async {
-    final cleanBranch = branch.trim();
-    if (cleanBranch.isNotEmpty) {
-      try {
-        final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path?ref=${Uri.encodeComponent(cleanBranch)}');
-        final response = await http.get(uri, headers: _headers);
-        if (response.statusCode == 200) {
-          final body = jsonDecode(response.body) as Map<String, dynamic>;
-          return body['sha']?.toString();
-        }
-      } catch (_) {}
-    }
-
     try {
-      final fallbackUri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path');
-      final response = await http.get(fallbackUri, headers: _headers);
+      final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path');
+      final response = await http.get(uri, headers: _headers);
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         return body['sha']?.toString();
       }
     } catch (_) {}
-
     return null;
   }
 
@@ -252,7 +338,6 @@ class GitHubService {
       final body = <String, dynamic>{
         'message': message,
         'content': base64Encode(utf8.encode(rawJson)),
-        if (branch.trim().isNotEmpty) 'branch': branch.trim(),
         if (sha != null && sha.isNotEmpty) 'sha': sha,
       };
 
@@ -281,14 +366,15 @@ class GitHubService {
             detail = errMap['message'].toString();
           }
         } catch (_) {}
-        throw Exception('GitHub commit failed for $path ($message, status ${response.statusCode}): $detail');
+        throw Exception('GitHub commit failed for $path (status ${response.statusCode}): $detail');
       }
     }
   }
 
   void _assertToken() {
-    if (token == null || token!.isEmpty) {
+    if (token == null || token!.trim().isEmpty) {
       throw Exception('PAT required for write operations');
     }
   }
 }
+
