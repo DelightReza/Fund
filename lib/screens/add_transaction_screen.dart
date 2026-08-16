@@ -703,6 +703,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     }
 
     if (context.mounted) {
+      final appStateAfter = ref.read(appStateProvider);
       if (pushed) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -716,11 +717,27 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             backgroundColor: Colors.green,
           ),
         );
+      } else if (appStateAfter.error != null && appStateAfter.error!.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved locally. Push to GitHub failed: ${appStateAfter.error}'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      } else if (appStateAfter.token == null || appStateAfter.token!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved locally. Click the Admin (shield) icon in top bar to set your GitHub PAT and push remotely.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Saved locally! (Configure PAT to push to GitHub)'),
-            backgroundColor: Colors.orange,
+            content: Text('Saved locally to queue!'),
+            backgroundColor: Colors.blueGrey,
           ),
         );
       }
