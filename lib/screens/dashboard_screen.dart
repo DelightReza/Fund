@@ -133,11 +133,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             tooltip: hasToken ? 'Admin Access Active' : 'Admin Authentication',
           ),
-          IconButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen())),
-            icon: const Icon(Icons.source_outlined),
-            tooltip: 'Switch or Manage Repositories',
-          ),
+          if (!kIsWeb)
+            IconButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepoSelectionScreen())),
+              icon: const Icon(Icons.source_outlined),
+              tooltip: 'Switch or Manage Repositories',
+            ),
           IconButton(
             onPressed: () {
               final currentMode = ref.read(themeModeProvider);
