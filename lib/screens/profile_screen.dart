@@ -29,8 +29,9 @@ class ProfileScreen extends ConsumerWidget {
     final related = appState.data.transactions.where((tx) {
       if (tx.actorId == memberId || tx.targetId == memberId) return true;
       if (tx.participantIds.contains(memberId)) return true;
-      if (tx.participantIds.isEmpty && tx.exemptions.isNotEmpty && !tx.exemptions.contains(memberId)) return true;
-      if (tx.participantIds.isEmpty && tx.exemptions.isEmpty && activeIds.contains(memberId)) return true;
+      final exemptions = tx.exemptions;
+      if (tx.participantIds.isEmpty && exemptions != null && exemptions.isNotEmpty && !exemptions.contains(memberId)) return true;
+      if (tx.participantIds.isEmpty && (exemptions == null || exemptions.isEmpty) && activeIds.contains(memberId)) return true;
       return false;
     }).toList();
 

@@ -487,7 +487,7 @@ class AppNotifier extends StateNotifier<AppState> {
         msg = 'Deleted Expense: $personName paid $currency${creditTx.amount} for $billName';
       } else if (group.any((t) => t.distributionTotal != null)) {
         final distTx = group.firstWhere((t) => t.distributionTotal != null, orElse: () => group.first);
-        final total = distTx.distributionTotal ?? group.fold(0.0, (sum, t) => sum + t.amount);
+        final total = distTx.distributionTotal ?? group.fold<double>(0.0, (sum, t) => sum + t.amount);
         msg = 'Deleted Distribution ($currency$total)';
       } else {
         msg = 'Deleted Group Transaction ($parentId)';
