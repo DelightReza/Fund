@@ -811,12 +811,16 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     if (context.mounted) {
       final appStateAfter = ref.read(appStateProvider);
-      final parentContext = context;
+      // Grab the *root* navigator's context before popping. The screen's own
+      // `context` becomes unmounted the instant its route is popped, so
+      // showing a dialog on it afterwards can silently fail to appear —
+      // which made push failures (and successes) invisible.
+      final popupContext = Navigator.of(context, rootNavigator: true).context;
       Navigator.of(context).pop();
 
       if (pushed) {
         StatusPopup.show(
-          parentContext,
+          popupContext,
           title: 'Committed to GitHub',
           message: 'Transaction saved and pushed to remote repository.',
           type: StatusPopupType.success,
@@ -824,14 +828,14 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         );
       } else if (appStateAfter.error != null && appStateAfter.error!.isNotEmpty) {
         StatusPopup.show(
-          parentContext,
+          popupContext,
           title: 'Push Failed (Saved Locally)',
           message: appStateAfter.error!,
           type: StatusPopupType.error,
         );
       } else if (appStateAfter.token == null || appStateAfter.token!.isEmpty) {
         StatusPopup.show(
-          parentContext,
+          popupContext,
           title: 'Saved Locally',
           message: 'Saved to local device. Add a GitHub PAT in Admin to sync with remote repo.',
           type: StatusPopupType.info,

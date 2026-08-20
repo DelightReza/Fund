@@ -338,11 +338,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
 
     if (mounted) {
+      final appStateAfter = ref.read(appStateProvider);
+
       if (pushed) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Configuration saved and pushed to GitHub!'),
             backgroundColor: Colors.green,
+          ),
+        );
+      } else if (appStateAfter.error != null && appStateAfter.error!.isNotEmpty) {
+        // A push was actually attempted and failed — show the real reason
+        // instead of a generic "you need a PAT" message that's misleading
+        // when a PAT is already configured.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved locally, but push to GitHub failed: ${appStateAfter.error}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
           ),
         );
       } else {
