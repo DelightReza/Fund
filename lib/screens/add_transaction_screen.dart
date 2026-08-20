@@ -841,6 +841,15 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           type: StatusPopupType.info,
           autoDismissDuration: const Duration(seconds: 3),
         );
+      } else {
+        // Token exists but push still failed (no repo, network down, 409 conflict, etc.)
+        StatusPopup.show(
+          popupContext,
+          title: 'Saved Locally',
+          message: 'Changes saved locally but could not be pushed. Check your repository settings or network connection.',
+          type: StatusPopupType.info,
+          autoDismissDuration: const Duration(seconds: 4),
+        );
       }
     }
   }

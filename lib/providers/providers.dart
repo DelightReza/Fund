@@ -611,6 +611,9 @@ class AppNotifier extends StateNotifier<AppState> {
           token: effectiveToken,
         );
 
+        // Push both files so the remote repo is fully in sync.
+        // Only clear the offline queue after both succeed.
+        await github.commitConfig(config, message: message);
         await github.commitData(updated, message: message);
         await ref.read(storageProvider).savePendingOperations([]);
 

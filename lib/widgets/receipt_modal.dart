@@ -22,7 +22,12 @@ class ReceiptModal extends ConsumerWidget {
     final isExpense = transaction.type == TransactionType.expense;
     final isSettlement = transaction.type == TransactionType.settlement;
     final isTransfer = transaction.type == TransactionType.transfer;
-    final isDistribution = transaction.type == TransactionType.distribution;
+    final allTx = ref.watch(appStateProvider).data.transactions;
+    final siblings = transaction.parentId != null
+        ? allTx.where((t) => t.parentId == transaction.parentId).toList()
+        : <Transaction>[];
+    final isDistributionGroup = transaction.distributionTotal != null ||
+        (transaction.parentId != null && transaction.parentId!.startsWith('tx_dist'));
 
     String resolveMember(String? id) {
       if (id == null || id.isEmpty) return id ?? '';
@@ -118,8 +123,8 @@ class ReceiptModal extends ConsumerWidget {
               ),
             ],
             
-            if (isDistribution && transaction.participantIds.isNotEmpty) ...[
-               const Divider(height: 24),
+            if (isDistributionGroup && siblings.isNotEmpty) ...[
+              const Divider(height: 24),
               const Text('Distribution Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 8),
               Container(
@@ -129,15 +134,14 @@ class ReceiptModal extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
-                  children: transaction.participantIds.map((id) {
-                    final distAmount = transaction.amount / transaction.participantIds.length;
+                  children: siblings.map((s) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(resolveMember(id), style: const TextStyle(fontSize: 13)),
-                          Text(FormatUtils.currency(distAmount, currency),
+                          Text(resolveMember(s.whoOrBill), style: const TextStyle(fontSize: 13)),
+                          Text(FormatUtils.currency(s.amount, currency),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         ],
                       ),

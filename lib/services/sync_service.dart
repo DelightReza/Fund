@@ -38,6 +38,10 @@ class SyncService {
     final remaining = <PendingOperation>[];
     for (final operation in queue) {
       try {
+        // Push config first (idempotent if unchanged), then data
+        final config = AppConfig.fromJson(operation.configJson);
+        await github.commitConfig(config, message: '${operation.message} (config)');
+
         final data = FundData.fromJson(operation.dataJson);
         await github.commitData(data, message: operation.message);
       } catch (_) {

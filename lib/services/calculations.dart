@@ -172,6 +172,15 @@ class Calculations {
     var debits = 0.0;
 
     for (final tx in data.transactions) {
+      // Skip internal movements — these are member-to-member shifts,
+      // not actual fund inflows or outflows.
+      if (tx.parentId != null &&
+          (tx.parentId!.startsWith('tx_trf') ||
+           tx.parentId!.startsWith('tx_set') ||
+           tx.parentId!.startsWith('tx_dist'))) {
+        continue;
+      }
+
       if (tx.type == TransactionType.credit) {
         if (tx.amount > 0) {
           credits += tx.amount;

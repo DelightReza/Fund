@@ -58,6 +58,7 @@ class BillTypeConfig {
         'id': id,
         'name': name,
         'icon': icon,
+        'active': active,
       };
 
   BillTypeConfig copyWith({String? id, String? name, String? icon, bool? active}) {

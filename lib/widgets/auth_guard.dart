@@ -16,14 +16,12 @@ class AuthGuard extends ConsumerWidget {
     this.fallback,
     this.title = 'Admin Access Required',
     this.message = 'A valid GitHub Personal Access Token (PAT) is required to access administrative controls.',
-    this.onAuthenticated,
   });
 
   final Widget child;
   final Widget? fallback;
   final String title;
   final String message;
-  final VoidCallback? onAuthenticated;
 
   void _showTokenDialog(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController(text: ref.read(appStateProvider).token ?? '');
@@ -101,7 +99,6 @@ class AuthGuard extends ConsumerWidget {
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
 
     if (isAuthenticated) {
-      onAuthenticated?.call();
       return child;
     }
 

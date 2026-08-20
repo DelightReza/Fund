@@ -361,7 +361,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Configuration saved locally! (Push to GitHub required PAT)'),
+            content: Text('Configuration saved locally. Push to GitHub requires a valid PAT and repository.'),
             backgroundColor: Colors.orange,
           ),
         );

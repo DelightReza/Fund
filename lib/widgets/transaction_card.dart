@@ -31,6 +31,10 @@ class TransactionCard extends StatelessWidget {
     // Historical data written by the Kotlin/TypeScript apps encodes
     // settlements and transfers as plain `credit` rows with a *signed*
     // amount (negative = money left this person). Detect that case so we
+    final isDistribution = transaction.distributionTotal != null ||
+        (transaction.parentId != null && transaction.parentId!.startsWith('tx_dist'));
+    final isSettlement = transaction.parentId != null && transaction.parentId!.startsWith('tx_set');
+    final isTransfer = transaction.parentId != null && transaction.parentId!.startsWith('tx_trf');
     // don't mislabel an outgoing leg as an incoming "Deposit".
     final dateStr = AppDateUtils.formatDate(transaction.timestamp);
     final noteText = transaction.note.trim();
@@ -46,6 +50,27 @@ class TransactionCard extends StatelessWidget {
     final isOutgoingCreditLeg = transaction.type == TransactionType.credit && transaction.amount < 0;
 
     final (IconData icon, Color iconBg, Color amountColor, String title, String prefix) = switch (transaction.type) {
+      TransactionType.credit when isDistribution => (
+          Icons.call_split_rounded,
+          Colors.purple.shade100,
+          Colors.purple.shade700,
+          'Distribution • ${memberNameResolver(transaction.whoOrBill)}',
+          '+',
+        ),
+      TransactionType.credit when isSettlement => (
+          Icons.handshake_outlined,
+          Colors.teal.shade100,
+          Colors.teal.shade700,
+          'Settlement • ${memberNameResolver(transaction.whoOrBill)}',
+          transaction.amount < 0 ? '-' : '+',
+        ),
+      TransactionType.credit when isTransfer => (
+          Icons.swap_horiz_rounded,
+          Colors.blue.shade100,
+          Colors.blue.shade700,
+          'Transfer • ${memberNameResolver(transaction.whoOrBill)}',
+          transaction.amount < 0 ? '-' : '+',
+        ),
       TransactionType.credit when isOutgoingCreditLeg => (
           Icons.arrow_upward_rounded,
           AppColors.rose100,
