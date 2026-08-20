@@ -180,31 +180,45 @@ class AppNotifier extends StateNotifier<AppState> {
         return;
       }
 
-      if (!localConfig.hasRepository && savedRepos.isEmpty) {
+      // Android/Desktop Flow
+      if (savedRepos.isEmpty && !localConfig.hasRepository) {
         state = state.copyWith(
           stage: LaunchStage.repoSelection,
-          config: localConfig,
-          data: localData,
           savedRepos: savedRepos,
-          token: token,
-          userId: userId,
           pendingCount: pending,
         );
         return;
       }
 
-      final activeRepo = savedRepos.firstWhere(
-        (r) => r.owner == localConfig.repoOwner && r.repo == localConfig.repoName,
-        orElse: () => savedRepos.first,
-      );
+      final activeRepo = savedRepos.isNotEmpty
+          ? savedRepos.first
+          : SavedRepo(
+              id: '${localConfig.repoOwner}/${localConfig.repoName}',
+              owner: localConfig.repoOwner,
+              repo: localConfig.repoName,
+              branch: localConfig.repoBranch,
+              dataFileName: localConfig.dataFileName,
+              token: token,
+            );
 
       final activeToken = activeRepo.token ?? token;
+      storage.setRepo(activeRepo.owner, activeRepo.repo);
 
-      final merged = await _pullLatestFromRemote(localConfig, activeToken, fallbackData: localData);
-      final nextStage = (userId == null || userId.isEmpty) ? LaunchStage.userSelection : LaunchStage.dashboard;
+      final baseConfig = AppConfig(
+        siteTitle: activeRepo.displayTitle,
+        repoOwner: activeRepo.owner,
+        repoName: activeRepo.repo,
+        repoBranch: activeRepo.branch,
+        dataFileName: activeRepo.dataFileName,
+      );
+
+      final merged = await _pullLatestFromRemote(localConfig.hasRepository ? localConfig : baseConfig, activeToken, fallbackData: localData);
+
+      await storage.saveConfig(merged.$1);
+      await storage.saveData(merged.$2);
 
       state = state.copyWith(
-        stage: nextStage,
+        stage: (userId == null || userId.isEmpty) ? LaunchStage.userSelection : LaunchStage.dashboard,
         config: merged.$1,
         data: merged.$2,
         savedRepos: savedRepos,
@@ -216,7 +230,10 @@ class AppNotifier extends StateNotifier<AppState> {
 
       _startPeriodicSync();
     } catch (e) {
-      state = state.copyWith(stage: LaunchStage.error, error: e.toString());
+      state = state.copyWith(
+        stage: LaunchStage.error,
+        error: e.toString(),
+      );
     }
   }
 
@@ -229,19 +246,18 @@ class AppNotifier extends StateNotifier<AppState> {
     String? title,
   }) async {
     state = state.copyWith(stage: LaunchStage.loading, error: null);
-
     final storage = ref.read(storageProvider);
     storage.setRepo(owner, repo);
 
-    final baseConfig = state.config.copyWith(
-      siteTitle: (title != null && title.isNotEmpty) ? title : (state.config.siteTitle.isNotEmpty ? state.config.siteTitle : 'Fund'),
+    final baseConfig = AppConfig(
+      siteTitle: title ?? 'Fund',
       repoOwner: owner,
       repoName: repo,
       repoBranch: branch,
       dataFileName: dataFileName,
     );
 
-    final merged = await _pullLatestFromRemote(baseConfig, token, fallbackData: state.data);
+    final merged = await _pullLatestFromRemote(baseConfig, token, fallbackData: const FundData());
 
     if (token != null && token.isNotEmpty) {
       final result = await GitHubService(
@@ -349,7 +365,6 @@ class AppNotifier extends StateNotifier<AppState> {
       await storage.clearToken();
       state = state.copyWith(token: null);
       
-      // Update SavedRepo
       final currentRepoId = '${state.config.repoOwner}/${state.config.repoName}';
       final match = state.savedRepos.where((r) => r.id == currentRepoId).toList();
       if (match.isNotEmpty) {
@@ -389,6 +404,15 @@ class AppNotifier extends StateNotifier<AppState> {
     return await _saveAndUpdateData(updatedTx, state.config, message ?? 'Update fund data (${tx.type.name})');
   }
 
+  Future<bool> addMultipleTransactions(List<Transaction> txs, {String? message}) async {
+    final updatedTx = [...txs, ...state.data.transactions];
+    return await _saveAndUpdateData(
+      updatedTx,
+      state.config,
+      message ?? 'Add transactions (${txs.length} items)',
+    );
+  }
+
   Future<bool> addGroupedExpense({
     required String parentId,
     required List<Transaction> children,
@@ -407,7 +431,6 @@ class AppNotifier extends StateNotifier<AppState> {
     required List<Transaction> newChildren,
     String? message,
   }) async {
-    // Atomically replace all items having parentId or id == parentId with newChildren
     final filtered = state.data.transactions.where((tx) => tx.parentId != parentId && tx.id != parentId).toList();
     final updatedTx = [...newChildren, ...filtered];
     return await _saveAndUpdateData(
@@ -456,44 +479,25 @@ class AppNotifier extends StateNotifier<AppState> {
 
     if (parentId != null && parentId.isNotEmpty) {
       final group = state.data.transactions.where((tx) => tx.parentId == parentId || tx.id == parentId).toList();
-      if (group.any((t) => t.type == TransactionType.credit) && group.any((t) => t.type == TransactionType.debit)) {
-        if (group.length > 2 && group.any((t) => t.type == TransactionType.expense || t.type == TransactionType.debit)) {
-          final creditTx = group.firstWhere((t) => t.type == TransactionType.credit || t.type == TransactionType.expense);
-          final debitTx = group.firstWhere((t) => t.type == TransactionType.debit);
-          final personName = getPersonName(creditTx.actorId ?? creditTx.targetId);
-          final billName = getBillTypeName(debitTx.targetId ?? debitTx.actorId);
-          msg = 'Deleted Expense: $personName paid $currency${creditTx.amount} for $billName';
-        } else if (group.length == 2) {
-          final creditTx = group.firstWhere((t) => t.type == TransactionType.credit);
-          final debitTx = group.firstWhere((t) => t.type == TransactionType.debit);
-          
-          final positiveTx = creditTx.amount > 0 ? creditTx : debitTx;
-          final negativeTx = creditTx.amount < 0 ? creditTx : debitTx;
-          final fromName = getPersonName(negativeTx.actorId ?? negativeTx.targetId);
-          final toName = getPersonName(positiveTx.actorId ?? positiveTx.targetId);
-          
-          final typeName = (positiveTx.note?.toLowerCase().contains('settlement') ?? false) ? 'Settlement' : 'Transfer';
-          msg = 'Deleted $typeName: $fromName to $toName ($currency${positiveTx.amount.abs()})';
-        } else {
-          final total = group.fold(0.0, (sum, t) => sum + t.amount.abs()) / 2;
-          msg = 'Deleted Group Transaction ($currency$total)';
-        }
-      } else if (group.any((t) => t.type == TransactionType.distribution)) {
-          final distTx = group.firstWhere((t) => t.distributionTotal != null, orElse: () => group.first);
-          final total = distTx.distributionTotal ?? (group.fold(0.0, (sum, t) => sum + t.amount.abs()) / 2);
-          msg = 'Deleted Distribution ($currency$total)';
+      if (group.any((t) => t.type == TransactionType.credit) && group.any((t) => t.type == TransactionType.debit || t.type == TransactionType.expense)) {
+        final creditTx = group.firstWhere((t) => t.type == TransactionType.credit);
+        final debitTx = group.firstWhere((t) => t.type == TransactionType.debit || t.type == TransactionType.expense);
+        final personName = getPersonName(creditTx.whoOrBill);
+        final billName = getBillTypeName(debitTx.whoOrBill);
+        msg = 'Deleted Expense: $personName paid $currency${creditTx.amount} for $billName';
+      } else if (group.any((t) => t.distributionTotal != null)) {
+        final distTx = group.firstWhere((t) => t.distributionTotal != null, orElse: () => group.first);
+        final total = distTx.distributionTotal ?? group.fold(0.0, (sum, t) => sum + t.amount);
+        msg = 'Deleted Distribution ($currency$total)';
       } else {
-          final total = group.fold(0.0, (sum, t) => sum + t.amount.abs()) / 2;
-          msg = 'Deleted Group Transaction ($currency$total)';
+        msg = 'Deleted Group Transaction ($parentId)';
       }
       updatedTx = state.data.transactions.where((tx) => tx.parentId != parentId && tx.id != parentId).toList();
     } else {
       if (targetTx.type == TransactionType.credit) {
-        msg = 'Deleted Credit: ${getPersonName(targetTx.actorId)} ($currency${targetTx.amount})';
-      } else if (targetTx.type == TransactionType.debit || targetTx.type == TransactionType.expense) {
-        msg = 'Deleted Debit: ${getBillTypeName(targetTx.targetId)} ($currency${targetTx.amount})';
+        msg = 'Deleted Credit: ${getPersonName(targetTx.whoOrBill)} ($currency${targetTx.amount})';
       } else {
-        msg = 'Deleted Transaction: $currency${targetTx.amount}';
+        msg = 'Deleted Debit: ${getBillTypeName(targetTx.whoOrBill)} ($currency${targetTx.amount})';
       }
       updatedTx = state.data.transactions.where((tx) => tx.id != id).toList();
     }
@@ -533,11 +537,11 @@ class AppNotifier extends StateNotifier<AppState> {
 
   Future<bool> _saveAndUpdateData(List<Transaction> transactions, AppConfig config, String message) async {
     final tempFundData = state.data.copyWith(transactions: transactions);
-    final balances = Calculations.calculateBalances(tempFundData, config.people);
-    final billTotals = Calculations.calculateBillTotals(tempFundData);
+    final peopleCredits = Calculations.calculatePeopleCredits(tempFundData, config.people);
+    final billTotals = Calculations.calculateBillTotals(tempFundData, config.billTypes);
 
     final updated = tempFundData.copyWith(
-      people: balances,
+      people: peopleCredits,
       billTypes: billTotals,
     );
 
@@ -691,9 +695,9 @@ class AppNotifier extends StateNotifier<AppState> {
       final remoteConfig = await github.fetchConfig();
       final remoteDataRaw = await github.fetchData();
       
-      final balances = Calculations.calculateBalances(remoteDataRaw, remoteConfig.people);
-      final billTotals = Calculations.calculateBillTotals(remoteDataRaw);
-      final remoteData = remoteDataRaw.copyWith(people: balances, billTypes: billTotals);
+      final peopleCredits = Calculations.calculatePeopleCredits(remoteDataRaw, remoteConfig.people);
+      final billTotals = Calculations.calculateBillTotals(remoteDataRaw, remoteConfig.billTypes);
+      final remoteData = remoteDataRaw.copyWith(people: peopleCredits, billTypes: billTotals);
       
       return (remoteConfig, remoteData);
     } catch (_) {
@@ -737,7 +741,8 @@ final totalsProvider = Provider<({double credits, double debits})>((ref) {
 
 final billTotalsProvider = Provider<Map<String, double>>((ref) {
   final data = ref.watch(appStateProvider.select((s) => s.data));
-  return Calculations.calculateBillTotals(data);
+  final config = ref.watch(appStateProvider.select((s) => s.config));
+  return Calculations.calculateBillTotals(data, config.billTypes);
 });
 
 final authSessionTokenProvider = Provider<String?>((ref) {
@@ -748,27 +753,3 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
   final token = ref.watch(authSessionTokenProvider);
   return token != null && token.trim().isNotEmpty;
 });
-
-Transaction createTransaction({
-  required TransactionType type,
-  required double amount,
-  required String note,
-  String? actorId,
-  String? targetId,
-  List<String> participants = const [],
-  List<String> exemptions = const [],
-  String? parentId,
-}) {
-  return Transaction(
-    id: AppDateUtils.generateId(),
-    type: type,
-    amount: amount,
-    note: note,
-    actorId: actorId,
-    targetId: targetId,
-    participantIds: participants,
-    exemptions: exemptions,
-    parentId: parentId,
-    timestamp: AppDateUtils.nowIso(),
-  );
-}

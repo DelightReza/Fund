@@ -2,14 +2,14 @@ import 'transaction.dart';
 
 class FundData {
   const FundData({
-    this.transactions = const [],
-    this.people = const {},
     this.billTypes = const {},
+    this.people = const {},
+    this.transactions = const [],
   });
 
-  final List<Transaction> transactions;
-  final Map<String, double> people;
   final Map<String, double> billTypes;
+  final Map<String, double> people;
+  final List<Transaction> transactions;
 
   factory FundData.fromJson(Map<String, dynamic> json) {
     final rawTransactions = json['transactions'];
@@ -22,36 +22,52 @@ class FundData {
 
     Map<String, double> parseMap(dynamic raw) {
       if (raw is! Map) return {};
-      return raw.map((k, v) => MapEntry(k.toString(), _toDouble(v)));
+      final map = <String, double>{};
+      for (final entry in raw.entries) {
+        map[entry.key.toString()] = _toDouble(entry.value);
+      }
+      return map;
     }
 
     return FundData(
-      transactions: txs,
-      people: parseMap(json['people']),
       billTypes: parseMap(json['billTypes']),
+      people: parseMap(json['people']),
+      transactions: txs,
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'billTypes': billTypes,
-        'people': people,
-        'transactions': transactions.map((e) => e.toJson()).toList(),
-      };
+  Map<String, dynamic> toJson() {
+    final bMap = <String, dynamic>{};
+    billTypes.forEach((k, v) {
+      bMap[k] = (v % 1.0 == 0.0) ? v.toInt() : double.parse(v.toStringAsFixed(2));
+    });
+
+    final pMap = <String, dynamic>{};
+    people.forEach((k, v) {
+      pMap[k] = (v % 1.0 == 0.0) ? v.toInt() : double.parse(v.toStringAsFixed(2));
+    });
+
+    return {
+      'billTypes': bMap,
+      'people': pMap,
+      'transactions': transactions.map((e) => e.toJson()).toList(),
+    };
+  }
 
   FundData copyWith({
-    List<Transaction>? transactions,
-    Map<String, double>? people,
     Map<String, double>? billTypes,
+    Map<String, double>? people,
+    List<Transaction>? transactions,
   }) {
     return FundData(
-      transactions: transactions ?? this.transactions,
-      people: people ?? this.people,
       billTypes: billTypes ?? this.billTypes,
+      people: people ?? this.people,
+      transactions: transactions ?? this.transactions,
     );
   }
 
   static double _toDouble(dynamic value) {
     if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '0') ?? 0;
+    return double.tryParse(value?.toString() ?? '0') ?? 0.0;
   }
 }

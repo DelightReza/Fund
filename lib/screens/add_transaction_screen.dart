@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../models/transaction.dart';
 import '../providers/providers.dart';
@@ -9,32 +10,15 @@ import '../widgets/status_popup.dart';
 class AddTransactionScreen extends ConsumerStatefulWidget {
   const AddTransactionScreen({
     super.key,
-    this.initialType,
+    this.initialType = TransactionType.expense,
     this.existingTransaction,
   });
 
-  final TransactionType? initialType;
+  final TransactionType initialType;
   final Transaction? existingTransaction;
 
   @override
   ConsumerState<AddTransactionScreen> createState() => _AddTransactionScreenState();
-}
-
-class _GroupedSubItem {
-  _GroupedSubItem({
-    required this.amountController,
-    required this.noteController,
-    required this.categoryId,
-  });
-
-  final TextEditingController amountController;
-  final TextEditingController noteController;
-  String categoryId;
-
-  void dispose() {
-    amountController.dispose();
-    noteController.dispose();
-  }
 }
 
 class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
@@ -44,339 +28,177 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
   String? _actorId;
   String? _targetId;
-  final Set<String> _selectedParticipants = {};
-  bool _saving = false;
+  final Set<String> _selectedParticipants = <String>{};
+  DateTime _selectedDateTime = DateTime.now();
 
-  // Grouped expense state
-  bool _isGroupedExpense = false;
-  final List<_GroupedSubItem> _subItems = [];
-  String? _groupedParentId;
-  List<Transaction> _existingGroupedChildren = [];
+  bool _saving = false;
+  String? _linkedParentId;
 
   @override
   void initState() {
     super.initState();
+    _type = widget.initialType;
     final existing = widget.existingTransaction;
-    final appState = ref.read(appStateProvider);
-    final appConfig = appState.config;
-    final activePeople = appConfig.people.where((p) => p.active).toList();
 
     if (existing != null) {
-      _type = existing.type;
-      _actorId = existing.actorId;
-      _targetId = existing.targetId;
-      _selectedParticipants.addAll(
-        existing.participantIds.isNotEmpty 
-          ? existing.participantIds 
-          : activePeople.map((p) => p.id),
-      );
+      _amountController.text = existing.amount > 0 ? (existing.amount % 1 == 0 ? existing.amount.toInt().toString() : existing.amount.toStringAsFixed(2)) : ((-existing.amount) % 1 == 0 ? (-existing.amount).toInt().toString() : (-existing.amount).toStringAsFixed(2));
+      _noteController.text = existing.note;
+      _linkedParentId = existing.parentId;
 
-      // Check if this existing transaction is part of a grouped expense
-      final parentId = (existing.parentId != null && existing.parentId!.isNotEmpty) ? existing.parentId : null;
-      if (parentId != null) {
-        _groupedParentId = parentId;
-        final siblings = appState.data.transactions.where((t) => t.parentId == parentId).toList();
-        if (siblings.isNotEmpty) {
-          _existingGroupedChildren = siblings;
-          _isGroupedExpense = true;
-          final totalAmount = siblings.fold(0.0, (sum, t) => sum + t.amount);
-          _amountController.text = totalAmount.toStringAsFixed(2);
-          _noteController.text = siblings.first.note;
-          for (final s in siblings) {
-            _subItems.add(_GroupedSubItem(
-              amountController: TextEditingController(text: s.amount.toString()),
-              noteController: TextEditingController(text: s.note),
-              categoryId: s.targetId ?? (appConfig.billTypes.isNotEmpty ? appConfig.billTypes.first.id : 'others'),
-            ));
-          }
-        } else {
-          _amountController.text = existing.amount.toString();
-          _noteController.text = existing.note;
-        }
+      final dt = DateTime.tryParse(existing.date);
+      if (dt != null) {
+        _selectedDateTime = dt;
+      }
+
+      if (existing.parentId != null && existing.parentId!.startsWith('tx_exp')) {
+        _type = TransactionType.expense;
+      } else if (existing.parentId != null && existing.parentId!.startsWith('tx_dist')) {
+        _type = TransactionType.distribution;
+      } else if (existing.parentId != null && existing.parentId!.startsWith('tx_set')) {
+        _type = TransactionType.settlement;
+      } else if (existing.parentId != null && existing.parentId!.startsWith('tx_trf')) {
+        _type = TransactionType.transfer;
       } else {
-        _amountController.text = existing.amount.toString();
-        _noteController.text = existing.note;
+        _type = existing.type;
       }
-    } else {
-      _type = widget.initialType ?? TransactionType.expense;
-      if (_type == TransactionType.expense) {
-        _isGroupedExpense = true;
+
+      if (existing.isCredit) {
+        _actorId = existing.whoOrBill;
+      } else {
+        _targetId = existing.whoOrBill;
       }
-      if (activePeople.isNotEmpty) {
-        _actorId = activePeople.first.id;
-        _selectedParticipants.addAll(activePeople.map((p) => p.id));
-      }
-      final billTypes = appConfig.billTypes;
-      if (billTypes.isNotEmpty) {
-        _targetId = billTypes.first.id;
-      }
-      if (_isGroupedExpense) {
-        _addSubItem();
+
+      if (existing.splitAmong != null && existing.splitAmong!.isNotEmpty) {
+        _selectedParticipants.addAll(existing.splitAmong!);
       }
     }
-  }
 
-  void _addSubItem() {
-    final billTypes = ref.read(appStateProvider).config.billTypes;
-    final defaultCategory = billTypes.isNotEmpty ? billTypes.first.id : 'others';
-    setState(() {
-      _subItems.add(_GroupedSubItem(
-        amountController: TextEditingController(),
-        noteController: TextEditingController(),
-        categoryId: defaultCategory,
-      ));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final config = ref.read(appStateProvider).config;
+      final activePeople = config.people.where((p) => p.active).toList();
+
+      if (_selectedParticipants.isEmpty) {
+        setState(() {
+          _selectedParticipants.addAll(activePeople.map((p) => p.id));
+        });
+      }
+
+      if (_actorId == null && activePeople.isNotEmpty) {
+        final currentUserId = ref.read(appStateProvider).userId;
+        final defaultActor = activePeople.any((p) => p.id == currentUserId) ? currentUserId : activePeople.first.id;
+        setState(() => _actorId = defaultActor);
+      }
+
+      if (_targetId == null) {
+        if ((_type == TransactionType.expense || _type == TransactionType.debit) && config.billTypes.isNotEmpty) {
+          setState(() => _targetId = config.billTypes.first.id);
+        } else if ((_type == TransactionType.settlement || _type == TransactionType.transfer) && activePeople.length > 1) {
+          final other = activePeople.firstWhere((p) => p.id != _actorId, orElse: () => activePeople.first);
+          setState(() => _targetId = other.id);
+        }
+      }
     });
-  }
-
-  void _removeSubItem(int index) {
-    setState(() {
-      _subItems[index].dispose();
-      _subItems.removeAt(index);
-    });
-    _recalculateGroupedTotal();
-  }
-
-  void _recalculateGroupedTotal() {
-    if (!_isGroupedExpense) return;
-    double total = 0.0;
-    for (final item in _subItems) {
-      total += double.tryParse(item.amountController.text.trim()) ?? 0.0;
-    }
-    if (total > 0) {
-      _amountController.text = total.toStringAsFixed(2);
-    }
   }
 
   @override
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
-    for (final item in _subItems) {
-      item.dispose();
-    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
-    final people = appState.config.people;
+    final people = appState.config.people.where((p) => p.active).toList();
     final billTypes = appState.config.billTypes;
-    final activePeople = people.where((p) => p.active).toList();
-
     final isEdit = widget.existingTransaction != null;
+
+    final theme = Theme.of(context);
+    final typeColor = _getTypeColor(_type);
+
+    final amountVal = double.tryParse(_amountController.text.trim()) ?? 0.0;
+    final splitCount = _selectedParticipants.length;
+    final perPerson = splitCount > 0 ? (amountVal / splitCount) : 0.0;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          isEdit 
-            ? (_isGroupedExpense ? 'Edit Grouped Expense' : 'Edit Transaction') 
-            : 'New Transaction Entry'
-        ),
+        title: Text(isEdit ? 'Edit Transaction' : 'Add Transaction'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          if (!isEdit || !_isGroupedExpense) ...[
-            Text(
-              'TRANSACTION TYPE',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.1,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 8),
+          // Transaction Type Selector (only on create)
+          if (!isEdit) ...[
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: TransactionType.values.map((t) {
-                  final isSelected = _type == t;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(t.name.toUpperCase()),
-                      selected: isSelected,
-                      onSelected: (sel) {
-                        if (sel) {
-                          setState(() {
-                            _type = t;
-                            if (_type == TransactionType.expense && !isEdit) {
-                              _isGroupedExpense = true;
-                              if (_subItems.isEmpty) _addSubItem();
-                            } else if (_type != TransactionType.expense) {
-                              _isGroupedExpense = false;
-                            }
-                            if (_requiresActor && (_actorId == null || _actorId!.isEmpty)) {
-                              if (activePeople.isNotEmpty) _actorId = activePeople.first.id;
-                            }
-                            if (_requiresTarget) {
-                              if (_type == TransactionType.expense || _type == TransactionType.debit) {
-                                if (billTypes.isNotEmpty && (billTypes.every((b) => b.id != _targetId))) {
-                                  _targetId = billTypes.first.id;
-                                }
-                              } else {
-                                if (activePeople.isNotEmpty && (activePeople.every((p) => p.id != _targetId))) {
-                                  _targetId = activePeople.first.id;
-                                }
-                              }
-                            }
-                            if (_requiresParticipants && _selectedParticipants.isEmpty) {
-                              _selectedParticipants.addAll(activePeople.map((p) => p.id));
-                            }
-                          });
-                        }
-                      },
-                    ),
-                  );
-                }).toList(),
+                children: [
+                  _typeChip(TransactionType.expense, 'Quick Expense', Icons.receipt_long),
+                  const SizedBox(width: 8),
+                  _typeChip(TransactionType.credit, 'Credit (Deposit)', Icons.arrow_downward),
+                  const SizedBox(width: 8),
+                  _typeChip(TransactionType.debit, 'Debit (Bill)', Icons.arrow_upward),
+                  const SizedBox(width: 8),
+                  _typeChip(TransactionType.distribution, 'Distribute', Icons.call_split),
+                  const SizedBox(width: 8),
+                  _typeChip(TransactionType.settlement, 'Settlement', Icons.handshake),
+                  const SizedBox(width: 8),
+                  _typeChip(TransactionType.transfer, 'Transfer', Icons.swap_horiz),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
           ],
-          if (!_isGroupedExpense) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                      decoration: InputDecoration(
-                        labelText: 'Amount (${appState.config.currency})',
-                        prefixIcon: const Icon(Icons.attach_money),
-                      ),
+
+          // Amount Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('AMOUNT (${appState.config.currency})',
+                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: typeColor,
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _noteController,
-                      decoration: const InputDecoration(
-                        labelText: 'Note / Description',
-                        hintText: 'e.g. Grocery shopping, Electricity bill...',
-                        prefixIcon: Icon(Icons.notes),
+                    decoration: InputDecoration(
+                      prefixText: '${appState.config.currency} ',
+                      prefixStyle: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: typeColor,
                       ),
+                      hintText: '0.00',
+                      border: InputBorder.none,
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ] else ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: _noteController,
-                      decoration: const InputDecoration(
-                        labelText: 'Receipt / Overall Note',
-                        hintText: 'e.g. Supermarket Trip (Items itemized below)',
-                        prefixIcon: Icon(Icons.receipt_long),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  if (_requiresParticipants && splitCount > 0 && amountVal > 0) ...[
+                    const Divider(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Text('Split among $splitCount members', style: theme.textTheme.bodySmall),
                         Text(
-                          'SUB-ITEMS (${_subItems.length})',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: _addSubItem,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Item'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ..._subItems.asMap().entries.map((entry) {
-                      final idx = entry.key;
-                      final item = entry.value;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: TextField(
-                                    controller: item.amountController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: InputDecoration(
-                                      isDense: true,
-                                      labelText: 'Amount (${appState.config.currency})',
-                                      prefixIcon: const Icon(Icons.attach_money, size: 18),
-                                    ),
-                                    onChanged: (_) => _recalculateGroupedTotal(),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 3,
-                                  child: DropdownButtonFormField<String>(
-                                    value: item.categoryId,
-                                    isDense: true,
-                                    decoration: const InputDecoration(labelText: 'Category', isDense: true),
-                                    items: billTypes.map((b) => DropdownMenuItem(
-                                      value: b.id,
-                                      child: Text('${b.icon} ${b.name}'),
-                                    )).toList(),
-                                    onChanged: (val) {
-                                      if (val != null) setState(() => item.categoryId = val);
-                                    },
-                                  ),
-                                ),
-                                if (_subItems.length > 1) ...[
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                                    onPressed: () => _removeSubItem(idx),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: item.noteController,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                labelText: 'Item Description',
-                                hintText: 'e.g. Milk & Eggs',
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                    const Divider(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Calculated Total:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text(
-                          '${appState.config.currency} ${_amountController.text.isEmpty ? "0.00" : _amountController.text}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green),
+                          '${appState.config.currency} ${perPerson.toStringAsFixed(2)} / person',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: typeColor),
                         ),
                       ],
                     ),
                   ],
-                ),
+                ],
               ),
             ),
-          ],
+          ),
           const SizedBox(height: 16),
+
+          // Actor / Payer Selection (if required)
           if (_requiresActor) ...[
             Card(
               child: Padding(
@@ -384,17 +206,15 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _actorLabel,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                    const SizedBox(height: 10),
+                    Text(_actorLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
-                      children: activePeople.map((p) {
+                      runSpacing: 8,
+                      children: people.map((p) {
                         final isSel = _actorId == p.id;
                         return ChoiceChip(
-                          avatar: CircleAvatar(child: Text(p.name[0])),
+                          avatar: CircleAvatar(child: Text(p.name.isNotEmpty ? p.name[0].toUpperCase() : '?')),
                           label: Text(p.name),
                           selected: isSel,
                           onSelected: (sel) {
@@ -409,18 +229,17 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          if (_requiresTarget && !_isGroupedExpense) ...[
+
+          // Target Selection (Category for expense/debit, or Member for settlement/transfer)
+          if (_requiresTarget) ...[
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _targetLabel,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                    const SizedBox(height: 10),
+                    Text(_targetLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 12),
                     if (_type == TransactionType.expense || _type == TransactionType.debit) ...[
                       Wrap(
                         spacing: 8,
@@ -439,10 +258,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     ] else ...[
                       Wrap(
                         spacing: 8,
-                        children: activePeople.map((p) {
+                        runSpacing: 8,
+                        children: people.where((p) => p.id != _actorId).map((p) {
                           final isSel = _targetId == p.id;
                           return ChoiceChip(
-                            avatar: CircleAvatar(child: Text(p.name[0])),
+                            avatar: CircleAvatar(child: Text(p.name.isNotEmpty ? p.name[0].toUpperCase() : '?')),
                             label: Text(p.name),
                             selected: isSel,
                             onSelected: (sel) {
@@ -458,6 +278,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             ),
             const SizedBox(height: 16),
           ],
+
+          // Participants / Exemptions Checklist (for split expenses / debits / distributions)
           if (_requiresParticipants) ...[
             Card(
               child: Padding(
@@ -468,21 +290,19 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'SPLIT AMONG PARTICIPANTS',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
+                        const Text('Split Among (Participants)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                         TextButton(
                           onPressed: () {
                             setState(() {
-                              if (_selectedParticipants.length == activePeople.length) {
+                              if (_selectedParticipants.length == people.length) {
                                 _selectedParticipants.clear();
                               } else {
-                                _selectedParticipants.addAll(activePeople.map((p) => p.id));
+                                _selectedParticipants.clear();
+                                _selectedParticipants.addAll(people.map((p) => p.id));
                               }
                             });
                           },
-                          child: Text(_selectedParticipants.length == activePeople.length ? 'Deselect All' : 'Select All'),
+                          child: Text(_selectedParticipants.length == people.length ? 'Deselect All' : 'Select All'),
                         ),
                       ],
                     ),
@@ -490,7 +310,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: activePeople.map((p) {
+                      children: people.map((p) {
                         final isSel = _selectedParticipants.contains(p.id);
                         return FilterChip(
                           avatar: CircleAvatar(child: Text(p.name.isNotEmpty ? p.name[0].toUpperCase() : '?')),
@@ -512,22 +332,83 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
           ],
+
+          // Note & Date/Time
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _noteController,
+                    decoration: const InputDecoration(
+                      labelText: 'Note / Description (Optional)',
+                      hintText: 'e.g. Lunch at restaurant',
+                      prefixIcon: Icon(Icons.notes),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.calendar_today),
+                    title: const Text('Transaction Date & Time'),
+                    subtitle: Text(DateFormat('yyyy-MM-dd HH:mm').format(_selectedDateTime)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _pickDateTime,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Save Button
           FilledButton.icon(
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: typeColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            onPressed: _saving ? null : () => _handleSavePressed(context),
+            onPressed: _saving ? null : () => _handleSave(context),
             icon: _saving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Icon(Icons.cloud_upload),
-            label: Text(_saving ? 'Pushing to GitHub...' : (isEdit ? 'Update & Sync to GitHub' : 'Save & Push to GitHub')),
+            label: Text(
+              _saving
+                  ? 'Pushing to GitHub...'
+                  : (isEdit ? 'Update & Commit to GitHub' : 'Save & Push to GitHub'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+
+  Widget _typeChip(TransactionType type, String label, IconData icon) {
+    final isSelected = _type == type;
+    return ChoiceChip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (sel) {
+        if (sel) {
+          setState(() {
+            _type = type;
+            final config = ref.read(appStateProvider).config;
+            final activePeople = config.people.where((p) => p.active).toList();
+            if ((_type == TransactionType.expense || _type == TransactionType.debit) && config.billTypes.isNotEmpty) {
+              _targetId ??= config.billTypes.first.id;
+            } else if ((_type == TransactionType.settlement || _type == TransactionType.transfer) && activePeople.length > 1) {
+              _targetId = activePeople.firstWhere((p) => p.id != _actorId, orElse: () => activePeople.last).id;
+            }
+          });
+        }
+      },
     );
   }
 
@@ -553,35 +434,69 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
   String get _actorLabel => switch (_type) {
         TransactionType.credit => 'Payer (Who deposited into fund?)',
-        TransactionType.expense => 'Paid By (Who paid out-of-pocket?)',
-        TransactionType.settlement => 'Payer (Who gave the money?)',
+        TransactionType.expense => 'Paid By (Who paid for the expense?)',
+        TransactionType.settlement => 'From (Who sent the settlement?)',
         TransactionType.transfer => 'From (Source member)',
-        _ => 'Actor / Payer',
+        _ => 'Member',
       };
 
   String get _targetLabel => switch (_type) {
-        TransactionType.expense => 'Category (What was paid for?)',
-        TransactionType.debit => 'Category (What bill?)',
-        TransactionType.settlement => 'Receiver (Who received the settlement?)',
+        TransactionType.expense => 'Category (What bill type?)',
+        TransactionType.debit => 'Category (What bill type?)',
+        TransactionType.settlement => 'To (Who received the settlement?)',
         TransactionType.transfer => 'To (Destination member)',
         _ => 'Target',
       };
 
-  Future<void> _handleSavePressed(BuildContext context) async {
-    _recalculateGroupedTotal();
+  Color _getTypeColor(TransactionType type) => switch (type) {
+        TransactionType.credit => Colors.green,
+        TransactionType.expense => Colors.blue,
+        TransactionType.debit => Colors.orange,
+        TransactionType.distribution => Colors.purple,
+        TransactionType.settlement => Colors.teal,
+        TransactionType.transfer => Colors.indigo,
+      };
+
+  Future<void> _pickDateTime() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateTime,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+    );
+    if (pickedTime == null || !mounted) return;
+
+    setState(() {
+      _selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+    });
+  }
+
+  Future<void> _handleSave(BuildContext context) async {
     final amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid amount greater than 0')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid amount > 0')));
       return;
     }
 
     if (_requiresActor && (_actorId == null || _actorId!.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select an actor / payer')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a payer / source member')));
       return;
     }
 
-    if (_requiresTarget && !_isGroupedExpense && (_targetId == null || _targetId!.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a target / category')));
+    if (_requiresTarget && (_targetId == null || _targetId!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a category / destination')));
       return;
     }
 
@@ -597,409 +512,297 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   }
 
   Future<bool?> _showConfirmationDialog(BuildContext context, double amount) {
-    final appState = ref.read(appStateProvider);
-    final config = appState.config;
-    final actorName = config.people.where((p) => p.id == _actorId).map((p) => p.name).firstOrNull ?? _actorId ?? 'N/A';
-    final targetName = config.billTypes.where((b) => b.id == _targetId).map((b) => b.name).firstOrNull ?? _targetId ?? 'N/A';
-    final note = _noteController.text.trim();
-    final isEdit = widget.existingTransaction != null;
+    final config = ref.read(appStateProvider).config;
+    final actorName = config.people.where((p) => p.id == _actorId).map((p) => p.name).firstOrNull ?? _actorId ?? '-';
+    final targetName = (_type == TransactionType.expense || _type == TransactionType.debit)
+        ? (config.billTypes.where((b) => b.id == _targetId).map((b) => '${b.icon} ${b.name}').firstOrNull ?? _targetId ?? '-')
+        : (config.people.where((p) => p.id == _targetId).map((p) => p.name).firstOrNull ?? _targetId ?? '-');
 
-    final typeColor = switch (_type) {
-      TransactionType.credit => Colors.green,
-      TransactionType.expense => Colors.blue,
-      TransactionType.debit => Colors.orange,
-      TransactionType.distribution => Colors.purple,
-      TransactionType.settlement => Colors.teal,
-      TransactionType.transfer => Colors.indigo,
-    };
-
-    final typeIcon = switch (_type) {
-      TransactionType.credit => Icons.arrow_downward,
-      TransactionType.expense => Icons.receipt_long,
-      TransactionType.debit => Icons.arrow_upward,
-      TransactionType.distribution => Icons.pie_chart,
-      TransactionType.settlement => Icons.handshake,
-      TransactionType.transfer => Icons.swap_horiz,
-    };
-
+    final typeColor = _getTypeColor(_type);
     final splitCount = _selectedParticipants.length;
     final perPerson = splitCount > 0 ? (amount / splitCount) : amount;
 
-    return showGeneralDialog<bool>(
+    return showDialog<bool>(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Confirm Transaction',
-      barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, anim1, anim2) => const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curvedAnim = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
-        return ScaleTransition(
-          scale: Tween<double>(begin: 0.9, end: 1.0).animate(curvedAnim),
-          child: FadeTransition(
-            opacity: animation,
-            child: AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              actionsPadding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-              title: Row(
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Confirm ${_type.name[0].toUpperCase()}${_type.name.substring(1)}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: typeColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: typeColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(typeIcon, color: typeColor, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isEdit ? 'Confirm Edit' : 'Confirm ${_type.name[0].toUpperCase()}${_type.name.substring(1)}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          isEdit ? 'Update transaction details' : 'Review before committing',
-                          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(context).pop(false),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
+                  Text('TOTAL AMOUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: typeColor)),
+                  const SizedBox(height: 4),
+                  Text('${config.currency} ${amount.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: typeColor)),
+                  if (_requiresParticipants && splitCount > 0) ...[
+                    const SizedBox(height: 4),
+                    Text('${config.currency} ${perPerson.toStringAsFixed(2)} / person ($splitCount paying)',
+                        style: TextStyle(fontSize: 12, color: typeColor.withOpacity(0.85))),
+                  ],
                 ],
               ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            'AMOUNT',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${config.currency} ${amount.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              color: typeColor,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          if (_requiresParticipants && splitCount > 1) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              '${config.currency} ${perPerson.toStringAsFixed(2)} per person ($splitCount paying)',
-                              style: TextStyle(fontSize: 12, color: typeColor.withOpacity(0.85), fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (_requiresActor)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          children: [
-                            Icon(Icons.person_outline, size: 18, color: Theme.of(context).colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              _type == TransactionType.expense ? 'Paid By: ' : 'Payer: ',
-                              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                            ),
-                            Expanded(
-                              child: Text(
-                                actorName,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (_requiresTarget && !_isGroupedExpense)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          children: [
-                            Icon(Icons.category_outlined, size: 18, color: Theme.of(context).colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Category: ',
-                              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                            ),
-                            Expanded(
-                              child: Text(
-                                targetName,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (note.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.notes, size: 18, color: Theme.of(context).colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Note: ',
-                              style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                            ),
-                            Expanded(
-                              child: Text(
-                                note,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (_isGroupedExpense && _subItems.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Text(
-                          '${_subItems.length} category items in grouped breakdown',
-                          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: typeColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(true),
-                  icon: const Icon(Icons.check, size: 18),
-                  label: Text(isEdit ? 'Save Changes' : 'Confirm & Save'),
-                ),
-              ],
             ),
+            const SizedBox(height: 16),
+            if (_requiresActor) _dialogRow('Actor / Payer', actorName),
+            if (_requiresTarget) _dialogRow('Target / Category', targetName),
+            _dialogRow('Date', DateFormat('yyyy-MM-dd HH:mm').format(_selectedDateTime)),
+            if (_noteController.text.trim().isNotEmpty) _dialogRow('Note', _noteController.text.trim()),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: typeColor),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm & Save'),
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+
+  Widget _dialogRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(value, textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+        ],
+      ),
     );
   }
 
   Future<void> _executeSave(BuildContext context, double amount) async {
     setState(() => _saving = true);
 
-    final existing = widget.existingTransaction;
-    final isEdit = existing != null;
-    final parentId = _groupedParentId ?? existing?.parentId ?? existing?.id ?? AppDateUtils.generateId();
-    final nowIso = existing?.timestamp ?? AppDateUtils.nowIso();
+    final isEdit = widget.existingTransaction != null;
+    final nowIso = _selectedDateTime.toIso8601String();
+    final config = ref.read(appStateProvider).config;
+    final currency = config.currency;
+    final noteRaw = _noteController.text.trim();
+
+    String getPersonName(String? id) {
+      if (id == null) return 'Unknown';
+      final match = config.people.where((p) => p.id == id).toList();
+      return match.isNotEmpty ? match.first.name : id;
+    }
+
+    String getBillTypeName(String? id) {
+      if (id == null) return 'Unknown';
+      final match = config.billTypes.where((b) => b.id == id).toList();
+      return match.isNotEmpty ? match.first.name : id;
+    }
 
     bool pushed = false;
     try {
-      final config = ref.read(appStateProvider).config;
-      final currency = config.currency;
-      final noteRaw = _noteController.text.trim();
-      final noteWithSpace = noteRaw.isNotEmpty ? ' for $noteRaw' : '';
-      final noteWithParens = noteRaw.isNotEmpty ? ' ($noteRaw)' : '';
-      final noteWithDash = noteRaw.isNotEmpty ? ' - $noteRaw' : '';
-      
-      String getPersonName(String? id) {
-        if (id == null) return 'Unknown';
-        final match = config.people.where((p) => p.id == id).toList();
-        return match.isNotEmpty ? match.first.name : id;
-      }
-      
-      String getBillTypeName(String? id) {
-        if (id == null) return 'Unknown';
-        final match = config.billTypes.where((b) => b.id == id).toList();
-        return match.isNotEmpty ? match.first.name : id;
-      }
-      
-      String commitMessage = '';
+      if (_type == TransactionType.expense) {
+        final parentId = _linkedParentId ?? 'tx_exp_${DateTime.now().millisecondsSinceEpoch}';
+        final payerName = getPersonName(_actorId);
+        final billName = getBillTypeName(_targetId);
+        final referenceName = noteRaw.isNotEmpty ? noteRaw : billName;
 
-      if (_isGroupedExpense && _subItems.isNotEmpty) {
-        if (isEdit) {
-          commitMessage = 'Edited Expense: ${getPersonName(_actorId)} paid $currency$amount for ${getBillTypeName(_targetId)}$noteWithParens - Split among ${_selectedParticipants.length}';
+        final creditTx = Transaction(
+          id: '${parentId}_credit',
+          parentId: parentId,
+          type: TransactionType.credit,
+          whoOrBill: _actorId!,
+          amount: amount,
+          note: '$payerName paid for $referenceName',
+          date: nowIso,
+        );
+
+        final debitTx = Transaction(
+          id: '${parentId}_debit',
+          parentId: parentId,
+          type: TransactionType.debit,
+          whoOrBill: _targetId!,
+          amount: amount,
+          note: '$referenceName is paid by $payerName',
+          date: nowIso,
+          splitAmong: _selectedParticipants.toList(),
+        );
+
+        final commitMsg = isEdit
+            ? 'Edited Expense: $payerName paid $currency$amount for $billName ${noteRaw.isNotEmpty ? "($noteRaw) " : ""}- Split among ${_selectedParticipants.length}'
+            : 'Expense: $payerName paid $currency$amount for $billName ${noteRaw.isNotEmpty ? "($noteRaw) " : ""}- Split among ${_selectedParticipants.length}';
+
+        if (isEdit && _linkedParentId != null) {
+          pushed = await ref.read(appStateProvider.notifier).updateGroupedExpense(
+                parentId: parentId,
+                newChildren: [debitTx, creditTx],
+                message: commitMsg,
+              );
         } else {
-          commitMessage = 'Expense: ${getPersonName(_actorId)} paid $currency$amount for ${getBillTypeName(_targetId)}$noteWithParens - Split among ${_selectedParticipants.length}';
+          pushed = await ref.read(appStateProvider.notifier).addMultipleTransactions(
+                [debitTx, creditTx],
+                message: commitMsg,
+              );
         }
       } else if (_type == TransactionType.distribution) {
-        if (isEdit) {
-          commitMessage = 'Edited Distribution Item ($currency$amount)$noteWithDash';
-        } else {
-          commitMessage = 'Distributed $currency$amount among ${_selectedParticipants.length} people$noteWithSpace';
-        }
-      } else if (_type == TransactionType.expense) {
-        if (isEdit) {
-          commitMessage = 'Edited Expense: ${getPersonName(_actorId)} paid $currency$amount for ${getBillTypeName(_targetId)}$noteWithParens';
-        } else {
-          commitMessage = 'Expense: ${getPersonName(_actorId)} paid $currency$amount for ${getBillTypeName(_targetId)}$noteWithParens - Split among ${_selectedParticipants.length}';
-        }
-      } else if (_type == TransactionType.credit) {
-        if (isEdit) {
-          commitMessage = 'Edited Credit: ${getPersonName(_actorId)} added $currency$amount$noteWithSpace';
-        } else {
-          commitMessage = 'Credit: ${getPersonName(_actorId)} added $currency$amount$noteWithSpace';
-        }
-      } else if (_type == TransactionType.debit) {
-        if (isEdit) {
-          commitMessage = 'Edited Debit: $currency$amount used for ${getBillTypeName(_targetId)}$noteWithParens';
-        } else {
-          commitMessage = 'Debit: $currency$amount used for ${getBillTypeName(_targetId)}$noteWithParens - Split among ${_selectedParticipants.length}';
-        }
-      } else if (_type == TransactionType.transfer) {
-        if (isEdit) {
-          commitMessage = 'Edited Transfer: ${getPersonName(_actorId)} to ${getPersonName(_targetId)} ($currency$amount)$noteWithDash';
-        } else {
-          commitMessage = 'Transfer: ${getPersonName(_actorId)} transferred $currency$amount to ${getPersonName(_targetId)}';
-        }
-      } else if (_type == TransactionType.settlement) {
-        if (isEdit) {
-          commitMessage = 'Edited Settlement: ${getPersonName(_actorId)} to ${getPersonName(_targetId)} ($currency$amount)$noteWithDash';
-        } else {
-          commitMessage = 'Settlement: ${getPersonName(_actorId)} paid $currency$amount to ${getPersonName(_targetId)}';
-        }
-      }
-
-      if (_isGroupedExpense && _subItems.isNotEmpty) {
-        final childTransactions = <Transaction>[];
-        for (final item in _subItems) {
-          final itemAmount = double.tryParse(item.amountController.text.trim()) ?? 0.0;
-          if (itemAmount <= 0) continue;
-
-          String itemNote = item.noteController.text.trim();
-          if (itemNote.isEmpty) {
-            itemNote = _noteController.text.trim();
-          }
-          if (itemNote.isEmpty) {
-            final personName = getPersonName(_actorId);
-            final billTypeName = getBillTypeName(item.categoryId);
-            itemNote = '$personName paid for $billTypeName';
-          }
-
-          childTransactions.add(
-            Transaction(
-              id: AppDateUtils.generateId(),
-              type: TransactionType.expense,
-              amount: itemAmount,
-              actorId: _actorId,
-              targetId: item.categoryId,
-              participantIds: _selectedParticipants.toList(),
-              note: itemNote,
-              timestamp: nowIso,
-              parentId: parentId,
-              distributionTotal: amount,
-            ),
-          );
-        }
-
-        if (childTransactions.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter valid sub-item amounts')));
-          setState(() => _saving = false);
-          return;
-        }
-
-        if (isEdit && (_groupedParentId != null || existing?.parentId != null)) {
-          pushed = await ref.read(appStateProvider.notifier).updateGroupedExpense(
-            parentId: parentId,
-            newChildren: childTransactions,
-            message: commitMessage,
-          );
-        } else {
-          pushed = await ref.read(appStateProvider.notifier).addGroupedExpense(
-            parentId: parentId,
-            children: childTransactions,
-            message: commitMessage,
-          );
-        }
-      } else if (_type == TransactionType.distribution && !isEdit) {
-        // Kotlin/Android compatible distribution: creates linked credit entries for each participant
+        final parentId = _linkedParentId ?? 'tx_dist_${DateTime.now().millisecondsSinceEpoch}';
         final participants = _selectedParticipants.toList();
         final shareAmount = amount / participants.length;
-        final distParentId = AppDateUtils.generateId();
-        final childCredits = participants.map((pId) {
+
+        final childCredits = participants.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final pId = entry.value;
           return Transaction(
-            id: AppDateUtils.generateId(),
+            id: '${parentId}_$idx',
+            parentId: parentId,
             type: TransactionType.credit,
+            whoOrBill: pId,
             amount: shareAmount,
-            actorId: pId,
-            note: _noteController.text.trim().isNotEmpty 
-                ? _noteController.text.trim() 
-                : 'Distribution share',
-            timestamp: nowIso,
-            parentId: distParentId,
+            note: noteRaw.isNotEmpty ? noteRaw : 'From distribution',
+            date: nowIso,
             distributionTotal: amount,
-            participantIds: participants,
           );
         }).toList();
 
-        pushed = await ref.read(appStateProvider.notifier).addGroupedExpense(
-          parentId: distParentId,
-          children: childCredits,
-          message: commitMessage,
-        );
-      } else {
-        String finalNote = _noteController.text.trim();
-        if (_type == TransactionType.expense && finalNote.isEmpty) {
-          final personName = getPersonName(_actorId);
-          final billTypeName = getBillTypeName(_targetId);
-          finalNote = '$personName paid for $billTypeName';
-        }
+        final commitMsg = 'Distributed $currency$amount among ${participants.length} people ${noteRaw.isNotEmpty ? "for $noteRaw" : ""}';
 
-        final tx = Transaction(
-          id: existing?.id ?? parentId,
-          type: _type,
-          amount: amount,
-          actorId: _requiresActor ? _actorId : null,
-          targetId: _requiresTarget ? _targetId : null,
-          participantIds: _requiresParticipants ? _selectedParticipants.toList() : [],
-          note: finalNote,
-          timestamp: nowIso,
-        );
-
-        if (existing != null) {
-          pushed = await ref.read(appStateProvider.notifier).updateTransaction(
-                tx,
-                message: commitMessage,
+        if (isEdit && _linkedParentId != null) {
+          pushed = await ref.read(appStateProvider.notifier).updateGroupedExpense(
+                parentId: parentId,
+                newChildren: childCredits,
+                message: commitMsg,
               );
         } else {
-          pushed = await ref.read(appStateProvider.notifier).addTransaction(
-                tx,
-                message: commitMessage,
+          pushed = await ref.read(appStateProvider.notifier).addMultipleTransactions(
+                childCredits,
+                message: commitMsg,
               );
+        }
+      } else if (_type == TransactionType.settlement) {
+        final parentId = _linkedParentId ?? 'tx_set_${DateTime.now().millisecondsSinceEpoch}';
+        final fromName = getPersonName(_actorId);
+        final toName = getPersonName(_targetId);
+
+        final payerTx = Transaction(
+          id: '${parentId}_payer',
+          parentId: parentId,
+          type: TransactionType.credit,
+          whoOrBill: _actorId!,
+          amount: amount,
+          note: noteRaw.isNotEmpty ? 'Settlement: $noteRaw' : 'Settlement to $toName',
+          date: nowIso,
+        );
+
+        final rcvrTx = Transaction(
+          id: '${parentId}_rcvr',
+          parentId: parentId,
+          type: TransactionType.credit,
+          whoOrBill: _targetId!,
+          amount: -amount,
+          note: noteRaw.isNotEmpty ? 'Settlement: $noteRaw' : 'Settlement from $fromName',
+          date: nowIso,
+        );
+
+        final commitMsg = 'Settlement: $fromName paid $currency$amount to $toName';
+
+        if (isEdit && _linkedParentId != null) {
+          pushed = await ref.read(appStateProvider.notifier).updateGroupedExpense(
+                parentId: parentId,
+                newChildren: [payerTx, rcvrTx],
+                message: commitMsg,
+              );
+        } else {
+          pushed = await ref.read(appStateProvider.notifier).addMultipleTransactions(
+                [payerTx, rcvrTx],
+                message: commitMsg,
+              );
+        }
+      } else if (_type == TransactionType.transfer) {
+        final parentId = _linkedParentId ?? 'tx_trf_${DateTime.now().millisecondsSinceEpoch}';
+        final fromName = getPersonName(_actorId);
+        final toName = getPersonName(_targetId);
+
+        final senderTx = Transaction(
+          id: '${parentId}_send',
+          parentId: parentId,
+          type: TransactionType.credit,
+          whoOrBill: _actorId!,
+          amount: -amount,
+          note: noteRaw.isNotEmpty ? 'Transfer: $noteRaw' : 'Transfer to $toName',
+          date: nowIso,
+        );
+
+        final rcptTx = Transaction(
+          id: '${parentId}_rcpt',
+          parentId: parentId,
+          type: TransactionType.credit,
+          whoOrBill: _targetId!,
+          amount: amount,
+          note: noteRaw.isNotEmpty ? 'Transfer: $noteRaw' : 'Transfer from $fromName',
+          date: nowIso,
+        );
+
+        final commitMsg = 'Transfer: $fromName transferred $currency$amount to $toName';
+
+        if (isEdit && _linkedParentId != null) {
+          pushed = await ref.read(appStateProvider.notifier).updateGroupedExpense(
+                parentId: parentId,
+                newChildren: [senderTx, rcptTx],
+                message: commitMsg,
+              );
+        } else {
+          pushed = await ref.read(appStateProvider.notifier).addMultipleTransactions(
+                [senderTx, rcptTx],
+                message: commitMsg,
+              );
+        }
+      } else if (_type == TransactionType.credit) {
+        final personName = getPersonName(_actorId);
+        final tx = Transaction(
+          id: widget.existingTransaction?.id ?? 'tx_${DateTime.now().millisecondsSinceEpoch}',
+          type: TransactionType.credit,
+          whoOrBill: _actorId!,
+          amount: amount,
+          note: noteRaw,
+          date: nowIso,
+        );
+
+        final commitMsg = isEdit
+            ? 'Edited Credit: $personName ($currency$amount) ${noteRaw.isNotEmpty ? "for $noteRaw" : ""}'
+            : 'Credit: $personName added $currency$amount ${noteRaw.isNotEmpty ? "for $noteRaw" : ""}';
+
+        if (isEdit) {
+          pushed = await ref.read(appStateProvider.notifier).updateTransaction(tx, message: commitMsg);
+        } else {
+          pushed = await ref.read(appStateProvider.notifier).addTransaction(tx, message: commitMsg);
+        }
+      } else if (_type == TransactionType.debit) {
+        final billName = getBillTypeName(_targetId);
+        final tx = Transaction(
+          id: widget.existingTransaction?.id ?? 'tx_${DateTime.now().millisecondsSinceEpoch}',
+          type: TransactionType.debit,
+          whoOrBill: _targetId!,
+          amount: amount,
+          note: noteRaw,
+          date: nowIso,
+          splitAmong: _selectedParticipants.toList(),
+        );
+
+        final commitMsg = isEdit
+            ? 'Edited Debit: $currency$amount used for $billName - Split among ${_selectedParticipants.length}'
+            : 'Debit: $currency$amount used for $billName - Split among ${_selectedParticipants.length}';
+
+        if (isEdit) {
+          pushed = await ref.read(appStateProvider.notifier).updateTransaction(tx, message: commitMsg);
+        } else {
+          pushed = await ref.read(appStateProvider.notifier).addTransaction(tx, message: commitMsg);
         }
       }
     } finally {
@@ -1008,15 +811,14 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     if (context.mounted) {
       final appStateAfter = ref.read(appStateProvider);
-      final nav = Navigator.of(context);
       final parentContext = context;
-      nav.pop();
+      Navigator.of(context).pop();
 
       if (pushed) {
         StatusPopup.show(
           parentContext,
-          title: 'Changes Pushed to GitHub',
-          message: 'Transaction successfully saved and committed to remote repository.',
+          title: 'Committed to GitHub',
+          message: 'Transaction saved and pushed to remote repository.',
           type: StatusPopupType.success,
           autoDismissDuration: const Duration(seconds: 3),
         );
@@ -1030,16 +832,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       } else if (appStateAfter.token == null || appStateAfter.token!.isEmpty) {
         StatusPopup.show(
           parentContext,
-          title: 'Saved to Local Queue',
-          message: 'Saved locally. Add a GitHub PAT in the Admin panel to sync changes to GitHub.',
-          type: StatusPopupType.info,
-          autoDismissDuration: const Duration(seconds: 4),
-        );
-      } else {
-        StatusPopup.show(
-          parentContext,
-          title: 'Queued for Sync',
-          message: 'Saved locally and queued for synchronization.',
+          title: 'Saved Locally',
+          message: 'Saved to local device. Add a GitHub PAT in Admin to sync with remote repo.',
           type: StatusPopupType.info,
           autoDismissDuration: const Duration(seconds: 3),
         );
