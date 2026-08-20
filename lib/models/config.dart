@@ -37,17 +37,20 @@ class BillTypeConfig {
     required this.id,
     required this.name,
     this.icon = '🧾',
+    this.active = true,
   });
 
   final String id;
   final String name;
   final String icon;
+  final bool active;
 
   factory BillTypeConfig.fromJson(Map<String, dynamic> json) {
     return BillTypeConfig(
       id: (json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       icon: (json['icon'] ?? '🧾').toString(),
+      active: json['active'] is bool ? json['active'] as bool : true,
     );
   }
 
@@ -57,11 +60,12 @@ class BillTypeConfig {
         'icon': icon,
       };
 
-  BillTypeConfig copyWith({String? id, String? name, String? icon}) {
+  BillTypeConfig copyWith({String? id, String? name, String? icon, bool? active}) {
     return BillTypeConfig(
       id: id ?? this.id,
       name: name ?? this.name,
       icon: icon ?? this.icon,
+      active: active ?? this.active,
     );
   }
 }
@@ -70,7 +74,7 @@ class AppConfig {
   const AppConfig({
     this.siteTitle = 'Fund',
     this.siteSubtitle = 'Expense Tracker',
-    this.currency = '৳',
+    this.currency = '₹',
     this.repoOwner = '',
     this.repoName = '',
     this.repoBranch = 'main',
@@ -145,7 +149,7 @@ class AppConfig {
     return AppConfig(
       siteTitle: (json['siteTitle'] ?? json['site_title'] ?? 'Fund').toString(),
       siteSubtitle: (json['siteSubtitle'] ?? json['site_subtitle'] ?? 'Expense Tracker').toString(),
-      currency: (json['currency'] ?? '৳').toString(),
+      currency: (json['currency'] ?? json['currency_symbol'] ?? '₹').toString(),
       repoOwner: (json['repoOwner'] ?? json['repo_owner'] ?? '').toString(),
       repoName: (json['repoName'] ?? json['repo_name'] ?? '').toString(),
       repoBranch: (json['repoBranch'] ?? json['repo_branch'] ?? 'main').toString(),
