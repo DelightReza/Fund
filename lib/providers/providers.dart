@@ -507,13 +507,13 @@ class AppNotifier extends StateNotifier<AppState> {
 
   Future<bool> updateConfig(AppConfig newConfig) async {
     final storage = ref.read(storageProvider);
+    storage.setRepo(newConfig.repoOwner, newConfig.repoName);
     await storage.saveConfig(newConfig);
     
     final dateStr = DateFormat('M/d/yyyy, h:mm:ss a').format(DateTime.now());
-    
-    bool dataPushed = await _saveAndUpdateData(state.data.transactions, newConfig, 'Update fund data - $dateStr');
+    final effectiveToken = (state.token != null && state.token!.isNotEmpty) ? state.token : storage.loadToken();
 
-    if (state.token != null && state.token!.isNotEmpty && newConfig.hasRepository) {
+    if (effectiveToken != null && effectiveToken.isNotEmpty && newConfig.hasRepository) {
       try {
         state = state.copyWith(syncing: true, error: null);
         final github = GitHubService(
@@ -521,18 +521,58 @@ class AppNotifier extends StateNotifier<AppState> {
           repo: newConfig.repoName,
           branch: newConfig.repoBranch,
           dataFileName: newConfig.dataFileName,
-          token: state.token,
+          token: effectiveToken,
         );
+
+        // Commit config first
         await github.commitConfig(newConfig, message: 'Update config - $dateStr');
-        state = state.copyWith(syncing: false, error: null);
+
+        // Then commit data with updated calculations
+        final tempFundData = state.data;
+        final peopleCredits = Calculations.calculatePeopleCredits(tempFundData, newConfig.people);
+        final billTotals = Calculations.calculateBillTotals(tempFundData, newConfig.billTypes);
+        final updatedData = tempFundData.copyWith(people: peopleCredits, billTypes: billTotals);
+
+        await github.commitData(updatedData, message: 'Update fund data - $dateStr');
+        await storage.saveData(updatedData);
+        await storage.savePendingOperations([]);
+
+        state = state.copyWith(
+          config: newConfig,
+          data: updatedData,
+          token: effectiveToken,
+          syncing: false,
+          pendingCount: 0,
+          error: null,
+        );
+        return true;
       } catch (e) {
         final errMessage = e.toString().replaceAll('Exception: ', '');
-        state = state.copyWith(syncing: false, error: 'Push config failed: $errMessage');
+        state = state.copyWith(config: newConfig, syncing: false, error: 'Push config failed: $errMessage');
         return false;
       }
     }
 
-    return dataPushed;
+    // Offline / no token path
+    final tempFundData = state.data;
+    final peopleCredits = Calculations.calculatePeopleCredits(tempFundData, newConfig.people);
+    final billTotals = Calculations.calculateBillTotals(tempFundData, newConfig.billTypes);
+    final updatedData = tempFundData.copyWith(people: peopleCredits, billTypes: billTotals);
+    await storage.saveData(updatedData);
+
+    final pendingCount = await ref.read(syncServiceProvider).queueSnapshot(
+          config: newConfig,
+          data: updatedData,
+          message: 'Update config - $dateStr',
+        );
+
+    state = state.copyWith(
+      config: newConfig,
+      data: updatedData,
+      token: effectiveToken,
+      pendingCount: pendingCount,
+    );
+    return false;
   }
 
   Future<bool> _saveAndUpdateData(List<Transaction> transactions, AppConfig config, String message) async {
@@ -547,7 +587,10 @@ class AppNotifier extends StateNotifier<AppState> {
 
     final storage = ref.read(storageProvider);
     await storage.saveData(updated);
-    state = state.copyWith(config: config, data: updated);
+
+    final effectiveToken = (state.token != null && state.token!.isNotEmpty) ? state.token : storage.loadToken();
+
+    state = state.copyWith(config: config, data: updated, token: effectiveToken);
 
     final pendingCount = await ref.read(syncServiceProvider).queueSnapshot(
           config: config,
@@ -557,15 +600,15 @@ class AppNotifier extends StateNotifier<AppState> {
 
     state = state.copyWith(pendingCount: pendingCount);
 
-    if (state.token != null && state.token!.isNotEmpty && state.config.hasRepository) {
+    if (effectiveToken != null && effectiveToken.isNotEmpty && config.hasRepository) {
       try {
         state = state.copyWith(syncing: true, error: null);
         final github = GitHubService(
-          owner: state.config.repoOwner,
-          repo: state.config.repoName,
-          branch: state.config.repoBranch,
-          dataFileName: state.config.dataFileName,
-          token: state.token,
+          owner: config.repoOwner,
+          repo: config.repoName,
+          branch: config.repoBranch,
+          dataFileName: config.dataFileName,
+          token: effectiveToken,
         );
 
         await github.commitData(updated, message: message);

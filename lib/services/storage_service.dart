@@ -26,7 +26,7 @@ class StorageService {
 
   void setRepo(String owner, String repo) {
     if (owner.isNotEmpty && repo.isNotEmpty) {
-      _prefix = '${owner}_${repo}_';
+      _prefix = '${owner.toLowerCase().trim()}_${repo.toLowerCase().trim()}_';
       _prefs.setString('fund_last_repo', _prefix);
     }
   }

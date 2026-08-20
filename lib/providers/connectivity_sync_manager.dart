@@ -23,10 +23,17 @@ class ConnectivitySyncManager {
   Future<void> _checkConnectivity() async {
     if (_isSyncing) return;
     try {
+      final appState = ref.read(appStateProvider);
+      final token = appState.token;
+      final headers = <String, String>{
+        if (token != null && token.isNotEmpty)
+          'Authorization': token.startsWith('github_pat_') ? 'Bearer $token' : 'token $token',
+      };
+
       final res = await http
-          .head(Uri.parse('https://api.github.com'))
+          .head(Uri.parse('https://api.github.com'), headers: headers)
           .timeout(const Duration(seconds: 4));
-      final online = res.statusCode > 0;
+      final online = res.statusCode > 0 && res.statusCode != 403;
 
       if (online && !_isOnline) {
         _isOnline = true;

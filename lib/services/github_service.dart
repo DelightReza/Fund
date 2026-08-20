@@ -319,16 +319,34 @@ class GitHubService {
 
   Future<String?> _getFileSha(String path) async {
     try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uri = Uri.parse(
         'https://api.github.com/repos/$owner/$repo/contents/$path'
-        '?ref=${Uri.encodeQueryComponent(_effectiveBranch)}',
+        '?ref=${Uri.encodeQueryComponent(_effectiveBranch)}&t=$timestamp',
       );
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: {
+        ..._headers,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      });
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         return body['sha']?.toString();
+      } else if (response.statusCode == 404) {
+        return null;
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        String detail = response.body;
+        try {
+          final err = jsonDecode(response.body);
+          if (err is Map && err['message'] != null) detail = err['message'].toString();
+        } catch (_) {}
+        throw Exception('GitHub authentication error (${response.statusCode}): $detail');
       }
-    } catch (_) {}
+    } catch (e) {
+      if (e.toString().contains('GitHub authentication error')) {
+        rethrow;
+      }
+    }
     return null;
   }
 
@@ -343,7 +361,7 @@ class GitHubService {
     final targetBranch = _effectiveBranch;
 
     int attempt = 0;
-    int backoffMs = 400;
+    int backoffMs = 500;
 
     while (attempt < maxAttempts) {
       attempt++;
@@ -370,6 +388,10 @@ class GitHubService {
       });
 
       // Format BillType objects in config to single line
+      rawJson = rawJson.replaceAllMapped(RegExp(r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"icon":\s*"[^"]+",\n\s+"active":\s*(?:true|false)\n\s+\}'), (m) {
+        return m.group(0)!.replaceAll(RegExp(r'\n\s+'), ' ');
+      });
+
       rawJson = rawJson.replaceAllMapped(RegExp(r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"icon":\s*"[^"]+"\n\s+\}'), (m) {
         return m.group(0)!.replaceAll(RegExp(r'\n\s+'), ' ');
       });
@@ -388,7 +410,11 @@ class GitHubService {
 
       final response = await http.put(
         uri,
-        headers: {..._headers, 'Content-Type': 'application/json'},
+        headers: {
+          ..._headers,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
         body: jsonEncode(body),
       );
 
@@ -403,16 +429,14 @@ class GitHubService {
         continue;
       }
 
-      if (attempt >= maxAttempts || (response.statusCode != 409 && response.statusCode != 422 && response.statusCode != 500 && response.statusCode != 502 && response.statusCode != 503)) {
-        String detail = response.body;
-        try {
-          final errMap = jsonDecode(response.body);
-          if (errMap is Map && errMap.containsKey('message')) {
-            detail = errMap['message'].toString();
-          }
-        } catch (_) {}
-        throw Exception('GitHub commit failed for $path (status ${response.statusCode}): $detail');
-      }
+      String detail = response.body;
+      try {
+        final errMap = jsonDecode(response.body);
+        if (errMap is Map && errMap.containsKey('message')) {
+          detail = errMap['message'].toString();
+        }
+      } catch (_) {}
+      throw Exception('GitHub commit failed for $path (${response.statusCode}): $detail');
     }
   }
 
