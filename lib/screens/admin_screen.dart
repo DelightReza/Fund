@@ -263,14 +263,33 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             title: const Text('Sync Now'),
             subtitle: Text('Pending: ${appState.pendingCount}'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
+            onTap: () async {
               if (!hasToken) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Please save a PAT first.')),
                 );
                 return;
               }
-              ref.read(appStateProvider.notifier).syncNow();
+              final ok = await ref.read(appStateProvider.notifier).syncNow();
+              if (context.mounted) {
+                if (ok) {
+                  StatusPopup.show(
+                    context,
+                    title: 'Sync Complete',
+                    message: 'All pending changes and remote updates synchronized successfully.',
+                    type: StatusPopupType.success,
+                    autoDismissDuration: const Duration(seconds: 3),
+                  );
+                } else {
+                  final err = ref.read(appStateProvider).error ?? 'Sync encountered an issue.';
+                  StatusPopup.show(
+                    context,
+                    title: 'Sync Issue',
+                    message: err,
+                    type: StatusPopupType.error,
+                  );
+                }
+              }
             },
           ),
           const Divider(height: 1, indent: 56),
@@ -279,7 +298,28 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             title: const Text('Pull Only'),
             subtitle: const Text('Fetch latest without pushing'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => ref.read(appStateProvider.notifier).pullOnly(),
+            onTap: () async {
+              await ref.read(appStateProvider.notifier).pullOnly();
+              if (context.mounted) {
+                final err = ref.read(appStateProvider).error;
+                if (err == null) {
+                  StatusPopup.show(
+                    context,
+                    title: 'Pull Successful',
+                    message: 'Fetched latest data from GitHub repository.',
+                    type: StatusPopupType.success,
+                    autoDismissDuration: const Duration(seconds: 3),
+                  );
+                } else {
+                  StatusPopup.show(
+                    context,
+                    title: 'Pull Failed',
+                    message: err,
+                    type: StatusPopupType.error,
+                  );
+                }
+              }
+            },
           ),
           if (hasToken) ...[
             const Divider(height: 1, indent: 56),
@@ -288,7 +328,28 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
               title: const Text('Force Commit Data'),
               subtitle: const Text('Directly write data.json'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => ref.read(appStateProvider.notifier).forceCommitData(),
+              onTap: () async {
+                final ok = await ref.read(appStateProvider.notifier).forceCommitData();
+                if (context.mounted) {
+                  if (ok) {
+                    StatusPopup.show(
+                      context,
+                      title: 'Data Committed',
+                      message: 'Successfully pushed data.json to GitHub repository.',
+                      type: StatusPopupType.success,
+                      autoDismissDuration: const Duration(seconds: 3),
+                    );
+                  } else {
+                    final err = ref.read(appStateProvider).error ?? 'Commit data failed.';
+                    StatusPopup.show(
+                      context,
+                      title: 'Commit Failed',
+                      message: err,
+                      type: StatusPopupType.error,
+                    );
+                  }
+                }
+              },
             ),
             const Divider(height: 1, indent: 56),
             ListTile(
@@ -296,7 +357,28 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
               title: const Text('Force Commit Config'),
               subtitle: const Text('Directly write config.json'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => ref.read(appStateProvider.notifier).forceCommitConfig(),
+              onTap: () async {
+                final ok = await ref.read(appStateProvider.notifier).forceCommitConfig();
+                if (context.mounted) {
+                  if (ok) {
+                    StatusPopup.show(
+                      context,
+                      title: 'Config Committed',
+                      message: 'Successfully pushed config.json to GitHub repository.',
+                      type: StatusPopupType.success,
+                      autoDismissDuration: const Duration(seconds: 3),
+                    );
+                  } else {
+                    final err = ref.read(appStateProvider).error ?? 'Commit config failed.';
+                    StatusPopup.show(
+                      context,
+                      title: 'Commit Failed',
+                      message: err,
+                      type: StatusPopupType.error,
+                    );
+                  }
+                }
+              },
             ),
           ],
         ],

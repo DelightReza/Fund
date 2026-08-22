@@ -32,6 +32,8 @@ class GitHubService {
   final String dataFileName;
   final String? token;
 
+  String? _resolvedBranch;
+
   String get _authHeaderValue {
     if (token == null || token!.trim().isEmpty) return '';
     var clean = token!.trim();
@@ -71,29 +73,37 @@ class GitHubService {
       cleanAuth = cleanAuth.substring(6).trim();
     }
     final authVal = cleanAuth.startsWith('github_pat_') ? 'Bearer $cleanAuth' : 'token $cleanAuth';
+    final testHeaders = {
+      'Accept': 'application/vnd.github.v3+json',
+      'Authorization': authVal,
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+
+    String? adminHandle;
 
     try {
-      final userUri = Uri.parse('https://api.github.com/user');
-      final userRes = await http.get(userUri, headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'Authorization': authVal,
-      });
+      // 1. Try to query /user
+      try {
+        final userUri = Uri.parse('https://api.github.com/user');
+        final userRes = await http.get(userUri, headers: testHeaders);
+        if (userRes.statusCode == 200) {
+          final userData = jsonDecode(userRes.body) as Map<String, dynamic>;
+          adminHandle = userData['login']?.toString();
+        } else if (userRes.statusCode == 401) {
+          return const TokenVerificationResult(isVerified: false, error: 'Invalid GitHub token (Bad credentials)');
+        }
+      } catch (_) {}
 
-      if (userRes.statusCode != 200) {
-        return const TokenVerificationResult(isVerified: false, error: 'Invalid GitHub token');
-      }
-
-      final userData = jsonDecode(userRes.body) as Map<String, dynamic>;
-      final adminHandle = userData['login']?.toString();
-
+      // 2. Test repository access if owner and repo are set
       if (owner.isNotEmpty && repo.isNotEmpty) {
         final repoUri = Uri.parse('https://api.github.com/repos/$owner/$repo');
-        final repoRes = await http.get(repoUri, headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'Authorization': authVal,
-        });
+        final repoRes = await http.get(repoUri, headers: testHeaders);
 
-        if (repoRes.statusCode != 200) {
+        if (repoRes.statusCode == 401) {
+          return const TokenVerificationResult(isVerified: false, error: 'Invalid GitHub token (Bad credentials)');
+        }
+
+        if (repoRes.statusCode == 404) {
           return TokenVerificationResult(
             isVerified: false,
             adminHandle: adminHandle,
@@ -101,16 +111,22 @@ class GitHubService {
           );
         }
 
-        final repoData = jsonDecode(repoRes.body) as Map<String, dynamic>;
-        final permissions = repoData['permissions'] as Map<String, dynamic>?;
-        final hasPush = permissions?['push'] == true || permissions?['admin'] == true;
-        if (!hasPush) {
-          return TokenVerificationResult(
-            isVerified: false,
-            adminHandle: adminHandle,
-            error: 'Token lacks write/push permissions for $owner/$repo',
-          );
+        if (repoRes.statusCode == 200) {
+          final repoData = jsonDecode(repoRes.body) as Map<String, dynamic>;
+          final permissions = repoData['permissions'] as Map<String, dynamic>?;
+          if (permissions != null) {
+            final hasPush = permissions['push'] == true || permissions['admin'] == true;
+            if (!hasPush) {
+              return TokenVerificationResult(
+                isVerified: false,
+                adminHandle: adminHandle,
+                error: 'Token lacks write/push permissions for $owner/$repo',
+              );
+            }
+          }
         }
+      } else if (adminHandle == null) {
+        return const TokenVerificationResult(isVerified: false, error: 'Invalid GitHub token');
       }
 
       return TokenVerificationResult(
@@ -124,6 +140,31 @@ class GitHubService {
         error: 'Network error during verification: $e',
       );
     }
+  }
+
+  Future<String> getResolvedBranch() async {
+    if (_resolvedBranch != null) return _resolvedBranch!;
+
+    final cleanBranch = branch.trim();
+
+    // Query repo default branch if branch is not explicitly set
+    if (cleanBranch.isEmpty && owner.isNotEmpty && repo.isNotEmpty) {
+      try {
+        final repoUri = Uri.parse('https://api.github.com/repos/$owner/$repo');
+        final res = await http.get(repoUri, headers: _headers);
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          final defBranch = data['default_branch']?.toString();
+          if (defBranch != null && defBranch.isNotEmpty) {
+            _resolvedBranch = defBranch;
+            return defBranch;
+          }
+        }
+      } catch (_) {}
+    }
+
+    _resolvedBranch = cleanBranch.isNotEmpty ? cleanBranch : 'main';
+    return _resolvedBranch!;
   }
 
   Future<AppConfig> fetchConfig() async {
@@ -141,16 +182,16 @@ class GitHubService {
       }
     }
 
-    final targetBranch = branch.trim().isEmpty ? 'main' : branch.trim();
+    final targetBranch = await getResolvedBranch();
     final uri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/$targetBranch/config.json');
     final response = await http.get(uri);
     if (response.statusCode != 200) {
-      // Try fallback to master branch
       if (targetBranch == 'main') {
         final masterUri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/master/config.json');
         final masterRes = await http.get(masterUri);
         if (masterRes.statusCode == 200) {
           final json = jsonDecode(masterRes.body) as Map<String, dynamic>;
+          _resolvedBranch = 'master';
           return AppConfig.fromJson(json)
               .copyWith(repoOwner: owner, repoName: repo, repoBranch: 'master', dataFileName: dataFileName);
         }
@@ -177,7 +218,7 @@ class GitHubService {
       }
     }
 
-    final targetBranch = branch.trim().isEmpty ? 'main' : branch.trim();
+    final targetBranch = await getResolvedBranch();
     final uri = Uri.parse('https://raw.githubusercontent.com/$owner/$repo/$targetBranch/$dataFileName');
     final response = await http.get(uri);
     if (response.statusCode != 200) {
@@ -186,6 +227,7 @@ class GitHubService {
         final masterRes = await http.get(masterUri);
         if (masterRes.statusCode == 200) {
           final json = jsonDecode(masterRes.body) as Map<String, dynamic>;
+          _resolvedBranch = 'master';
           return FundData.fromJson(json);
         }
       }
@@ -237,15 +279,14 @@ class GitHubService {
   }
 
   Future<List<Map<String, dynamic>>> getCommits({int perPage = 15}) async {
-    final cleanBranch = branch.trim();
-    final url = cleanBranch.isNotEmpty
-        ? 'https://api.github.com/repos/$owner/$repo/commits?sha=${Uri.encodeComponent(cleanBranch)}&per_page=$perPage'
+    final targetBranch = await getResolvedBranch();
+    final url = targetBranch.isNotEmpty
+        ? 'https://api.github.com/repos/$owner/$repo/commits?sha=${Uri.encodeComponent(targetBranch)}&per_page=$perPage'
         : 'https://api.github.com/repos/$owner/$repo/commits?per_page=$perPage';
     final uri = Uri.parse(url);
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode != 200) {
-      // Fallback without sha
-      if (cleanBranch.isNotEmpty) {
+      if (targetBranch.isNotEmpty) {
         final fallbackUri = Uri.parse('https://api.github.com/repos/$owner/$repo/commits?per_page=$perPage');
         final fallbackRes = await http.get(fallbackUri, headers: _headers);
         if (fallbackRes.statusCode == 200) {
@@ -261,8 +302,8 @@ class GitHubService {
 
   Future<void> resetToCommit(String sha) async {
     _assertToken();
-    final cleanBranch = branch.trim().isEmpty ? 'main' : branch.trim();
-    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/git/refs/heads/${Uri.encodeComponent(cleanBranch)}');
+    final targetBranch = await getResolvedBranch();
+    final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/git/refs/heads/${Uri.encodeComponent(targetBranch)}');
     final response = await http.patch(
       uri,
       headers: {..._headers, 'Content-Type': 'application/json'},
@@ -271,8 +312,7 @@ class GitHubService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return;
     }
-    // Fallback for master branch
-    if (cleanBranch == 'main') {
+    if (targetBranch == 'main') {
       final masterUri = Uri.parse('https://api.github.com/repos/$owner/$repo/git/refs/heads/master');
       final masterRes = await http.patch(
         masterUri,
@@ -294,21 +334,15 @@ class GitHubService {
     await _commitJsonFile(path: dataFileName, payload: data.toJson(), message: message);
   }
 
-  /// The branch to read/write via the Contents API. GitHub's Contents API
-  /// silently falls back to the repo's *default* branch whenever no
-  /// explicit branch/ref is given, regardless of what's configured here.
-  /// Always resolve to a concrete value so reads/writes never drift onto
-  /// the wrong branch.
-  String get _effectiveBranch => branch.trim().isEmpty ? 'main' : branch.trim();
-
   Future<Map<String, dynamic>> _getRepoFile(String path) async {
+    final targetBranch = await getResolvedBranch();
     final uri = Uri.parse(
       'https://api.github.com/repos/$owner/$repo/contents/$path'
-      '?ref=${Uri.encodeQueryComponent(_effectiveBranch)}',
+      '?ref=${Uri.encodeQueryComponent(targetBranch)}',
     );
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode != 200) {
-      throw Exception('Unable to fetch $path on branch $_effectiveBranch (${response.statusCode})');
+      throw Exception('Unable to fetch $path on branch $targetBranch (${response.statusCode})');
     }
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -317,12 +351,12 @@ class GitHubService {
     return jsonDecode(decoded) as Map<String, dynamic>;
   }
 
-  Future<String?> _getFileSha(String path) async {
+  Future<String?> _getFileSha(String path, String targetBranch) async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uri = Uri.parse(
         'https://api.github.com/repos/$owner/$repo/contents/$path'
-        '?ref=${Uri.encodeQueryComponent(_effectiveBranch)}&t=$timestamp',
+        '?ref=${Uri.encodeQueryComponent(targetBranch)}&t=$timestamp',
       );
       final response = await http.get(uri, headers: {
         ..._headers,
@@ -357,18 +391,18 @@ class GitHubService {
     int maxAttempts = 3,
   }) async {
     _assertToken();
+    final targetBranch = await getResolvedBranch();
     final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/contents/$path');
-    final targetBranch = _effectiveBranch;
 
     int attempt = 0;
-    int backoffMs = 500;
+    int backoffMs = 600;
 
     while (attempt < maxAttempts) {
       attempt++;
-      final sha = await _getFileSha(path);
-      
+      final sha = await _getFileSha(path, targetBranch);
+
       var rawJson = const JsonEncoder.withIndent('  ').convert(payload);
-      
+
       // Format flat arrays (like splitAmong) to single line
       rawJson = rawJson.replaceAllMapped(RegExp(r'\[\n\s+([^\[\]]+?)\n\s+\]'), (m) {
         final inner = m.group(1)!;
@@ -383,19 +417,24 @@ class GitHubService {
       rawJson = rawJson.replaceAll(RegExp(r'\[\n\s+\]'), '[]');
 
       // Format Person objects in config to single line
-      rawJson = rawJson.replaceAllMapped(RegExp(r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"active":\s*(?:true|false)\n\s+\}'), (m) {
+      rawJson = rawJson.replaceAllMapped(
+          RegExp(r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"active":\s*(?:true|false)\n\s+\}'), (m) {
         return m.group(0)!.replaceAll(RegExp(r'\n\s+'), ' ');
       });
 
       // Format BillType objects in config to single line
-      rawJson = rawJson.replaceAllMapped(RegExp(r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"icon":\s*"[^"]+",\n\s+"active":\s*(?:true|false)\n\s+\}'), (m) {
+      rawJson = rawJson.replaceAllMapped(
+          RegExp(
+              r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"icon":\s*"[^"]+",\n\s+"active":\s*(?:true|false)\n\s+\}'),
+          (m) {
         return m.group(0)!.replaceAll(RegExp(r'\n\s+'), ' ');
       });
 
-      rawJson = rawJson.replaceAllMapped(RegExp(r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"icon":\s*"[^"]+"\n\s+\}'), (m) {
+      rawJson = rawJson.replaceAllMapped(
+          RegExp(r'\{\n\s+"id":\s*"[^"]+",\n\s+"name":\s*"[^"]+",\n\s+"icon":\s*"[^"]+"\n\s+\}'), (m) {
         return m.group(0)!.replaceAll(RegExp(r'\n\s+'), ' ');
       });
-      
+
       // Ensure the file ends with a trailing newline
       if (!rawJson.endsWith('\n')) {
         rawJson += '\n';

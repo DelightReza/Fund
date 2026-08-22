@@ -611,9 +611,6 @@ class AppNotifier extends StateNotifier<AppState> {
           token: effectiveToken,
         );
 
-        // Push both files so the remote repo is fully in sync.
-        // Only clear the offline queue after both succeed.
-        await github.commitConfig(config, message: message);
         await github.commitData(updated, message: message);
         await ref.read(storageProvider).savePendingOperations([]);
 
@@ -631,59 +628,80 @@ class AppNotifier extends StateNotifier<AppState> {
 
   Future<void> pullOnly() async {
     if (!state.config.hasRepository) return;
-    state = state.copyWith(syncing: true);
+    state = state.copyWith(syncing: true, error: null);
     try {
-      final merged = await _pullLatestFromRemote(state.config, state.token, fallbackData: state.data);
+      final effectiveToken = (state.token != null && state.token!.isNotEmpty) ? state.token : ref.read(storageProvider).loadToken();
+      final merged = await _pullLatestFromRemote(state.config, effectiveToken, fallbackData: state.data);
       await ref.read(storageProvider).saveConfig(merged.$1);
       await ref.read(storageProvider).saveData(merged.$2);
-      state = state.copyWith(config: merged.$1, data: merged.$2, syncing: false);
+      state = state.copyWith(config: merged.$1, data: merged.$2, syncing: false, error: null);
     } catch (e) {
       state = state.copyWith(syncing: false, error: e.toString());
     }
   }
 
-  Future<void> forceCommitData() async {
-    if (state.token == null || state.token!.isEmpty || !state.config.hasRepository) return;
-    state = state.copyWith(syncing: true);
+  Future<bool> forceCommitData() async {
+    final storage = ref.read(storageProvider);
+    final effectiveToken = (state.token != null && state.token!.isNotEmpty) ? state.token : storage.loadToken();
+    if (effectiveToken == null || effectiveToken.isEmpty || !state.config.hasRepository) {
+      state = state.copyWith(error: 'PAT and configured repository required');
+      return false;
+    }
+    state = state.copyWith(syncing: true, error: null);
     try {
       final github = GitHubService(
         owner: state.config.repoOwner,
         repo: state.config.repoName,
         branch: state.config.repoBranch,
         dataFileName: state.config.dataFileName,
-        token: state.token,
+        token: effectiveToken,
       );
       await github.commitData(state.data, message: 'Force manual commit of data');
-      state = state.copyWith(syncing: false);
+      await storage.savePendingOperations([]);
+      state = state.copyWith(syncing: false, pendingCount: 0, error: null);
+      return true;
     } catch (e) {
-      state = state.copyWith(syncing: false, error: e.toString());
+      final errMessage = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(syncing: false, error: 'Commit data failed: $errMessage');
+      return false;
     }
   }
 
-  Future<void> forceCommitConfig() async {
-    if (state.token == null || state.token!.isEmpty || !state.config.hasRepository) return;
-    state = state.copyWith(syncing: true);
+  Future<bool> forceCommitConfig() async {
+    final storage = ref.read(storageProvider);
+    final effectiveToken = (state.token != null && state.token!.isNotEmpty) ? state.token : storage.loadToken();
+    if (effectiveToken == null || effectiveToken.isEmpty || !state.config.hasRepository) {
+      state = state.copyWith(error: 'PAT and configured repository required');
+      return false;
+    }
+    state = state.copyWith(syncing: true, error: null);
     try {
       final github = GitHubService(
         owner: state.config.repoOwner,
         repo: state.config.repoName,
         branch: state.config.repoBranch,
         dataFileName: state.config.dataFileName,
-        token: state.token,
+        token: effectiveToken,
       );
       await github.commitConfig(state.config, message: 'Force manual commit of config');
-      state = state.copyWith(syncing: false);
+      state = state.copyWith(syncing: false, error: null);
+      return true;
     } catch (e) {
-      state = state.copyWith(syncing: false, error: e.toString());
+      final errMessage = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(syncing: false, error: 'Commit config failed: $errMessage');
+      return false;
     }
   }
 
-  Future<void> syncNow() async {
-    if (state.token == null || state.token!.isEmpty || !state.config.hasRepository) {
-      return;
+  Future<bool> syncNow() async {
+    final storage = ref.read(storageProvider);
+    final effectiveToken = (state.token != null && state.token!.isNotEmpty) ? state.token : storage.loadToken();
+    if (effectiveToken == null || effectiveToken.isEmpty || !state.config.hasRepository) {
+      state = state.copyWith(error: 'PAT and configured repository required');
+      return false;
     }
 
-    state = state.copyWith(syncing: true);
+    state = state.copyWith(syncing: true, error: null);
 
     try {
       final github = GitHubService(
@@ -691,22 +709,26 @@ class AppNotifier extends StateNotifier<AppState> {
         repo: state.config.repoName,
         branch: state.config.repoBranch,
         dataFileName: state.config.dataFileName,
-        token: state.token,
+        token: effectiveToken,
       );
       final remaining = await ref.read(syncServiceProvider).flushQueue(github);
-      final merged = await _pullLatestFromRemote(state.config, state.token, fallbackData: state.data);
+      final merged = await _pullLatestFromRemote(state.config, effectiveToken, fallbackData: state.data);
 
-      await ref.read(storageProvider).saveConfig(merged.$1);
-      await ref.read(storageProvider).saveData(merged.$2);
+      await storage.saveConfig(merged.$1);
+      await storage.saveData(merged.$2);
 
       state = state.copyWith(
         config: merged.$1,
         data: merged.$2,
         pendingCount: remaining,
         syncing: false,
+        error: null,
       );
+      return remaining == 0;
     } catch (e) {
-      state = state.copyWith(syncing: false, error: e.toString());
+      final errMessage = e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(syncing: false, error: 'Sync failed: $errMessage');
+      return false;
     }
   }
 

@@ -36,11 +36,14 @@ class SyncService {
     if (queue.isEmpty) return 0;
 
     final remaining = <PendingOperation>[];
-    for (final operation in queue) {
+    for (int i = 0; i < queue.length; i++) {
+      final operation = queue[i];
       try {
-        // Push config first (idempotent if unchanged), then data
-        final config = AppConfig.fromJson(operation.configJson);
-        await github.commitConfig(config, message: '${operation.message} (config)');
+        if (operation.message.toLowerCase().contains('config')) {
+          final config = AppConfig.fromJson(operation.configJson);
+          await github.commitConfig(config, message: operation.message);
+          await Future.delayed(const Duration(milliseconds: 400));
+        }
 
         final data = FundData.fromJson(operation.dataJson);
         await github.commitData(data, message: operation.message);
