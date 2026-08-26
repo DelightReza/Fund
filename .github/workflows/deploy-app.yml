@@ -1,0 +1,81 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Name for the Android App'
+        required: false
+        default: 'fund'
+        type: string
+      codename:
+        description: 'Codename for the Android package'
+        required: false
+        default: 'com.delightreza'
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: 'stable'
+
+      - name: Configure Dynamic Android Package and MainActivity
+        env:
+          APP_NAME: ${{ inputs.name }}
+          CODENAME: ${{ inputs.codename }}
+        run: |
+          PACKAGE_NAME="${CODENAME}.${APP_NAME}"
+          echo "Configuring package name: $PACKAGE_NAME"
+          echo "APP_PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
+
+          if [ ! -d "android" ]; then
+            flutter create . --platforms=android --project-name "$APP_NAME" --org "$CODENAME"
+          else
+            KOTLIN_ROOT="android/app/src/main/kotlin"
+            TARGET_DIR="$KOTLIN_ROOT/$(echo "$PACKAGE_NAME" | tr '.' '/')"
+            
+            find "$KOTLIN_ROOT" -type f -name "MainActivity.kt" -delete
+            find "$KOTLIN_ROOT" -type d -empty -delete 2>/dev/null || true
+
+            mkdir -p "$TARGET_DIR"
+            printf "package %s\n\nimport io.flutter.embedding.android.FlutterActivity\n\nclass MainActivity: FlutterActivity()\n" "$PACKAGE_NAME" > "$TARGET_DIR/MainActivity.kt"
+
+            if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
+              APP_LABEL="$(echo "$APP_NAME" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+              sed -i -E "s/android:label=\"[^\"]*\"/android:label=\"$APP_LABEL\"/g" android/app/src/main/AndroidManifest.xml
+            fi
+
+            echo "✓ Successfully configured $PACKAGE_NAME in $TARGET_DIR/MainActivity.kt"
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Decode Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "${{ runner.temp }}/upload-keystore.jks"
+
+      - name: Build Signed APK (Release)
+        env:
+          KEYSTORE_FILE_PATH: "${{ runner.temp }}/upload-keystore.jks"
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk

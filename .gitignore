@@ -1,8 +1,31 @@
-node_modules/
-build/
-dist/
-coverage/
+*.iml
+.gradle
+/local.properties
+/.idea/
 .DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Secrets and environment
+.env
+.env.*
+debug.keystore
+debug.keystore.base64
+release.keystore
+
+# Gradle
+.gradle/
+build/
+app/build/
+gradlew
+gradlew.bat
+
+# Log files
 *.log
-.env*
-!.env.example
+
+build.gradle.kts
+metadata.json
+settings.gradle.kts

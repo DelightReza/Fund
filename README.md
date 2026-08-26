@@ -1,115 +1,126 @@
 # 💰 Fund & Expense Tracker
 
-A modern, fast, and feature-rich **Group Fund & Expense Management** web application built with **React 19**, **TypeScript**, **Vite**, and **Tailwind CSS**. 
+A modern, cross-platform **Group Fund & Expense Management** application built with **Flutter**, supporting **Android**, **Web**, and **Desktop** platforms.
 
-It uses a serverless, zero-database architecture powered by the **GitHub Contents API**, allowing you to store and synchronize your fund ledger (`data.json`) and configuration (`config.json`) directly in your own GitHub repository.
+It uses a serverless, zero-database architecture powered by the **GitHub Contents API & Raw Content CDN**, allowing you to store, audit, and synchronize your fund ledger (`data.json`) and configuration (`config.json`) directly in your own GitHub repository.
 
 ---
 
 ## ✨ Key Features
 
 ### 📊 **Dashboard & Analytics**
-* **Real-time Overview**: Track total fund collections, total expenses, current balance, and individual member settlements.
-* **Interactive Charts**: Visual breakdown of expenses by category/bill type and monthly financial trends using Recharts.
-* **Member Leaderboard & Status**: Instantly see who has paid, who owes money, or who is owed reimbursement.
+* **Financial Overview**: Real-time summary of Total Fund Collections, Total Incurred Expenses, Net Fund Balance, and Active Member Count.
+* **Member Ledger**: Clear breakdown of member contributions, incurred expense shares, net balances, and settlement recommendations.
+* **Transaction Feed**: Comprehensive list of recent fund transactions with grouped expense badges, category icons, timestamps, and details.
 
-### 👤 **Member Profiles**
-* Detailed breakdown per member showing their total contributions, incurred bills, and net balance.
-* Filtered transaction history for individual members with status badges (Settled / Pending).
+### 💳 **Transaction Management**
+* **Multiple Transaction Types**:
+  * **Quick Expense**: Automatically handles paired Credit + Debit operations when a member pays for a shared bill.
+  * **Debit**: Direct expense drawn from the fund balance.
+  * **Credit**: Deposit or regular contribution added to the fund.
+  * **Distribute**: Equal distribution of funds among selected active participants.
+  * **Settle Debt / Transfer**: Direct balance transfers and debt settlements between members.
+* **Dynamic Split & Exemptions**: Selectively include or exclude individual members from any expense or distribution.
+* **Confirmation Modals**: Detailed summary review before committing any transaction.
+* **Intelligent Edit Flow**: Automatically scrolls and focuses on selected bill types and members when editing existing entries.
 
-### ⚙️ **Admin Control Panel**
-* **Transaction Management**: Record incoming contributions, bill payments, and cash debt clearings.
-* **Edit & Audit**: Easily modify or delete previous entries with automatic log tracking.
-* **Receipt Generation**: Generate and export printable transaction receipts.
-* **Custom Configuration**: Update site title, currency symbol (e.g. `₹`, `$`, `€`), member list, and expense categories dynamically.
+### 📁 **Repository & Workspace Management**
+* **Multi-Workspace Support**: Switch between multiple fund repositories with one tap.
+* **Flexible Connection**: Connect using `owner/repo`, GitHub repository URLs, raw URLs, or GitHub Pages links.
+* **Public & Private Repositories**: Works directly without tokens for public repos; securely supports GitHub Personal Access Tokens (PAT) for private repos.
 
-### 🔄 **GitHub Synchronization & Commit Control**
-* **Direct GitHub Sync**: Push and pull ledger data directly to/from your GitHub repository using a Personal Access Token (PAT).
-* **Git Commit Reset Tool**: Revert remote GitHub commits directly from the UI when needed.
-* **Isolated Caching**: Automatic namespaced local storage (`fund_{owner}_{repo}_{key}`) to prevent data overlap across multiple hosted instances or GitHub Pages subdirectories.
+### 👥 **Profiles & Categories**
+* **Member Profiles**: Filtered history and individual financial statistics for each member.
+* **Category Breakdown**: Group expenses by bill category (e.g., Food, WiFi, Utilities, Groceries).
 
-### 🎨 **User Experience & Design**
-* **Dark / Light Theme**: Built-in dark mode support with automatic system preference detection.
-* **Fully Responsive**: Desktop-first and mobile-optimized layouts with smooth Motion page transitions.
+### ⚙️ **Admin Controls**
+* **Repository Configuration**: Manage members (add, activate/deactivate), bill categories, currency symbols, and site titles.
+* **Commit History & Rollback**: View GitHub commit logs with SHA hashes and roll back invalid transactions or state changes.
+* **Local Data Caching**: Offline-first storage with automatic cache invalidation and refresh.
+
+### 🎨 **UI / UX Design**
+* **Material Design 3**: Polished design system with responsive layouts for mobile and large screens.
+* **Dark & Light Mode**: Manual theme switcher in the app bar alongside system preference matching.
 
 ---
 
 ## 🛠️ Tech Stack
 
-* **Framework**: [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-* **Build Tool**: [Vite](https://vitejs.dev/)
-* **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-* **Icons**: [Lucide React](https://lucide.dev/)
-* **Animations**: [Motion](https://motion.dev/)
-* **Charts**: [Recharts](https://recharts.org/)
-* **Routing**: [React Router v7](https://reactrouter.com/) (HashRouter)
+* **Framework**: [Flutter](https://flutter.dev/) (Targeting Android, Web, and Desktop)
+* **Language**: [Dart](https://dart.dev/)
+* **State Management**: [Provider](https://pub.dev/packages/provider)
+* **Local Persistence**: [shared_preferences](https://pub.dev/packages/shared_preferences)
+* **HTTP & API**: [http](https://pub.dev/packages/http)
+* **GitHub Backend**: GitHub REST API & GitHub Raw Content CDN
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-* **Node.js**: `v18+` or `v20+`
-* **npm** or **bun** / **yarn**
+* **Flutter SDK**: 3.22.0 or higher
+* **Dart SDK**: 3.4.0 or higher
+* **Android Studio / VS Code** with Flutter extensions
 
 ### Installation
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/<your-username>/<your-repo-name>.git
-   cd <your-repo-name>
+   git clone https://github.com/DelightReza/Fund.git
+   cd Fund
    ```
 
 2. **Install dependencies:**
    ```bash
-   npm install
+   flutter pub get
    ```
 
-3. **Start the development server:**
+3. **Run the application:**
+   * **Android:**
+     ```bash
+     flutter run
+     ```
+   * **Web:**
+     ```bash
+     flutter run -d chrome
+     ```
+
+4. **Build APK / Bundle:**
    ```bash
-   npm run dev
+   flutter build apk --release
+   flutter build appbundle --release
    ```
-   Open `http://localhost:3000` in your browser.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-├── config.json          # Default configuration (site title, currency, members, bill types)
-├── data.json            # Default fund ledger (transactions and logs)
-├── index.html           # Main HTML template
-├── package.json         # Dependencies and scripts
-├── src/
-│   ├── main.tsx         # Application entry point
-│   ├── App.tsx          # Router setup and providers
-│   ├── store.tsx        # Centralized state management & GitHub API service
-│   ├── types.ts         # TypeScript definitions
-│   ├── pages/
-│   │   ├── Dashboard.tsx # Main dashboard & overview
-│   │   ├── Admin.tsx     # Admin panel for transactions & settings
-│   │   └── Profile.tsx   # Individual member profile & history
-│   └── components/
-│       ├── Layout.tsx    # Navigation header and main layout container
-│       ├── TransactionReceiptModal.tsx # Receipt modal dialog
-│       └── admin/        # Admin forms, settings, balances & commit reset modal
-└── vite.config.ts       # Vite configuration
+├── lib/
+│   ├── main.dart                      # App entry point and Provider setup
+│   ├── models/                        # Data models (AppConfig, Transaction, GitHub models)
+│   ├── repositories/                  # FundRepository & GitHub data coordination
+│   ├── screens/                       # Flutter screens
+│   │   ├── repo_selection_screen.dart # Workspace / repository selector
+│   │   ├── user_selection_screen.dart # Active user switcher
+│   │   ├── home_screen.dart           # Dashboard, ledger, and recent transactions
+│   │   ├── add_transaction_screen.dart# Transaction creator and editor
+│   │   ├── transaction_detail_screen.dart # Transaction inspection and paired view
+│   │   ├── category_expenses_screen.dart  # Expenses filtered by category
+│   │   ├── profile_screen.dart        # Member profile and personal transaction list
+│   │   ├── admin_screen.dart          # Admin control panel and workspace settings
+│   │   ├── manage_config_screen.dart  # Members and bill categories configuration
+│   │   └── reset_commit_screen.dart   # GitHub commit rollback tool
+│   ├── services/                      # GitHub API and SharedPreferences storage services
+│   ├── theme/                         # Light and Dark Material 3 theme configurations
+│   ├── utils/                         # Date, financial calculations, and string helpers
+│   └── widgets/                       # Reusable UI components and confirmation dialogs
+├── .github/workflows/                 # CI/CD workflows for automated builds and releases
+└── pubspec.yaml                       # Flutter dependencies and metadata
 ```
-
----
-
-## 🔧 Building for Production
-
-To create an optimized production build:
-
-```bash
-npm run build
-```
-
-The compiled static assets will be output to the `dist/` folder, ready to be hosted on **GitHub Pages**, **Vercel**, **Netlify**, or any static web host.
 
 ---
 
 ## 📄 License
 
-This project is open-source and available under the [MIT License](LICENSE).
+This project is open-source and available under the **MIT License**.
