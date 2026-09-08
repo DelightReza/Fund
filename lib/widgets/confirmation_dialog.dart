@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/app_config.dart';
 import '../utils/date_utils.dart';
 import '../utils/format_utils.dart';
 
@@ -16,6 +15,9 @@ class TransactionConfirmationDialog extends StatelessWidget {
   final String note;
   final List<String> splitMembers;
   final List<String> exemptMembers;
+  final Map<String, double>? customSplit;
+  final Map<String, double>? splitPercentages;
+  final Map<String, String>? memberNames;
   final bool isEditing;
 
   const TransactionConfirmationDialog({
@@ -32,6 +34,9 @@ class TransactionConfirmationDialog extends StatelessWidget {
     required this.note,
     this.splitMembers = const [],
     this.exemptMembers = const [],
+    this.customSplit,
+    this.splitPercentages,
+    this.memberNames,
     required this.isEditing,
   });
 
@@ -49,6 +54,9 @@ class TransactionConfirmationDialog extends StatelessWidget {
     required String note,
     List<String> splitMembers = const [],
     List<String> exemptMembers = const [],
+    Map<String, double>? customSplit,
+    Map<String, double>? splitPercentages,
+    Map<String, String>? memberNames,
     required bool isEditing,
   }) async {
     final result = await showDialog<bool>(
@@ -67,6 +75,9 @@ class TransactionConfirmationDialog extends StatelessWidget {
         note: note,
         splitMembers: splitMembers,
         exemptMembers: exemptMembers,
+        customSplit: customSplit,
+        splitPercentages: splitPercentages,
+        memberNames: memberNames,
         isEditing: isEditing,
       ),
     );
@@ -240,7 +251,53 @@ class TransactionConfirmationDialog extends StatelessWidget {
                         value: note.trim(),
                       ),
                     ],
-                    if (splitMembers.isNotEmpty && (type == 'expense' || type == 'debit' || type == 'distribute')) ...[
+                    if (customSplit != null && customSplit!.isNotEmpty) ...[
+                      const Divider(height: 16),
+                      _buildRow(
+                        icon: Icons.pie_chart_outline_rounded,
+                        label: 'Split Mode',
+                        value: 'Custom Split (${customSplit!.length} members)',
+                        valueColor: themeColor,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: customSplit!.entries.map((entry) {
+                            final name = memberNames?[entry.key] ?? entry.key;
+                            final exactPct = splitPercentages?[entry.key] ??
+                                (amount > 0 ? (entry.value / amount) * 100 : 0.0);
+                            final pctStr = exactPct % 1.0 == 0.0
+                                ? exactPct.toInt().toString()
+                                : exactPct.toStringAsFixed(1);
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                  ),
+                                  Text(
+                                    '${FormatUtils.formatCurrency(entry.value, currency)} ($pctStr%)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: themeColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ] else if (splitMembers.isNotEmpty && (type == 'expense' || type == 'debit' || type == 'distribute')) ...[
                       const Divider(height: 16),
                       _buildRow(
                         icon: Icons.group_rounded,

@@ -56,7 +56,18 @@ class JsonFormatter {
         final id = match.group(1);
         final name = match.group(2);
         final icon = match.group(3);
-        return '{ "id": "$id", "name": "$name", "icon": "$icon" }';
+        final active = match.group(4);
+        return '{ "id": "$id", "name": "$name", "icon": "$icon", "active": $active }';
+      },
+    );
+
+    // 5. Format simple customSplit maps to single line: "customSplit": { "aabid": 120, "gulam": 80 }
+    jsonStr = jsonStr.replaceAllMapped(
+      RegExp(r'"customSplit":\s*\{\n\s+([^{}]+?)\n\s+\}'),
+      (match) {
+        final inner = match.group(1) ?? '';
+        final singleLine = inner.replaceAll(RegExp(r'\n\s+'), ' ').trim();
+        return '"customSplit": { $singleLine }';
       },
     );
 

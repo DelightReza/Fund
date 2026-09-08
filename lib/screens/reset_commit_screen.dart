@@ -10,16 +10,16 @@ import '../services/github_api_service.dart';
 import '../services/storage_service.dart';
 import '../utils/date_utils.dart';
 import '../widgets/admin_pat_modal.dart';
-import '../widgets/confirmation_dialog.dart';
-
-enum CommitFilterMode {
-  all,
-  data,
-  config,
-}
+import '../utils/app_router.dart';
+import 'main_screen.dart';
 
 class ResetCommitScreen extends StatefulWidget {
-  const ResetCommitScreen({super.key});
+  final bool isRestoredAfterRefresh;
+
+  const ResetCommitScreen({
+    super.key,
+    this.isRestoredAfterRefresh = false,
+  });
 
   @override
   State<ResetCommitScreen> createState() => _ResetCommitScreenState();
@@ -32,8 +32,7 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
   List<GitHubCommit> _commits = [];
   bool _isLoading = true;
   String? _error;
-  String? _revertingSha;
-  CommitFilterMode _filterMode = CommitFilterMode.all;
+  String? _resettingSha;
   String _searchQuery = '';
 
   @override
@@ -59,18 +58,10 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
     });
 
     try {
-      String? pathFilter;
-      if (_filterMode == CommitFilterMode.data) {
-        pathFilter = config.dataFileName;
-      } else if (_filterMode == CommitFilterMode.config) {
-        pathFilter = 'config.json';
-      }
-
       final list = await _api.getRecentCommits(
         token: token,
         owner: config.repoOwner,
         repo: config.repoName,
-        path: pathFilter,
         perPage: 50,
       );
 
@@ -100,11 +91,12 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
     }).toList();
   }
 
-  Future<void> _revertToCommit(GitHubCommit commit) async {
+  Future<void> _hardResetToCommit(GitHubCommit commit, {bool isHeadMinusOne = false}) async {
     final repo = context.read<FundRepository>();
     final storage = context.read<StorageService>();
     final config = repo.config ?? AppConfig();
     final shortSha = commit.sha.substring(0, 7.clamp(0, commit.sha.length));
+    final branch = config.repoBranch.isEmpty ? 'main' : config.repoBranch;
 
     var token = await storage.getToken(owner: config.repoOwner, repo: config.repoName);
     if (token == null || token.trim().isEmpty) {
@@ -114,304 +106,194 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
       if (token == null || token.trim().isEmpty) return;
     }
 
-    setState(() => _revertingSha = commit.sha);
-
-    // Fetch snapshots at this commit SHA
-    final oldDataJson = await _api.getFileContentAtCommit(
-      owner: config.repoOwner,
-      repo: config.repoName,
-      sha: commit.sha,
-      path: config.dataFileName,
-      token: token,
-    );
-
-    final oldConfigJson = await _api.getFileContentAtCommit(
-      owner: config.repoOwner,
-      repo: config.repoName,
-      sha: commit.sha,
-      path: 'config.json',
-      token: token,
-    );
-
-    if (!mounted) return;
-    setState(() => _revertingSha = null);
-
-    if (oldDataJson == null && oldConfigJson == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.red.shade800,
-          content: Text(
-            'Neither ${config.dataFileName} nor config.json was found at commit $shortSha.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    // Determine preview details
-    FundData? previewData;
-    if (oldDataJson != null) {
-      try {
-        previewData = FundData.fromJson(jsonDecode(oldDataJson));
-      } catch (_) {}
-    }
-
-    bool revertData = oldDataJson != null;
-    bool revertConfig = false;
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.history_rounded, color: Color(0xFFDC2626), size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Revert to Commit',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
               ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Commit metadata
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(ctx).colorScheme.surfaceContainerHighest.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Hard Reset (git reset --hard)',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade700,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  shortSha,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  commit.authorName,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
+                          const Icon(Icons.arrow_forward_rounded, color: Color(0xFFB91C1C), size: 16),
+                          const SizedBox(width: 6),
                           Text(
-                            commit.message,
-                            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            AppDateUtils.formatDisplayDate(commit.date),
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                            isHeadMinusOne ? 'Target: HEAD~1 ($shortSha)' : 'Target: $shortSha',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF991B1B),
+                              fontFamily: 'monospace',
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    const Text(
-                      'Select files to restore from this snapshot:',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Option 1: Data ledger
-                    if (oldDataJson != null) ...[
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: revertData,
-                        title: Text(
-                          'Ledger Data (${config.dataFileName})',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: previewData != null
-                            ? Text(
-                                'Balance: ${config.currency}${previewData.poolBalance.toStringAsFixed(2)} • ${previewData.transactions.length} transactions',
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              )
-                            : const Text('Found in snapshot', style: TextStyle(fontSize: 11)),
-                        onChanged: (val) => setDialogState(() => revertData = val ?? false),
+                      const SizedBox(height: 6),
+                      Text(
+                        commit.message,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF450A0A)),
                       ),
-                    ] else ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
+                      const SizedBox(height: 4),
+                      Text(
+                        'By ${commit.authorName} on ${AppDateUtils.formatDisplayDate(commit.date)}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF7F1D1D)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Git Command Equivalent:',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                         child: Text(
-                          '⚠️ ${config.dataFileName} did not exist in this commit',
-                          style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                          'git reset --hard $shortSha\ngit push origin $branch --force',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                            color: Color(0xFF34D399),
+                          ),
                         ),
                       ),
                     ],
-
-                    // Option 2: Config file
-                    if (oldConfigJson != null) ...[
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: revertConfig,
-                        title: const Text(
-                          'Workspace Config (config.json)',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: const Text(
-                          'Restores members, currency & group settings',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                        onChanged: (val) => setDialogState(() => revertConfig = val ?? false),
-                      ),
-                    ],
-
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.amber.withOpacity(0.3)),
-                      ),
-                      child: const Text(
-                        'This will create a new commit on GitHub setting the selected files to this commit’s exact state.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
-                  icon: const Icon(Icons.restore_rounded, size: 18),
-                  label: const Text('Revert to Snapshot'),
-                  onPressed: (!revertData && !revertConfig)
-                      ? null
-                      : () => Navigator.of(ctx).pop(true),
+                const SizedBox(height: 12),
+                const Text(
+                  '⚠️ WARNING: This forcefully moves branch HEAD directly to this commit. Any commits made after this will be discarded from branch history.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFFB91C1C), height: 1.3),
                 ),
               ],
-            );
-          },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+              icon: const Icon(Icons.restore_page_rounded, size: 16),
+              label: const Text('Execute Reset'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+            ),
+          ],
         );
       },
     );
 
     if (confirmed != true || !mounted) return;
 
-    setState(() => _revertingSha = commit.sha);
+    setState(() => _resettingSha = commit.sha);
 
     try {
-      bool anySuccess = false;
+      final result = await _api.hardResetBranchRef(
+        token: token,
+        owner: config.repoOwner,
+        repo: config.repoName,
+        branch: branch,
+        targetSha: commit.sha,
+      );
 
-      // 1. Revert Data
-      if (revertData && oldDataJson != null) {
-        final currentFile = await _api.getFileDetails(
-          token: token,
+      if (result.isSuccess) {
+        // Fetch files at the new HEAD and update local cache
+        final newLedgerJson = await _api.getFileContentAtCommit(
           owner: config.repoOwner,
           repo: config.repoName,
+          sha: commit.sha,
           path: config.dataFileName,
-        );
-
-        final encoded = base64.encode(utf8.encode(oldDataJson));
-        final ok = await _api.updateFile(
           token: token,
-          owner: config.repoOwner,
-          repo: config.repoName,
-          path: config.dataFileName,
-          message: 'Revert ${config.dataFileName} to $shortSha: ${commit.message}',
-          base64Content: encoded,
-          sha: currentFile?.sha,
         );
-
-        if (ok) {
-          anySuccess = true;
+        if (newLedgerJson != null) {
           try {
-            final parsed = FundData.fromJson(jsonDecode(oldDataJson));
+            final parsed = FundData.fromJson(jsonDecode(newLedgerJson));
             await storage.saveDataCache(parsed, owner: config.repoOwner, repo: config.repoName);
           } catch (_) {}
         }
-      }
 
-      // 2. Revert Config
-      if (revertConfig && oldConfigJson != null) {
-        final currentConfigFile = await _api.getFileDetails(
-          token: token,
+        final newConfigJson = await _api.getFileContentAtCommit(
           owner: config.repoOwner,
           repo: config.repoName,
+          sha: commit.sha,
           path: 'config.json',
-        );
-
-        final encoded = base64.encode(utf8.encode(oldConfigJson));
-        final ok = await _api.updateFile(
           token: token,
-          owner: config.repoOwner,
-          repo: config.repoName,
-          path: 'config.json',
-          message: 'Revert config.json to $shortSha: ${commit.message}',
-          base64Content: encoded,
-          sha: currentConfigFile?.sha,
         );
-
-        if (ok) {
-          anySuccess = true;
+        if (newConfigJson != null) {
           try {
-            final parsed = AppConfig.fromJson(jsonDecode(oldConfigJson));
+            final parsed = AppConfig.fromJson(jsonDecode(newConfigJson));
             await storage.saveConfig(parsed, owner: config.repoOwner, repo: config.repoName);
           } catch (_) {}
         }
-      }
 
-      if (anySuccess) {
         await repo.refreshAll();
+        await _loadCommits();
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: const Color(0xFF047857),
-              content: Text('✓ Successfully restored snapshot from commit $shortSha'),
+              content: Text('✓ Hard reset to $shortSha completed (HEAD is now at $shortSha)'),
             ),
           );
-          Navigator.of(context).pop();
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: Colors.red.shade800,
-              content: const Text('Failed to update files on GitHub. Please verify your token permissions.'),
+              content: Text(
+                'Failed to reset branch: ${result.errorMessage ?? "HTTP ${result.statusCode}"}. Check branch protection or token permissions.',
+              ),
             ),
           );
         }
@@ -421,15 +303,104 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.red.shade800,
-            content: Text('Error during revert: $e'),
+            content: Text('Error executing git reset: $e'),
           ),
         );
       }
     } finally {
       if (mounted) {
-        setState(() => _revertingSha = null);
+        setState(() => _resettingSha = null);
       }
     }
+  }
+
+  Widget _buildQuickResetHeadCard(AppConfig config, BuildContext context) {
+    if (_commits.length < 2) return const SizedBox.shrink();
+    final parentCommit = _commits[1];
+    final parentShortSha = parentCommit.sha.substring(0, 7.clamp(0, parentCommit.sha.length));
+    final latestCommit = _commits[0];
+    final latestShortSha = latestCommit.sha.substring(0, 7.clamp(0, latestCommit.sha.length));
+    final isResetting = _resettingSha == parentCommit.sha;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF87171).withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.undo_rounded, color: Color(0xFFDC2626), size: 18),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Quick Undo: Reset HEAD~1',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF991B1B),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDC2626),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'git reset --hard HEAD~1',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Discards latest commit $latestShortSha ("${latestCommit.message}") and resets branch HEAD back to $parentShortSha.',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              ),
+              icon: isResetting
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.restore_page_rounded, size: 16),
+              label: Text(isResetting ? 'Resetting HEAD...' : 'Reset HEAD~1'),
+              onPressed: isResetting ? null : () => _hardResetToCommit(parentCommit, isHeadMinusOne: true),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -437,14 +408,33 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
     final config = context.watch<FundRepository>().config ?? AppConfig();
     final filtered = _filteredCommits;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
+    void handleBack() {
+      AppRouter.popOrNavigateTo(
+        context,
+        'admin',
+        forceDirect: widget.isRestoredAfterRefresh,
+      );
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back',
+            onPressed: handleBack,
+          ),
+          title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Commit History & Revert', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            const Text('Reset Commit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             Text(
-              '${config.repoOwner}/${config.repoName}',
+              '${config.repoOwner}/${config.repoName} • ${config.repoBranch.isEmpty ? "main" : config.repoBranch}',
               style: const TextStyle(fontSize: 11, color: Colors.grey),
             ),
           ],
@@ -459,41 +449,9 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
       ),
       body: Column(
         children: [
-          // Filter Mode Segmented Bar
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-            child: SegmentedButton<CommitFilterMode>(
-              segments: [
-                const ButtonSegment<CommitFilterMode>(
-                  value: CommitFilterMode.all,
-                  label: Text('Full Repo'),
-                  icon: Icon(Icons.all_inclusive_rounded, size: 16),
-                ),
-                ButtonSegment<CommitFilterMode>(
-                  value: CommitFilterMode.data,
-                  label: Text(config.dataFileName),
-                  icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                ),
-                const ButtonSegment<CommitFilterMode>(
-                  value: CommitFilterMode.config,
-                  label: Text('config.json'),
-                  icon: Icon(Icons.settings_rounded, size: 16),
-                ),
-              ],
-              selected: {_filterMode},
-              onSelectionChanged: (newSelection) {
-                setState(() {
-                  _filterMode = newSelection.first;
-                });
-                _loadCommits();
-              },
-            ),
-          ),
-
           // Search Field
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: TextField(
               controller: _searchCtrl,
               decoration: InputDecoration(
@@ -520,6 +478,10 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
             ),
           ),
 
+          // Quick Undo Banner if available
+          if (!_isLoading && _searchQuery.isEmpty)
+            _buildQuickResetHeadCard(config, context),
+
           // Count & Status Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
@@ -527,11 +489,7 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _filterMode == CommitFilterMode.all
-                      ? 'Full Repository Commits (${filtered.length})'
-                      : _filterMode == CommitFilterMode.data
-                          ? 'Ledger Data Commits (${filtered.length})'
-                          : 'Config Commits (${filtered.length})',
+                  'Repository Commits (${filtered.length})',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
                 ),
                 if (_searchQuery.isNotEmpty)
@@ -593,14 +551,20 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
                             separatorBuilder: (_, __) => const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final c = filtered[index];
-                              final isReverting = _revertingSha == c.sha;
+                              final isResetting = _resettingSha == c.sha;
+                              final isHead = index == 0 && _searchQuery.isEmpty;
                               final shortSha = c.sha.substring(0, 7.clamp(0, c.sha.length));
 
                               return Card(
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.15)),
+                                  side: BorderSide(
+                                    color: isHead
+                                        ? Colors.green.withOpacity(0.4)
+                                        : Theme.of(context).dividerColor.withOpacity(0.15),
+                                    width: isHead ? 1.5 : 1.0,
+                                  ),
                                 ),
                                 child: Padding(
                                   padding: const EdgeInsets.all(12),
@@ -649,6 +613,24 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
                                               ),
                                             ),
                                           ),
+                                          if (isHead) ...[
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.shade700,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: const Text(
+                                                'HEAD',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
@@ -672,20 +654,29 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
                                       ),
                                       const SizedBox(height: 8),
 
-                                      // Bottom Actions: Revert Button
+                                      // Bottom Actions: Reset Button
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
-                                          if (isReverting) ...[
+                                          if (isResetting) ...[
                                             const SizedBox(
-                                              width: 20,
-                                              height: 20,
+                                              width: 18,
+                                              height: 18,
                                               child: CircularProgressIndicator(strokeWidth: 2),
                                             ),
                                             const SizedBox(width: 8),
                                             const Text(
-                                              'Checking snapshot...',
-                                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                                              'Resetting branch HEAD...',
+                                              style: TextStyle(fontSize: 12, color: Colors.red),
+                                            ),
+                                          ] else if (isHead) ...[
+                                            Text(
+                                              'Current Branch Head',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.green.shade700,
+                                              ),
                                             ),
                                           ] else ...[
                                             OutlinedButton.icon(
@@ -695,9 +686,9 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
                                                 visualDensity: VisualDensity.compact,
                                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                               ),
-                                              icon: const Icon(Icons.history_rounded, size: 16),
-                                              label: const Text('Revert to this'),
-                                              onPressed: () => _revertToCommit(c),
+                                              icon: const Icon(Icons.restore_page_rounded, size: 16),
+                                              label: const Text('Reset HEAD to here'),
+                                              onPressed: () => _hardResetToCommit(c),
                                             ),
                                           ],
                                         ],
@@ -711,6 +702,7 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

@@ -58,7 +58,7 @@ class StorageService extends ChangeNotifier {
         ? repo
         : (activeRepoName ?? _findFallbackRepo());
 
-    if (o != null && o.isNotEmpty && r != null && r.isNotEmpty) {
+    if (o.isNotEmpty && r.isNotEmpty) {
       return '${prefix}_${o}_$r';
     }
     return prefix;
@@ -95,6 +95,36 @@ class StorageService extends ChangeNotifier {
   String verifiedKey([String? owner, String? repo]) => _formatKey('admin_verified', owner, repo);
   String pendingSyncKey([String? owner, String? repo]) => _formatKey('pending_sync', owner, repo);
   String pendingMsgKey([String? owner, String? repo]) => _formatKey('pending_msg', owner, repo);
+  String lastRouteKey([String? owner, String? repo]) {
+    final o = (owner != null && owner.isNotEmpty)
+        ? owner
+        : (activeRepoOwner ?? _findFallbackOwner());
+    final r = (repo != null && repo.isNotEmpty)
+        ? repo
+        : (activeRepoName ?? _findFallbackRepo());
+
+    if (o.isNotEmpty && r.isNotEmpty) {
+      return 'Fund_${o}_${r}_last_active_route';
+    }
+    return 'Fund_last_active_route';
+  }
+
+  String lastRouteTimeKey([String? owner, String? repo]) {
+    final o = (owner != null && owner.isNotEmpty)
+        ? owner
+        : (activeRepoOwner ?? _findFallbackOwner());
+    final r = (repo != null && repo.isNotEmpty)
+        ? repo
+        : (activeRepoName ?? _findFallbackRepo());
+
+    if (o.isNotEmpty && r.isNotEmpty) {
+      return 'Fund_${o}_${r}_last_active_route_time';
+    }
+    return 'Fund_last_active_route_time';
+  }
+
+  static const String _legacyKeyLastRouteTime = 'fund_last_active_route_time';
+  static const int routeCacheMaxAgeMs = 10 * 60 * 1000; // 10 minutes cache expiration
 
   // Admin Verification Status per Repository
   bool isAdminVerifiedFor({String? owner, String? repo}) {
@@ -366,6 +396,115 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Web Route Persistence
+  static const String _legacyKeyLastRoute = 'fund_last_active_route';
+
+  String historyKey([String? owner, String? repo]) {
+    final o = (owner != null && owner.isNotEmpty)
+        ? owner
+        : (activeRepoOwner ?? _findFallbackOwner());
+    final r = (repo != null && repo.isNotEmpty)
+        ? repo
+        : (activeRepoName ?? _findFallbackRepo());
+
+    if (o.isNotEmpty && r.isNotEmpty) {
+      return 'Fund_${o}_${r}_route_history';
+    }
+    return 'Fund_route_history';
+  }
+
+  List<String> getRouteHistory({String? owner, String? repo}) {
+    final key = historyKey(owner, repo);
+    final raw = _prefs.getStringList(key);
+    if (raw != null && raw.isNotEmpty) {
+      return List<String>.from(raw);
+    }
+    return [];
+  }
+
+  Future<void> pushRoute(String route, {String? owner, String? repo}) async {
+    final key = historyKey(owner, repo);
+    var history = getRouteHistory(owner: owner, repo: repo);
+    if (history.isNotEmpty && history.last == route) {
+      await setLastRoute(route, owner: owner, repo: repo);
+      return;
+    }
+    // If route is a root/tab route, reset base history to avoid unbounded backstack
+    if (route == 'transactions' || route == 'people' || route == 'expenses' || route == 'admin') {
+      history = [route];
+    } else {
+      final existingIndex = history.indexOf(route);
+      if (existingIndex != -1) {
+        history = history.sublist(0, existingIndex + 1);
+      } else {
+        history.add(route);
+      }
+    }
+    if (history.length > 20) {
+      history = history.sublist(history.length - 20);
+    }
+    await _prefs.setStringList(key, history);
+    await setLastRoute(route, owner: owner, repo: repo);
+  }
+
+  Future<String?> popRoute({String? owner, String? repo}) async {
+    final key = historyKey(owner, repo);
+    final history = getRouteHistory(owner: owner, repo: repo);
+    if (history.length > 1) {
+      history.removeLast();
+      final newTop = history.last;
+      await _prefs.setStringList(key, history);
+      await setLastRoute(newTop, owner: owner, repo: repo);
+      return newTop;
+    } else if (history.length == 1) {
+      return history.first;
+    }
+    return null;
+  }
+
+  String? getPreviousRoute({String? owner, String? repo}) {
+    final history = getRouteHistory(owner: owner, repo: repo);
+    if (history.length >= 2) {
+      return history[history.length - 2];
+    }
+    return null;
+  }
+
+  String? getLastRoute({String? owner, String? repo}) {
+    final key = lastRouteKey(owner, repo);
+    final timeKey = lastRouteTimeKey(owner, repo);
+
+    final savedTime = _prefs.getInt(timeKey) ??
+        _prefs.getInt(timeKey.toLowerCase()) ??
+        _prefs.getInt(_legacyKeyLastRouteTime);
+
+    if (savedTime != null) {
+      final elapsed = DateTime.now().millisecondsSinceEpoch - savedTime;
+      if (elapsed > routeCacheMaxAgeMs) {
+        // Cache expired after 10 minutes - clear cached route and history
+        _prefs.remove(key);
+        _prefs.remove(key.toLowerCase());
+        _prefs.remove(timeKey);
+        _prefs.remove(timeKey.toLowerCase());
+        _prefs.remove(_legacyKeyLastRoute);
+        _prefs.remove(_legacyKeyLastRouteTime);
+        _prefs.remove(historyKey(owner, repo));
+        return null;
+      }
+    }
+
+    return _prefs.getString(key) ??
+        _prefs.getString(key.toLowerCase()) ??
+        _prefs.getString(_legacyKeyLastRoute);
+  }
+
+  Future<void> setLastRoute(String route, {String? owner, String? repo}) async {
+    final key = lastRouteKey(owner, repo);
+    final timeKey = lastRouteTimeKey(owner, repo);
+    await _prefs.setString(key, route);
+    await _prefs.setInt(timeKey, DateTime.now().millisecondsSinceEpoch);
+  }
+
   Future<void> clearSession({String? owner, String? repo}) async {
     final o = owner ?? activeRepoOwner;
     final r = repo ?? activeRepoName;
@@ -378,12 +517,17 @@ class StorageService extends ChangeNotifier {
       await _prefs.remove(verifiedKey(o, r));
       await _prefs.remove(pendingSyncKey(o, r));
       await _prefs.remove(pendingMsgKey(o, r));
+      await _prefs.remove(lastRouteKey(o, r));
+      await _prefs.remove(lastRouteTimeKey(o, r));
+      await _prefs.remove(historyKey(o, r));
     }
     await _prefs.remove(_legacyKeyConfig);
     await _prefs.remove(_legacyKeyDataCache);
     await _prefs.remove(_legacyKeyUser);
     await _prefs.remove(_legacyKeyPendingSync);
     await _prefs.remove(_legacyKeyPendingMsg);
+    await _prefs.remove(_legacyKeyLastRoute);
+    await _prefs.remove(_legacyKeyLastRouteTime);
     notifyListeners();
   }
 }

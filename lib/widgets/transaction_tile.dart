@@ -33,10 +33,13 @@ class TransactionTile extends StatelessWidget {
           name: transaction.whoOrBill,
         ),
       );
-      title = payer.name;
-      subtitle = transaction.note.isNotEmpty
-          ? transaction.note
-          : 'Deposit / Contribution';
+      if (transaction.note.trim().isNotEmpty) {
+        title = transaction.note.trim();
+        subtitle = payer.name;
+      } else {
+        title = payer.name;
+        subtitle = 'Deposit / Contribution';
+      }
       iconText = '💵';
     } else {
       final bill = config.billTypes.firstWhere(
@@ -47,8 +50,13 @@ class TransactionTile extends StatelessWidget {
           icon: '🧾',
         ),
       );
-      title = bill.name;
-      subtitle = transaction.note.isNotEmpty ? transaction.note : 'Expense';
+      if (transaction.note.trim().isNotEmpty) {
+        title = transaction.note.trim();
+        subtitle = bill.name;
+      } else {
+        title = bill.name;
+        subtitle = 'Expense';
+      }
       iconText = bill.icon;
     }
 

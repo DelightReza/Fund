@@ -283,6 +283,58 @@ class GitHubApiService {
     return res.isSuccess;
   }
 
+  /// Hard resets the branch ref to a target commit SHA (equivalent to git reset --hard <targetSha> && git push --force)
+  Future<GitHubUpdateResult> hardResetBranchRef({
+    required String token,
+    required String owner,
+    required String repo,
+    required String branch,
+    required String targetSha,
+  }) async {
+    final cleanBranch = branch.trim().isEmpty ? 'main' : branch.trim();
+    final url = Uri.parse('$baseUrl/repos/$owner/$repo/git/refs/heads/$cleanBranch');
+    final headers = buildHeaders(token: token);
+
+    try {
+      final response = await http.patch(
+        url,
+        headers: headers,
+        body: jsonEncode({
+          'sha': targetSha.trim(),
+          'force': true,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return GitHubUpdateResult(
+          isSuccess: true,
+          statusCode: 200,
+          newSha: targetSha,
+        );
+      }
+
+      String? errorMsg;
+      try {
+        final errJson = jsonDecode(response.body);
+        if (errJson is Map && errJson.containsKey('message')) {
+          errorMsg = errJson['message']?.toString();
+        }
+      } catch (_) {}
+
+      return GitHubUpdateResult(
+        isSuccess: false,
+        statusCode: response.statusCode,
+        errorMessage: errorMsg ?? 'HTTP ${response.statusCode}',
+      );
+    } catch (e) {
+      return GitHubUpdateResult(
+        isSuccess: false,
+        statusCode: 0,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
   Future<List<GitHubCommit>> getRecentCommits({
     required String? token,
     required String owner,

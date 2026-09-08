@@ -1,31 +1,68 @@
-*.iml
-.gradle
-/local.properties
-/.idea/
+# Miscellaneous & OS
+*.class
+*.log
+*.pyc
+*.swp
+*~
 .DS_Store
-/build
-/captures
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Platform Container Outputs
+.build-outputs/
+
+# Flutter & Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+/build/
+
+# Web Generated
+
+# IDEs & Editors
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.sublime-project
+*.sublime-workspace
+
+# Android Build & Artifacts
+.gradle/
+**/android/.gradle/
+local.properties
+/android/local.properties
+**/android/captures/
+**/android/app/build/
+app/build/
 .externalNativeBuild
 .cxx
-local.properties
+*.apk
+*.aab
 
-# Secrets and environment
-.env
-.env.*
+# Keystores & Credentials
+*.keystore
+*.jks
 debug.keystore
 debug.keystore.base64
 release.keystore
 
-# Gradle
-.gradle/
-build/
-app/build/
-gradlew
-gradlew.bat
+# Secrets & Environment
+.env
+.env.*
+*.key
+*.pem
+*.p12
 
-# Log files
-*.log
-
+# Platform template artifacts
 build.gradle.kts
 metadata.json
 settings.gradle.kts

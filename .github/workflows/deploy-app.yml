@@ -13,10 +13,17 @@ on:
         required: false
         default: 'com.delightreza'
         type: string
+      create_release:
+        description: 'Create GitHub Release'
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -37,6 +44,22 @@ jobs:
           echo "Configuring package name: $PACKAGE_NAME"
           echo "APP_PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
 
+          APP_LABEL="$(echo "$APP_NAME" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+          echo "APP_LABEL=$APP_LABEL" >> $GITHUB_ENV
+
+          # Determine Version Name
+          if [ -f "app/build.gradle.kts" ] && grep -q 'versionName' app/build.gradle.kts; then
+            VERSION_NAME=$(grep 'versionName' app/build.gradle.kts | awk -F'"' '{print $2}')
+          elif [ -f "android/app/build.gradle.kts" ] && grep -q 'versionName' android/app/build.gradle.kts; then
+            VERSION_NAME=$(grep 'versionName' android/app/build.gradle.kts | awk -F'"' '{print $2}')
+          elif [ -f "pubspec.yaml" ]; then
+            VERSION_NAME=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          else
+            VERSION_NAME="1.0.0"
+          fi
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "APP_VERSION=$VERSION_NAME" >> $GITHUB_ENV
+
           if [ ! -d "android" ]; then
             flutter create . --platforms=android --project-name "$APP_NAME" --org "$CODENAME"
           else
@@ -50,7 +73,6 @@ jobs:
             printf "package %s\n\nimport io.flutter.embedding.android.FlutterActivity\n\nclass MainActivity: FlutterActivity()\n" "$PACKAGE_NAME" > "$TARGET_DIR/MainActivity.kt"
 
             if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
-              APP_LABEL="$(echo "$APP_NAME" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
               sed -i -E "s/android:label=\"[^\"]*\"/android:label=\"$APP_LABEL\"/g" android/app/src/main/AndroidManifest.xml
             fi
 
@@ -79,3 +101,23 @@ jobs:
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Prepare APK Release Artifacts
+        run: |
+          mkdir -p build/app/outputs/flutter-apk
+          if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/${APP_LABEL}-${VERSION_NAME}.apk"
+          fi
+
+      - name: Create GitHub Release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.create_release == true }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.APP_VERSION }}
+          name: Release v${{ env.APP_VERSION }}
+          files: build/app/outputs/flutter-apk/${{ env.APP_LABEL }}-${{ env.VERSION_NAME }}.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

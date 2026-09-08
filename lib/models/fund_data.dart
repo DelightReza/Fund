@@ -27,7 +27,6 @@ class FundData {
   }
 
   /// Recalculates people (total credited deposits) and billTypes (total debited category expenses)
-  /// matching Kotlin App & Web Fund-Template behavior.
   void updateSummaries(AppConfig config) {
     // 1. Calculate bill totals
     final billTotals = <String, double>{};
@@ -105,5 +104,5 @@ class FundData {
   double get totalDebits =>
       transactions.where((t) => t.type == 'debit').fold(0.0, (acc, t) => acc + t.amount);
 
-  double get poolBalance => totalCredits - totalDebits;
+  double get fundBalance => totalCredits - totalDebits;
 }

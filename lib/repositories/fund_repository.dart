@@ -155,6 +155,8 @@ class FundRepository extends ChangeNotifier {
     required String note,
     required String date,
     required List<String> exemptions,
+    Map<String, double>? customSplit,
+    Map<String, double>? splitPercentages,
   }) async {
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
@@ -170,7 +172,11 @@ class FundRepository extends ChangeNotifier {
     final ref = note.trim().isNotEmpty ? note.trim() : billName;
 
     final activeMembers = curConfig.members.where((m) => m.active).map((m) => m.id).toList();
-    final splitAmong = activeMembers.where((id) => !exemptions.contains(id)).toList();
+    final splitAmong = (customSplit != null && customSplit.isNotEmpty)
+        ? customSplit.keys.where((k) => !exemptions.contains(k) && (customSplit[k] ?? 0.0) > 0.0).toList()
+        : (splitPercentages != null && splitPercentages.isNotEmpty
+            ? splitPercentages.keys.where((k) => !exemptions.contains(k) && (splitPercentages[k] ?? 0.0) > 0.0).toList()
+            : activeMembers.where((id) => !exemptions.contains(id)).toList());
 
     final creditTx = TransactionModel(
       id: '${parentId}_credit',
@@ -193,6 +199,9 @@ class FundRepository extends ChangeNotifier {
       date: date,
       parentId: parentId,
       splitAmong: splitAmong,
+      exemptions: exemptions.isNotEmpty ? exemptions : null,
+      customSplit: customSplit,
+      splitPercentages: splitPercentages,
     );
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
@@ -201,10 +210,12 @@ class FundRepository extends ChangeNotifier {
     currentData.transactions.insert(0, debitTx);
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency}${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
+    final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
     final noteExtra = (note.trim().isNotEmpty && note.trim() != billName) ? ' ($note)' : '';
     final activeCount = curConfig.members.where((m) => m.active).length;
-    final splitStr = splitAmong.length == activeCount ? 'Split equally' : 'Split among ${splitAmong.length}';
+    final splitStr = (customSplit != null && customSplit.isNotEmpty)
+        ? 'Custom split (${customSplit.length} members)'
+        : (splitAmong.length == activeCount ? 'Split equally' : 'Split among ${splitAmong.length}');
     final msg = 'Expense: $payerName paid $amtStr for $billName$noteExtra - $splitStr';
 
     _data = currentData;
@@ -221,6 +232,8 @@ class FundRepository extends ChangeNotifier {
     required String note,
     required String date,
     required List<String> exemptions,
+    Map<String, double>? customSplit,
+    Map<String, double>? splitPercentages,
   }) async {
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
@@ -235,7 +248,11 @@ class FundRepository extends ChangeNotifier {
     final ref = note.trim().isNotEmpty ? note.trim() : billName;
 
     final activeMembers = curConfig.members.where((m) => m.active).map((m) => m.id).toList();
-    final splitAmong = activeMembers.where((id) => !exemptions.contains(id)).toList();
+    final splitAmong = (customSplit != null && customSplit.isNotEmpty)
+        ? customSplit.keys.where((k) => !exemptions.contains(k) && (customSplit[k] ?? 0.0) > 0.0).toList()
+        : (splitPercentages != null && splitPercentages.isNotEmpty
+            ? splitPercentages.keys.where((k) => !exemptions.contains(k) && (splitPercentages[k] ?? 0.0) > 0.0).toList()
+            : activeMembers.where((id) => !exemptions.contains(id)).toList());
 
     final creditTx = TransactionModel(
       id: '${parentId}_credit',
@@ -258,6 +275,9 @@ class FundRepository extends ChangeNotifier {
       date: date,
       parentId: parentId,
       splitAmong: splitAmong,
+      exemptions: exemptions.isNotEmpty ? exemptions : null,
+      customSplit: customSplit,
+      splitPercentages: splitPercentages,
     );
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
@@ -267,7 +287,7 @@ class FundRepository extends ChangeNotifier {
     currentData.transactions.insert(0, debitTx);
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency}${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
+    final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
     final noteExtra = (note.trim().isNotEmpty && note.trim() != billName) ? ' ($note)' : '';
     final msg = 'Edit Expense: $payerName paid $amtStr for $billName$noteExtra';
 
@@ -286,6 +306,8 @@ class FundRepository extends ChangeNotifier {
     required String date,
     List<String>? splitAmong,
     List<String>? exemptions,
+    Map<String, double>? customSplit,
+    Map<String, double>? splitPercentages,
   }) async {
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
@@ -302,8 +324,14 @@ class FundRepository extends ChangeNotifier {
       amount: amount,
       note: note,
       date: date,
-      splitAmong: splitAmong,
+      splitAmong: (customSplit != null && customSplit.isNotEmpty)
+          ? customSplit.keys.toList()
+          : (splitPercentages != null && splitPercentages.isNotEmpty
+              ? splitPercentages.keys.toList()
+              : splitAmong),
       exemptions: exemptions,
+      customSplit: customSplit,
+      splitPercentages: splitPercentages,
     );
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
@@ -311,7 +339,7 @@ class FundRepository extends ChangeNotifier {
     currentData.transactions.insert(0, tx);
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency}${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
+    final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
     final noteStr = note.trim().isNotEmpty ? ' ($note)' : '';
     String msg;
     if (type == 'credit') {
@@ -365,7 +393,7 @@ class FundRepository extends ChangeNotifier {
 
     final amtStr = totalAmount % 1.0 == 0.0 ? totalAmount.toInt().toString() : totalAmount.toStringAsFixed(2);
     final noteStr = note.isNotEmpty ? ' for $note' : '';
-    final msg = 'Distribution: Distributed ${curConfig.currency}$amtStr among ${distributionMembers.length} members$noteStr';
+    final msg = 'Distribution: Distributed ${curConfig.currency} $amtStr among ${distributionMembers.length} members$noteStr';
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
     final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
@@ -422,7 +450,7 @@ class FundRepository extends ChangeNotifier {
 
     final amtStr = amount % 1.0 == 0.0 ? amount.toInt().toString() : amount.toStringAsFixed(2);
     final noteStr = note.trim().isNotEmpty ? ' ($note)' : '';
-    final msg = 'Settlement: $payerName paid ${curConfig.currency}$amtStr to $receiverName$noteStr';
+    final msg = 'Settlement: $payerName paid ${curConfig.currency} $amtStr to $receiverName$noteStr';
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
     final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
@@ -478,7 +506,7 @@ class FundRepository extends ChangeNotifier {
 
     final amtStr = amount % 1.0 == 0.0 ? amount.toInt().toString() : amount.toStringAsFixed(2);
     final noteStr = note.trim().isNotEmpty ? ' ($note)' : '';
-    final msg = 'Transfer: $senderName transferred ${curConfig.currency}$amtStr to $recipientName$noteStr';
+    final msg = 'Transfer: $senderName transferred ${curConfig.currency} $amtStr to $recipientName$noteStr';
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
     final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
@@ -502,6 +530,8 @@ class FundRepository extends ChangeNotifier {
     required String date,
     List<String>? splitAmong,
     List<String>? exemptions,
+    Map<String, double>? customSplit,
+    Map<String, double>? splitPercentages,
   }) async {
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
@@ -516,8 +546,14 @@ class FundRepository extends ChangeNotifier {
       amount: amount,
       note: note,
       date: date,
-      splitAmong: splitAmong,
+      splitAmong: (customSplit != null && customSplit.isNotEmpty)
+          ? customSplit.keys.toList()
+          : (splitPercentages != null && splitPercentages.isNotEmpty
+              ? splitPercentages.keys.toList()
+              : splitAmong),
       exemptions: exemptions,
+      customSplit: customSplit,
+      splitPercentages: splitPercentages,
     );
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
@@ -530,7 +566,7 @@ class FundRepository extends ChangeNotifier {
     }
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency}${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
+    final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
     final noteStr = note.trim().isNotEmpty ? ' ($note)' : '';
     String msg;
     if (type == 'credit') {
@@ -563,7 +599,7 @@ class FundRepository extends ChangeNotifier {
 
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency}${tx.amount.abs() % 1.0 == 0.0 ? tx.amount.abs().toInt() : tx.amount.abs().toStringAsFixed(2)}';
+    final amtStr = '${curConfig.currency} ${tx.amount.abs() % 1.0 == 0.0 ? tx.amount.abs().toInt() : tx.amount.abs().toStringAsFixed(2)}';
     String detail;
     if (tx.parentId != null && tx.parentId!.contains('_dist_')) {
       detail = 'Distribution (${tx.note})';

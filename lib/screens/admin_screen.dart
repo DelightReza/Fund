@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -10,12 +9,11 @@ import '../services/storage_service.dart';
 import '../utils/debt_simplifier.dart';
 import '../utils/file_helper.dart';
 import '../utils/format_utils.dart';
+import '../utils/web_route_helper.dart';
 import '../widgets/admin_pat_modal.dart';
 import 'add_transaction_screen.dart';
 import 'manage_config_screen.dart';
-import 'repo_selection_screen.dart';
 import 'reset_commit_screen.dart';
-import 'user_selection_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -28,11 +26,21 @@ class _AdminScreenState extends State<AdminScreen> {
   bool _isSyncing = false;
 
   void _openAddTransaction(String initialType) {
+    WebRouteHelper.setRoute('add_tx?from=admin');
+    context.read<StorageService>().pushRoute('add_tx?from=admin');
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => AddTransactionScreen(initialType: initialType),
+        builder: (_) => AddTransactionScreen(
+          initialType: initialType,
+          returnRoute: 'admin',
+        ),
       ),
-    );
+    ).then((_) {
+      if (mounted) {
+        WebRouteHelper.setRoute('admin');
+        context.read<StorageService>().popRoute();
+      }
+    });
   }
 
   Future<void> _handlePullFromGitHub(FundRepository repo) async {
@@ -589,9 +597,16 @@ class _AdminScreenState extends State<AdminScreen> {
                   icon: Icons.history,
                   color: const Color(0xFFDC2626),
                   onClick: () {
+                    WebRouteHelper.setRoute('reset_commit');
+                    context.read<StorageService>().pushRoute('reset_commit');
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const ResetCommitScreen()),
-                    );
+                    ).then((_) {
+                      if (mounted) {
+                        WebRouteHelper.setRoute('admin');
+                        context.read<StorageService>().popRoute();
+                      }
+                    });
                   },
                 ),
               ),
@@ -698,9 +713,16 @@ class _AdminScreenState extends State<AdminScreen> {
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () {
+                WebRouteHelper.setRoute('manage_config');
+                context.read<StorageService>().pushRoute('manage_config');
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ManageConfigScreen()),
-                );
+                ).then((_) {
+                  if (mounted) {
+                    WebRouteHelper.setRoute('admin');
+                    context.read<StorageService>().popRoute();
+                  }
+                });
               },
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -879,7 +901,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   decoration: BoxDecoration(color: Colors.blue.withOpacity(0.12), shape: BoxShape.circle),
                   child: const Icon(Icons.download_rounded, color: Colors.blue, size: 20),
                 ),
-                title: const Text('Download data.json (Phone / PC)'),
+                title: const Text('Download data.json'),
                 subtitle: const Text('Save ledger and transaction records to your device'),
                 trailing: IconButton(
                   icon: const Icon(Icons.copy_rounded, size: 18),
@@ -916,7 +938,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   decoration: BoxDecoration(color: Colors.purple.withOpacity(0.12), shape: BoxShape.circle),
                   child: const Icon(Icons.file_download_outlined, color: Colors.purple, size: 20),
                 ),
-                title: const Text('Download config.json (Phone / PC)'),
+                title: const Text('Download config.json'),
                 subtitle: const Text('Save workspace settings and members to your device'),
                 trailing: IconButton(
                   icon: const Icon(Icons.copy_rounded, size: 18),
@@ -1003,7 +1025,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   child: const Icon(Icons.drive_folder_upload_rounded, color: Colors.teal, size: 20),
                 ),
                 title: const Text('Upload & Import JSON File'),
-                subtitle: const Text('Pick any .json file from your device/phone to auto-detect & import'),
+                subtitle: const Text('Pick any .json file from your device to auto-detect & import'),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final content = await pickAndReadFile(allowedExtensions: ['json']);
@@ -1104,7 +1126,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     isValid = true;
                     parsedObject = data;
                     validationMessage =
-                        '✓ Valid ledger: ${data.transactions.length} transactions, pool balance ₹${(data.totalCredits - data.totalDebits).toStringAsFixed(2)}';
+                        '✓ Valid ledger: ${data.transactions.length} transactions, fund balance ₹${(data.totalCredits - data.totalDebits).toStringAsFixed(2)}';
                   });
                 } else {
                   setDialogState(() {

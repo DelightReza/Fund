@@ -3,9 +3,16 @@ import 'package:provider/provider.dart';
 import '../models/app_config.dart';
 import '../repositories/fund_repository.dart';
 import '../widgets/confirmation_dialog.dart';
+import '../utils/app_router.dart';
+import 'main_screen.dart';
 
 class ManageConfigScreen extends StatefulWidget {
-  const ManageConfigScreen({super.key});
+  final bool isRestoredAfterRefresh;
+
+  const ManageConfigScreen({
+    super.key,
+    this.isRestoredAfterRefresh = false,
+  });
 
   @override
   State<ManageConfigScreen> createState() => _ManageConfigScreenState();
@@ -277,9 +284,28 @@ class _ManageConfigScreenState extends State<ManageConfigScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Configuration'),
+    void handleBack() {
+      AppRouter.popOrNavigateTo(
+        context,
+        'admin',
+        forceDirect: widget.isRestoredAfterRefresh,
+      );
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back',
+            onPressed: handleBack,
+          ),
+          title: const Text('Manage Configuration'),
         actions: [
           IconButton(
             icon: _isLoading
@@ -412,6 +438,7 @@ class _ManageConfigScreenState extends State<ManageConfigScreen> {
           const SizedBox(height: 40),
         ],
       ),
+    ),
     );
   }
 }

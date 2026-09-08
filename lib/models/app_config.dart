@@ -42,25 +42,28 @@ class BillTypeConfig {
   final String id;
   final String name;
   final String icon;
+  final bool active;
 
   BillTypeConfig({
     required this.id,
     required this.name,
     this.icon = '🧾',
+    this.active = true,
   });
 
   factory BillTypeConfig.fromJson(dynamic json) {
     if (json is String) {
-      return BillTypeConfig(id: json, name: json, icon: '🧾');
+      return BillTypeConfig(id: json, name: json, icon: '🧾', active: true);
     }
     if (json is Map<String, dynamic>) {
       return BillTypeConfig(
         id: json['id']?.toString() ?? '',
         name: json['name']?.toString() ?? json['id']?.toString() ?? '',
         icon: json['icon']?.toString() ?? '🧾',
+        active: json['active'] as bool? ?? true,
       );
     }
-    return BillTypeConfig(id: '', name: '', icon: '🧾');
+    return BillTypeConfig(id: '', name: '', icon: '🧾', active: true);
   }
 
   Map<String, dynamic> toJson() => {
@@ -69,11 +72,12 @@ class BillTypeConfig {
         'icon': icon,
       };
 
-  BillTypeConfig copyWith({String? id, String? name, String? icon}) {
+  BillTypeConfig copyWith({String? id, String? name, String? icon, bool? active}) {
     return BillTypeConfig(
       id: id ?? this.id,
       name: name ?? this.name,
       icon: icon ?? this.icon,
+      active: active ?? this.active,
     );
   }
 }

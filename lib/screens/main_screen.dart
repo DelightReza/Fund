@@ -2,19 +2,127 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/storage_service.dart';
+import '../utils/web_route_helper.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'admin_screen.dart';
+import 'add_transaction_screen.dart';
+import 'manage_config_screen.dart';
+import 'reset_commit_screen.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final String? initialRoute;
+
+  const MainScreen({super.key, this.initialRoute});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
+  bool _hasCheckedInitialRoute = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final storage = context.read<StorageService>();
+      if (storage.getLastRoute() == null) {
+        // Cache expired after 10+ minutes: reset to Home tab
+        if (mounted && _currentIndex != 0) {
+          setState(() {
+            _currentIndex = 0;
+          });
+          WebRouteHelper.setRoute('transactions');
+        }
+        // Pop any pushed screens back to the root screen
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      }
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasCheckedInitialRoute) {
+      _hasCheckedInitialRoute = true;
+      final parsed = ParsedRoute.parse(widget.initialRoute);
+      final storage = context.read<StorageService>();
+      final isAdminSubroute = parsed.path == 'manage_config' ||
+          parsed.path == 'reset_commit' ||
+          (parsed.path == 'add_tx' && (parsed.from == null || parsed.from == 'admin'));
+      if ((parsed.path == 'admin' || isAdminSubroute) && storage.isAdminVerified) {
+        _currentIndex = kIsWeb ? 1 : 2;
+      } else if (parsed.path == 'profile' && !kIsWeb) {
+        _currentIndex = 1;
+      }
+
+      if (parsed.path == 'manage_config') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ManageConfigScreen(isRestoredAfterRefresh: true),
+              ),
+            ).then((_) {
+              if (mounted) {
+                WebRouteHelper.setRoute('admin');
+                context.read<StorageService>().setLastRoute('admin');
+              }
+            });
+          }
+        });
+      } else if (parsed.path == 'reset_commit') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ResetCommitScreen(isRestoredAfterRefresh: true),
+              ),
+            ).then((_) {
+              if (mounted) {
+                WebRouteHelper.setRoute('admin');
+                context.read<StorageService>().setLastRoute('admin');
+              }
+            });
+          }
+        });
+      } else if (parsed.path == 'add_tx') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AddTransactionScreen(
+                  returnRoute: parsed.from ?? 'admin',
+                  isRestoredAfterRefresh: true,
+                ),
+              ),
+            ).then((_) {
+              if (mounted) {
+                final ret = parsed.from ?? 'admin';
+                WebRouteHelper.setRoute(ret);
+                context.read<StorageService>().setLastRoute(ret);
+              }
+            });
+          }
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +132,7 @@ class _MainScreenState extends State<MainScreen> {
 
     // Dynamically adjust destinations and screens based on platform (kIsWeb) and admin verification
     final screens = <Widget>[
-      const HomeScreen(),
+      HomeScreen(initialRoute: widget.initialRoute),
       if (!kIsWeb) const ProfileScreen(),
       if (isAdminVerified) const AdminScreen(),
     ];
@@ -105,6 +213,14 @@ class _MainScreenState extends State<MainScreen> {
                               setState(() {
                                 _currentIndex = index;
                               });
+                              final item = destinations[index];
+                              if (item.label == 'Admin') {
+                                WebRouteHelper.setRoute('admin');
+                                storage.setLastRoute('admin');
+                              } else if (item.label == 'Profile') {
+                                WebRouteHelper.setRoute('profile');
+                                storage.setLastRoute('profile');
+                              }
                             },
                             borderRadius: BorderRadius.circular(28),
                             child: AnimatedContainer(
