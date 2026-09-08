@@ -7,17 +7,27 @@ import '../services/storage_service.dart';
 import '../utils/date_utils.dart';
 import '../utils/debt_simplifier.dart';
 import '../utils/format_utils.dart';
-import '../widgets/settlement_card.dart';
+import '../utils/web_route_helper.dart';
+import '../utils/app_router.dart';
+import 'main_screen.dart';
 import 'transaction_detail_screen.dart';
 import 'user_selection_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final String? memberId;
+  final String returnRoute;
+  final bool isRestoredAfterRefresh;
 
-  const ProfileScreen({super.key, this.memberId});
+  const ProfileScreen({
+    super.key,
+    this.memberId,
+    this.returnRoute = 'people',
+    this.isRestoredAfterRefresh = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+
     final theme = Theme.of(context);
     final repo = context.watch<FundRepository>();
     final storage = context.watch<StorageService>();
@@ -49,9 +59,30 @@ class ProfileScreen extends StatelessWidget {
 
     final isOwnProfile = memberId == null || memberId == storage.currentUser;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
+    void handleBack() {
+      AppRouter.popOrNavigateTo(
+        context,
+        returnRoute,
+        forceDirect: isRestoredAfterRefresh,
+      );
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: (ModalRoute.of(context)?.canPop == true || memberId != null || isRestoredAfterRefresh)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'Back to People',
+                  onPressed: handleBack,
+                )
+              : null,
+          title: Text(
           isOwnProfile ? 'My Profile' : '${member.name}\'s Profile',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
@@ -282,14 +313,28 @@ class ProfileScreen extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () {
+                    final returnRoute = memberId != null ? 'member?id=$memberId' : 'people';
+                    final txRoute = WebRouteHelper.buildTxRoute(
+                      item.transaction.id,
+                      from: 'member',
+                      memberId: member.id,
+                    );
+                    WebRouteHelper.setRoute(txRoute);
+                    context.read<StorageService>().pushRoute(txRoute);
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => TransactionDetailScreen(
                           transaction: item.transaction,
                           personId: member.id,
+                          returnRoute: returnRoute,
                         ),
                       ),
-                    );
+                    ).then((_) {
+                      if (context.mounted) {
+                        WebRouteHelper.setRoute(returnRoute);
+                        context.read<StorageService>().popRoute();
+                      }
+                    });
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -417,6 +462,7 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 80),
         ],
       ),
+    ),
     );
   }
 }

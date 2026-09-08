@@ -9,18 +9,19 @@ import '../services/storage_service.dart';
 import '../utils/date_utils.dart';
 import '../utils/debt_simplifier.dart';
 import '../utils/format_utils.dart';
+import '../utils/web_route_helper.dart';
 import '../widgets/admin_pat_modal.dart';
-import '../widgets/settlement_card.dart';
 import '../widgets/summary_cards.dart';
 import '../widgets/transaction_tile.dart';
-import 'add_transaction_screen.dart';
 import 'category_expenses_screen.dart';
 import 'profile_screen.dart';
 import 'repo_selection_screen.dart';
 import 'transaction_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String? initialRoute;
+
+  const HomeScreen({super.key, this.initialRoute});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -28,12 +29,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  int _lastHandledTab = -1;
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilterType = 'all'; // all, credit, debit
   String? _selectedMonthFilter; // e.g. "2026-08" or null for all
   String? _selectedMemberFilter;
   String? _selectedBillFilter;
   bool _showFilters = false;
+  int _transactionLimit = 20;
 
   bool get _hasActiveFilters =>
       _selectedFilterType != 'all' ||
@@ -55,22 +58,227 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    final parsed = ParsedRoute.parse(widget.initialRoute);
+    final storage = context.read<StorageService>();
+    final prevRoute = storage.getPreviousRoute();
+
+    int initialTab = 0;
+    if (parsed.path == 'people' || parsed.path == 'member' || parsed.path == 'profile') {
+      initialTab = 1;
+    } else if (parsed.path == 'expenses' || parsed.path == 'bills' || parsed.path == 'category') {
+      initialTab = 2;
+    } else if (parsed.path == 'tx' || parsed.path == 'transaction') {
+      final from = parsed.from;
+      if (from == 'category' || from == 'expenses' || from == 'bills') {
+        initialTab = 2;
+      } else if (from == 'member' || from == 'people' || from == 'profile') {
+        initialTab = 1;
+      } else if (prevRoute != null) {
+        final p = ParsedRoute.parse(prevRoute);
+        if (p.path == 'category' || p.path == 'expenses' || p.path == 'bills') {
+          initialTab = 2;
+        } else if (p.path == 'member' || p.path == 'people' || p.path == 'profile') {
+          initialTab = 1;
+        }
+      } else {
+        final repo = context.read<FundRepository>();
+        final txList = repo.data?.transactions ?? [];
+        final tx = txList.cast<TransactionModel?>().firstWhere(
+          (t) => t?.id == parsed.id || t?.id.toString() == parsed.id,
+          orElse: () => null,
+        );
+        if (tx != null) {
+          if (tx.billTypeId != null && tx.billTypeId!.isNotEmpty) {
+            initialTab = 2;
+          } else if (tx.type == 'credit' && tx.whoOrBill.isNotEmpty) {
+            initialTab = 1;
+          }
+        }
+      }
+    }
+
+    _lastHandledTab = initialTab;
+    _tabController = TabController(length: 3, vsync: this, initialIndex: initialTab);
+    _tabController.addListener(_handleTabSelection);
+
+    // If initial route points to a sub-screen, restore it once the first frame renders
+    if (parsed.path == 'tx' || parsed.path == 'transaction') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restoreTransactionScreen(parsed);
+      });
+    } else if (parsed.path == 'category') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restoreCategoryScreen(parsed.id);
+      });
+    } else if (parsed.path == 'member' || parsed.path == 'profile') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restoreMemberScreen(parsed.id);
+      });
+    } else {
+      String routeName = 'transactions';
+      if (initialTab == 1) routeName = 'people';
+      if (initialTab == 2) routeName = 'expenses';
+      WebRouteHelper.setRoute(routeName);
+      storage.pushRoute(routeName);
+    }
+  }
+
+  void _handleTabSelection() {
+    if (_tabController.indexIsChanging) return;
+    if (_tabController.index == _lastHandledTab) return;
+    _lastHandledTab = _tabController.index;
+
+    String route = 'transactions';
+    if (_tabController.index == 1) {
+      route = 'people';
+    } else if (_tabController.index == 2) {
+      route = 'expenses';
+    }
+    WebRouteHelper.setRoute(route);
+    if (mounted) {
+      context.read<StorageService>().pushRoute(route);
+    }
+  }
+
+  void _restoreTransactionScreen(ParsedRoute parsed) {
+    if (!mounted) return;
+    final id = parsed.id;
+    if (id == null || id.isEmpty) return;
+
+    final repo = context.read<FundRepository>();
+    final txList = repo.data?.transactions ?? [];
+    final tx = txList.cast<TransactionModel?>().firstWhere(
+      (t) => t?.id == id || t?.id.toString() == id,
+      orElse: () => null,
+    );
+    if (tx == null) return;
+
+    final storage = context.read<StorageService>();
+    final prevRoute = storage.getPreviousRoute();
+
+    String? catId = parsed.catId;
+    String? memberId = parsed.memberId;
+    String? parentRoute;
+
+    if (parsed.from == 'category') {
+      catId ??= tx.billTypeId;
+      if (catId != null && catId.isNotEmpty) {
+        parentRoute = 'category?id=$catId';
+      } else {
+        parentRoute = 'expenses';
+      }
+    } else if (parsed.from == 'member') {
+      memberId ??= (tx.type == 'credit' ? tx.whoOrBill : null);
+      if (memberId != null && memberId.isNotEmpty) {
+        parentRoute = 'member?id=$memberId';
+      } else {
+        parentRoute = 'people';
+      }
+    } else if (parsed.from == 'expenses') {
+      parentRoute = 'expenses';
+    } else if (parsed.from == 'people') {
+      parentRoute = 'people';
+    } else if (prevRoute != null && prevRoute.isNotEmpty) {
+      final prevParsed = ParsedRoute.parse(prevRoute);
+      if (prevParsed.path == 'category') {
+        catId = prevParsed.id ?? tx.billTypeId;
+        parentRoute = catId != null ? 'category?id=$catId' : 'expenses';
+      } else if (prevParsed.path == 'member') {
+        memberId = prevParsed.id ?? (tx.type == 'credit' ? tx.whoOrBill : null);
+        parentRoute = memberId != null ? 'member?id=$memberId' : 'people';
+      } else if (prevParsed.path == 'expenses') {
+        parentRoute = 'expenses';
+      } else if (prevParsed.path == 'people') {
+        parentRoute = 'people';
+      }
+    } else {
+      // Inferred from transaction fields
+      if (tx.billTypeId != null && tx.billTypeId!.isNotEmpty) {
+        catId = tx.billTypeId;
+        parentRoute = 'category?id=$catId';
+      } else if (tx.type == 'credit' && tx.whoOrBill.isNotEmpty) {
+        memberId = tx.whoOrBill;
+        parentRoute = 'member?id=$memberId';
+      } else {
+        parentRoute = 'transactions';
+      }
+    }
+
+    final txRoute = WebRouteHelper.buildTxRoute(
+      tx.id,
+      from: catId != null
+          ? 'category'
+          : (memberId != null
+              ? 'member'
+              : (parentRoute ?? 'transactions')),
+      catId: catId,
+      memberId: memberId,
+    );
+
+    WebRouteHelper.setRoute(txRoute);
+    storage.pushRoute(txRoute);
+
+    // Push TransactionDetailScreen directly on top of HomeScreen (active tab is already set to People or Expenses)
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TransactionDetailScreen(
+          transaction: tx,
+          personId: memberId,
+          returnRoute: parentRoute ?? 'transactions',
+          isRestoredAfterRefresh: true,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        final returnTo = parentRoute ?? 'transactions';
+        WebRouteHelper.setRoute(returnTo);
+        storage.popRoute();
+      }
+    });
+  }
+
+  void _restoreCategoryScreen(String? id) {
+    if (!mounted || id == null || id.isEmpty) return;
+    final storage = context.read<StorageService>();
+    final route = 'category?id=$id';
+    WebRouteHelper.setRoute(route);
+    storage.pushRoute(route);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CategoryExpensesScreen(billTypeId: id),
+      ),
+    ).then((_) {
+      if (mounted) {
+        WebRouteHelper.setRoute('expenses');
+        storage.popRoute();
+      }
+    });
+  }
+
+  void _restoreMemberScreen(String? id) {
+    if (!mounted || id == null || id.isEmpty) return;
+    final storage = context.read<StorageService>();
+    final route = 'member?id=$id';
+    WebRouteHelper.setRoute(route);
+    storage.pushRoute(route);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProfileScreen(memberId: id),
+      ),
+    ).then((_) {
+      if (mounted) {
+        WebRouteHelper.setRoute('people');
+        storage.popRoute();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabSelection);
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _openAddSheet([int initialMode = 0]) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const AddTransactionScreen(),
-      ),
-    );
   }
 
   void _showRepoSwitcherBottomSheet(BuildContext context) {
@@ -161,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       if (tx.type == 'credit') totalCredits += tx.amount;
       if (tx.type == 'debit') totalDebits += tx.amount;
     }
-    final poolBalance = totalCredits - totalDebits;
+    final fundBalance = totalCredits - totalDebits;
 
     // Extract available months for filtering
     final availableMonths = <String>{};
@@ -306,7 +514,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildTransactionsTab(data, config, poolBalance, totalCredits, totalDebits, sortedMonths),
+                _buildTransactionsTab(data, config, fundBalance, totalCredits, totalDebits, sortedMonths),
                 _buildPeopleTab(summaries, settlements, config),
                 _buildBillsTab(data, billTotals, totalDebits, config),
               ],
@@ -320,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Widget _buildTransactionsTab(
     FundData data,
     AppConfig config,
-    double poolBalance,
+    double fundBalance,
     double totalCredits,
     double totalDebits,
     List<String> sortedMonths,
@@ -387,14 +595,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       }
     }
 
+    final visibleTransactions = filtered.take(_transactionLimit).toList();
+    final hasMore = filtered.length > _transactionLimit;
+
     return RefreshIndicator(
-      onRefresh: () => context.read<FundRepository>().refreshAll(),
+      onRefresh: () async {
+        setState(() => _transactionLimit = 20);
+        await context.read<FundRepository>().refreshAll();
+      },
       child: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           FundBalanceSummaryCard(
-            totalBalance: poolBalance,
+            totalBalance: fundBalance,
             totalCredits: totalCredits,
             totalDebits: totalDebits,
             currency: config.currency,
@@ -406,7 +620,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Transactions (${filtered.length})',
+                filtered.length > _transactionLimit
+                    ? 'Transactions (${visibleTransactions.length} of ${filtered.length})'
+                    : 'Transactions (${filtered.length})',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               TextButton.icon(
@@ -479,6 +695,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           _selectedMonthFilter = null;
                           _selectedMemberFilter = null;
                           _selectedBillFilter = null;
+                          _transactionLimit = 20;
                         });
                       },
                       child: const Text('Reset All Filters'),
@@ -488,19 +705,119 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ),
             ),
           ] else ...[
-            ...filtered.map(
+            ...visibleTransactions.map(
               (tx) => TransactionTile(
                 transaction: tx,
                 config: config,
                 onTap: () {
+                  final txRoute = WebRouteHelper.buildTxRoute(
+                    tx.id,
+                    from: 'transactions',
+                  );
+                  WebRouteHelper.setRoute(txRoute);
+                  context.read<StorageService>().pushRoute(txRoute);
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => TransactionDetailScreen(transaction: tx),
+                      builder: (_) => TransactionDetailScreen(
+                        transaction: tx,
+                        returnRoute: 'transactions',
+                      ),
                     ),
-                  );
+                  ).then((_) {
+                    if (mounted) {
+                      WebRouteHelper.setRoute('transactions');
+                      context.read<StorageService>().popRoute();
+                    }
+                  });
                 },
               ),
             ),
+            if (hasMore) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: theme.dividerColor.withOpacity(0.12),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Showing ${visibleTransactions.length} of ${filtered.length} transactions',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.expand_more_rounded, size: 18),
+                          label: Text(
+                            'Load More (+${(filtered.length - visibleTransactions.length).clamp(1, 20)})',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _transactionLimit += 20;
+                            });
+                          },
+                        ),
+                        if (filtered.length - visibleTransactions.length > 20)
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            ),
+                            child: const Text('Show All'),
+                            onPressed: () {
+                              setState(() {
+                                _transactionLimit = filtered.length;
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (filtered.length > 20) ...[
+              const SizedBox(height: 16),
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 16,
+                      color: theme.colorScheme.primary.withOpacity(0.7),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'All ${filtered.length} transactions loaded',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 72),
           ],
         ],
@@ -527,7 +844,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     icon: const Icon(Icons.clear, size: 18),
                     onPressed: () {
                       _searchController.clear();
-                      setState(() {});
+                      setState(() {
+                        _transactionLimit = 20;
+                      });
                     },
                   )
                 : null,
@@ -539,7 +858,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             filled: true,
             fillColor: theme.cardColor,
           ),
-          onChanged: (val) => setState(() {}),
+          onChanged: (val) => setState(() {
+            _transactionLimit = 20;
+          }),
         ),
         const SizedBox(height: 10),
 
@@ -644,6 +965,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               onDeleted: () {
                 setState(() {
                   _selectedFilterType = 'all';
+                  _transactionLimit = 20;
                 });
               },
             ),
@@ -656,6 +978,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               onDeleted: () {
                 setState(() {
                   _selectedMonthFilter = null;
+                  _transactionLimit = 20;
                 });
               },
             ),
@@ -675,6 +998,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               onDeleted: () {
                 setState(() {
                   _selectedMemberFilter = null;
+                  _transactionLimit = 20;
                 });
               },
             ),
@@ -694,6 +1018,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               onDeleted: () {
                 setState(() {
                   _selectedBillFilter = null;
+                  _transactionLimit = 20;
                 });
               },
             ),
@@ -709,6 +1034,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 _selectedMonthFilter = null;
                 _selectedMemberFilter = null;
                 _selectedBillFilter = null;
+                _transactionLimit = 20;
               });
             },
           ),
@@ -734,7 +1060,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 title: const Text('All Transactions'),
                 trailing: _selectedFilterType == 'all' ? const Icon(Icons.check, color: Colors.blue) : null,
                 onTap: () {
-                  setState(() => _selectedFilterType = 'all');
+                  setState(() {
+                    _selectedFilterType = 'all';
+                    _transactionLimit = 20;
+                  });
                   Navigator.pop(ctx);
                 },
               ),
@@ -743,7 +1072,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 title: const Text('Deposits / Credits'),
                 trailing: _selectedFilterType == 'credit' ? const Icon(Icons.check, color: Colors.blue) : null,
                 onTap: () {
-                  setState(() => _selectedFilterType = 'credit');
+                  setState(() {
+                    _selectedFilterType = 'credit';
+                    _transactionLimit = 20;
+                  });
                   Navigator.pop(ctx);
                 },
               ),
@@ -752,7 +1084,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 title: const Text('Expenses / Debits'),
                 trailing: _selectedFilterType == 'debit' ? const Icon(Icons.check, color: Colors.blue) : null,
                 onTap: () {
-                  setState(() => _selectedFilterType = 'debit');
+                  setState(() {
+                    _selectedFilterType = 'debit';
+                    _transactionLimit = 20;
+                  });
                   Navigator.pop(ctx);
                 },
               ),
@@ -779,7 +1114,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 title: const Text('All Months'),
                 trailing: _selectedMonthFilter == null ? const Icon(Icons.check, color: Colors.blue) : null,
                 onTap: () {
-                  setState(() => _selectedMonthFilter = null);
+                  setState(() {
+                    _selectedMonthFilter = null;
+                    _transactionLimit = 20;
+                  });
                   Navigator.pop(ctx);
                 },
               ),
@@ -789,7 +1127,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   subtitle: Text(m, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   trailing: _selectedMonthFilter == m ? const Icon(Icons.check, color: Colors.blue) : null,
                   onTap: () {
-                    setState(() => _selectedMonthFilter = m);
+                    setState(() {
+                      _selectedMonthFilter = m;
+                      _transactionLimit = 20;
+                    });
                     Navigator.pop(ctx);
                   },
                 ),
@@ -817,7 +1158,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 title: const Text('All Members'),
                 trailing: _selectedMemberFilter == null ? const Icon(Icons.check, color: Colors.blue) : null,
                 onTap: () {
-                  setState(() => _selectedMemberFilter = null);
+                  setState(() {
+                    _selectedMemberFilter = null;
+                    _transactionLimit = 20;
+                  });
                   Navigator.pop(ctx);
                 },
               ),
@@ -833,7 +1177,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   subtitle: Text('@${m.id}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   trailing: _selectedMemberFilter == m.id ? const Icon(Icons.check, color: Colors.blue) : null,
                   onTap: () {
-                    setState(() => _selectedMemberFilter = m.id);
+                    setState(() {
+                      _selectedMemberFilter = m.id;
+                      _transactionLimit = 20;
+                    });
                     Navigator.pop(ctx);
                   },
                 ),
@@ -861,7 +1208,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 title: const Text('All Categories'),
                 trailing: _selectedBillFilter == null ? const Icon(Icons.check, color: Colors.blue) : null,
                 onTap: () {
-                  setState(() => _selectedBillFilter = null);
+                  setState(() {
+                    _selectedBillFilter = null;
+                    _transactionLimit = 20;
+                  });
                   Navigator.pop(ctx);
                 },
               ),
@@ -872,7 +1222,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   subtitle: Text(b.id, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   trailing: _selectedBillFilter == b.id ? const Icon(Icons.check, color: Colors.blue) : null,
                   onTap: () {
-                    setState(() => _selectedBillFilter = b.id);
+                    setState(() {
+                      _selectedBillFilter = b.id;
+                      _transactionLimit = 20;
+                    });
                     Navigator.pop(ctx);
                   },
                 ),
@@ -902,11 +1255,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             summary: summary,
             config: config,
             onTap: () {
+              final route = 'member?id=${summary.memberId}';
+              WebRouteHelper.setRoute(route);
+              context.read<StorageService>().pushRoute(route);
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => ProfileScreen(memberId: summary.memberId),
                 ),
-              );
+              ).then((_) {
+                if (mounted) {
+                  WebRouteHelper.setRoute('people');
+                  context.read<StorageService>().popRoute();
+                }
+              });
             },
           ),
         ),
@@ -981,11 +1342,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             transactionCount: count,
             currency: config.currency,
             onTap: () {
+              final route = 'category?id=${bill.id}';
+              WebRouteHelper.setRoute(route);
+              context.read<StorageService>().pushRoute(route);
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => CategoryExpensesScreen(billTypeId: bill.id),
                 ),
-              );
+              ).then((_) {
+                if (mounted) {
+                  WebRouteHelper.setRoute('expenses');
+                  context.read<StorageService>().popRoute();
+                }
+              });
             },
           );
         }),

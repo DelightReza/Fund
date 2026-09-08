@@ -137,9 +137,6 @@ class FundBalanceSummaryCard extends StatelessWidget {
   }
 }
 
-// Backward compatibility alias
-typedef PoolSummaryCard = FundBalanceSummaryCard;
-
 class MemberSummaryCard extends StatelessWidget {
   final MemberFinancialSummary summary;
   final AppConfig config;

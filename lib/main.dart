@@ -11,6 +11,7 @@ import 'theme/app_theme.dart';
 import 'screens/repo_selection_screen.dart';
 import 'screens/user_selection_screen.dart';
 import 'screens/main_screen.dart';
+import 'utils/web_route_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -165,8 +166,9 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
         repo.initializeData(config, data);
 
         if (mounted) {
+          final initialRoute = WebRouteHelper.getCurrentRoute() ?? storage.getLastRoute();
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainScreen()),
+            MaterialPageRoute(builder: (_) => MainScreen(initialRoute: initialRoute)),
           );
         }
       } else {
@@ -200,8 +202,9 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
         });
 
         if (mounted) {
+          final initialRoute = WebRouteHelper.getCurrentRoute() ?? storage.getLastRoute();
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainScreen()),
+            MaterialPageRoute(builder: (_) => MainScreen(initialRoute: initialRoute)),
           );
         }
       }
@@ -250,8 +253,9 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
                 const SizedBox(height: 10),
                 TextButton(
                   onPressed: () {
+                    final initialRoute = WebRouteHelper.getCurrentRoute() ?? context.read<StorageService>().getLastRoute();
                     Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const MainScreen()),
+                      MaterialPageRoute(builder: (_) => MainScreen(initialRoute: initialRoute)),
                     );
                   },
                   child: const Text('Continue to App'),
@@ -290,7 +294,7 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Expense & Pool Tracker',
+              'Expense & Fund Tracker',
               style: TextStyle(
                 fontSize: 13,
                 color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),

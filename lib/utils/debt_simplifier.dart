@@ -112,16 +112,24 @@ class BalanceEngine {
       if (isCredit && payer == personId) {
         change += tx.amount;
       } else if (!isCredit) {
-        List<String> paying;
-        if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
-          paying = tx.splitAmong!;
+        if (tx.customSplit != null && tx.customSplit!.isNotEmpty) {
+          if (tx.customSplit!.containsKey(personId)) {
+            change -= (tx.customSplit![personId] ?? 0.0);
+          }
         } else {
-          final exemptions = tx.exemptions ?? [];
-          paying = allIds.where((id) => !exemptions.contains(id)).toList();
-        }
+          List<String> paying;
+          if (tx.cleanSplitMembers.isNotEmpty) {
+            paying = tx.cleanSplitMembers;
+          } else if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
+            paying = tx.splitAmong!;
+          } else {
+            final exemptions = tx.exemptions ?? [];
+            paying = allIds.where((id) => !exemptions.contains(id)).toList();
+          }
 
-        if (paying.contains(personId) && paying.isNotEmpty) {
-          change -= (tx.amount / paying.length);
+          if (paying.contains(personId) && paying.isNotEmpty) {
+            change -= (tx.amount / paying.length);
+          }
         }
       }
 
@@ -148,10 +156,18 @@ class BalanceEngine {
 
       if (isCredit) {
         if (payer == personId) {
+          final payerMember = config.members.firstWhere(
+            (m) => m.id == payer,
+            orElse: () => MemberConfig(id: payer, name: payer),
+          );
+          final String title = tx.note.trim().isNotEmpty
+              ? tx.note.trim()
+              : (payerMember.name.isNotEmpty ? payerMember.name : 'Credit Deposit');
+
           items.add(
             PersonTransactionItem(
               transaction: tx,
-              displayTitle: tx.note.isNotEmpty ? tx.note : 'Credit Deposit',
+              displayTitle: title,
               displayType: 'Credit',
               sign: '+',
               displayAmount: tx.amount,
@@ -165,32 +181,35 @@ class BalanceEngine {
           );
         }
       } else {
+        final hasCustom = tx.customSplit != null && tx.customSplit!.isNotEmpty;
         List<String> paying;
-        if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
+        if (hasCustom) {
+          paying = tx.customSplit!.keys.toList();
+        } else if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
           paying = tx.splitAmong!;
         } else {
           final exemptions = tx.exemptions ?? [];
           paying = allIds.where((id) => !exemptions.contains(id)).toList();
         }
 
-        if (paying.contains(personId) && paying.isNotEmpty) {
-          final share = tx.amount / paying.length;
+        final isInvolved = hasCustom ? tx.customSplit!.containsKey(personId) : paying.contains(personId);
+        if (isInvolved) {
+          final share = hasCustom
+              ? (tx.customSplit![personId] ?? 0.0)
+              : (paying.isNotEmpty ? (tx.amount / paying.length) : 0.0);
           final bill = config.billTypes.firstWhere(
             (b) => b.id == (tx.billTypeId ?? tx.whoOrBill),
             orElse: () => BillTypeConfig(id: tx.whoOrBill, name: tx.whoOrBill, icon: '🧾'),
           );
-          String title = bill.name;
-          if (tx.whoOrBill == 'other' && tx.note.isNotEmpty) {
-            title = tx.note;
-          } else if (tx.note.isNotEmpty) {
-            title = '${bill.name} - ${tx.note}';
-          }
+          final String title = tx.note.trim().isNotEmpty
+              ? tx.note.trim()
+              : bill.name;
 
           items.add(
             PersonTransactionItem(
               transaction: tx,
               displayTitle: title,
-              displayType: 'Debit Share',
+              displayType: hasCustom ? 'Custom Debit Share' : 'Debit Share',
               sign: '-',
               displayAmount: share,
               change: change,
@@ -231,16 +250,24 @@ class BalanceEngine {
       if (isCredit && payer == personId) {
         change += tx.amount;
       } else if (!isCredit) {
-        List<String> paying;
-        if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
-          paying = tx.splitAmong!;
+        if (tx.customSplit != null && tx.customSplit!.isNotEmpty) {
+          if (tx.customSplit!.containsKey(personId)) {
+            change -= (tx.customSplit![personId] ?? 0.0);
+          }
         } else {
-          final exemptions = tx.exemptions ?? [];
-          paying = allMemberIds.where((id) => !exemptions.contains(id)).toList();
-        }
+          List<String> paying;
+          if (tx.cleanSplitMembers.isNotEmpty) {
+            paying = tx.cleanSplitMembers;
+          } else if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
+            paying = tx.splitAmong!;
+          } else {
+            final exemptions = tx.exemptions ?? [];
+            paying = allMemberIds.where((id) => !exemptions.contains(id)).toList();
+          }
 
-        if (paying.contains(personId) && paying.isNotEmpty) {
-          change -= (tx.amount / paying.length);
+          if (paying.contains(personId) && paying.isNotEmpty) {
+            change -= (tx.amount / paying.length);
+          }
         }
       }
 
@@ -268,7 +295,6 @@ class BalanceEngine {
     FundData data,
     AppConfig config,
   ) {
-    final activeMemberIds = config.members.map((m) => m.id).toSet();
     final paidMap = <String, double>{for (final m in config.members) m.id: 0.0};
     final consumedMap = <String, double>{for (final m in config.members) m.id: 0.0};
 
@@ -279,22 +305,32 @@ class BalanceEngine {
           paidMap[pid] = (paidMap[pid] ?? 0.0) + tx.amount;
         }
       } else if (tx.type == 'debit') {
-        List<String> payers;
-        if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
-          payers = tx.splitAmong!;
+        if (tx.customSplit != null && tx.customSplit!.isNotEmpty) {
+          for (final entry in tx.customSplit!.entries) {
+            if (consumedMap.containsKey(entry.key)) {
+              consumedMap[entry.key] = (consumedMap[entry.key] ?? 0.0) + entry.value;
+            }
+          }
         } else {
-          final exemptions = tx.exemptions ?? [];
-          payers = config.members
-              .map((m) => m.id)
-              .where((id) => !exemptions.contains(id))
-              .toList();
-        }
+          List<String> payers;
+          if (tx.cleanSplitMembers.isNotEmpty) {
+            payers = tx.cleanSplitMembers;
+          } else if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
+            payers = tx.splitAmong!;
+          } else {
+            final exemptions = tx.exemptions ?? [];
+            payers = config.members
+                .map((m) => m.id)
+                .where((id) => !exemptions.contains(id))
+                .toList();
+          }
 
-        if (payers.isNotEmpty) {
-          final share = tx.amount / payers.length;
-          for (final pid in payers) {
-            if (consumedMap.containsKey(pid)) {
-              consumedMap[pid] = (consumedMap[pid] ?? 0.0) + share;
+          if (payers.isNotEmpty) {
+            final share = tx.amount / payers.length;
+            for (final pid in payers) {
+              if (consumedMap.containsKey(pid)) {
+                consumedMap[pid] = (consumedMap[pid] ?? 0.0) + share;
+              }
             }
           }
         }
@@ -336,7 +372,7 @@ class BalanceEngine {
   }
 
   /// Total fund balance in bank/hand (Total credits - Total debits)
-  static double calculateTotalPoolBalance(FundData data) {
+  static double calculateTotalFundBalance(FundData data) {
     double credits = 0.0;
     double debits = 0.0;
     for (final tx in data.transactions) {

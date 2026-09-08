@@ -2,19 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_config.dart';
 import '../models/fund_data.dart';
-import '../models/transaction.dart';
 import '../repositories/fund_repository.dart';
+import '../services/storage_service.dart';
 import '../utils/date_utils.dart';
 import '../utils/format_utils.dart';
+import '../utils/web_route_helper.dart';
+import '../utils/app_router.dart';
 import 'add_transaction_screen.dart';
+import 'main_screen.dart';
 import 'transaction_detail_screen.dart';
 
 class CategoryExpensesScreen extends StatefulWidget {
   final String billTypeId;
+  final String returnRoute;
+  final bool isRestoredAfterRefresh;
 
   const CategoryExpensesScreen({
     super.key,
     required this.billTypeId,
+    this.returnRoute = 'expenses',
+    this.isRestoredAfterRefresh = false,
   });
 
   @override
@@ -23,6 +30,14 @@ class CategoryExpensesScreen extends StatefulWidget {
 
 class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
   String? _selectedMonth;
+
+  void _handleBack() {
+    AppRouter.popOrNavigateTo(
+      context,
+      widget.returnRoute,
+      forceDirect: widget.isRestoredAfterRefresh,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,18 +107,24 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
     final memberShareMap = <String, double>{for (final m in config.members) m.id: 0.0};
 
     for (final tx in allCategoryTransactions) {
-      List<String> paying;
-      if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
-        paying = tx.splitAmong!;
+      if (tx.customSplit != null && tx.customSplit!.isNotEmpty) {
+        for (final entry in tx.customSplit!.entries) {
+          memberShareMap[entry.key] = (memberShareMap[entry.key] ?? 0.0) + entry.value;
+        }
       } else {
-        final exemptions = tx.exemptions ?? [];
-        paying = allMemberIds.where((id) => !exemptions.contains(id)).toList();
-      }
+        List<String> paying;
+        if (tx.splitAmong != null && tx.splitAmong!.isNotEmpty) {
+          paying = tx.splitAmong!;
+        } else {
+          final exemptions = tx.exemptions ?? [];
+          paying = allMemberIds.where((id) => !exemptions.contains(id)).toList();
+        }
 
-      if (paying.isNotEmpty) {
-        final perPerson = tx.amount / paying.length;
-        for (final mId in paying) {
-          memberShareMap[mId] = (memberShareMap[mId] ?? 0.0) + perPerson;
+        if (paying.isNotEmpty) {
+          final perPerson = tx.amount / paying.length;
+          for (final mId in paying) {
+            memberShareMap[mId] = (memberShareMap[mId] ?? 0.0) + perPerson;
+          }
         }
       }
     }
@@ -111,9 +132,20 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
     final currentMonthKey = AppDateUtils.todayMonthKey();
     final thisMonthSpent = monthlyMap[currentMonthKey] ?? 0.0;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back to Expenses',
+            onPressed: _handleBack,
+          ),
+          title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(billCategory.icon, style: const TextStyle(fontSize: 20)),
@@ -429,14 +461,24 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: () {
+                      final fromRoute = 'category?id=${widget.billTypeId}';
+                      final targetRoute = 'add_tx?from=$fromRoute';
+                      WebRouteHelper.setRoute(targetRoute);
+                      context.read<StorageService>().pushRoute(targetRoute);
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => AddTransactionScreen(
                             initialMode: 0,
                             initialBillTypeId: widget.billTypeId,
+                            returnRoute: fromRoute,
                           ),
                         ),
-                      );
+                      ).then((_) {
+                        if (mounted) {
+                          WebRouteHelper.setRoute(fromRoute);
+                          context.read<StorageService>().popRoute();
+                        }
+                      });
                     },
                     icon: const Icon(Icons.add, size: 18),
                     label: Text('Add ${billCategory.name} Expense'),
@@ -447,7 +489,7 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
           ] else ...[
             ...displayedTransactions.map((tx) {
               // Find who paid (paired credit if member paid, or from fund)
-              String payerLabel = 'Fund Pool';
+              String payerLabel = 'Fund';
               if (tx.payerId != null && tx.payerId!.isNotEmpty) {
                 final payer = config.members.firstWhere(
                   (m) => m.id == tx.payerId,
@@ -483,13 +525,26 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () {
+                    final txRoute = WebRouteHelper.buildTxRoute(
+                      tx.id,
+                      from: 'category',
+                      catId: widget.billTypeId,
+                    );
+                    WebRouteHelper.setRoute(txRoute);
+                    context.read<StorageService>().pushRoute(txRoute);
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => TransactionDetailScreen(
                           transaction: tx,
+                          returnRoute: 'category?id=${widget.billTypeId}',
                         ),
                       ),
-                    );
+                    ).then((_) {
+                      if (mounted) {
+                        WebRouteHelper.setRoute('category?id=${widget.billTypeId}');
+                        context.read<StorageService>().popRoute();
+                      }
+                    });
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -563,7 +618,9 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Split with $splitCount',
+                              tx.customSplit != null && tx.customSplit!.isNotEmpty
+                                  ? 'Custom split (${tx.customSplit!.length})'
+                                  : 'Split with $splitCount',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
@@ -587,6 +644,7 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
           const SizedBox(height: 24),
         ],
       ),
+    ),
     );
   }
 }

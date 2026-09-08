@@ -11,16 +11,23 @@ import '../utils/debt_simplifier.dart';
 import '../utils/format_utils.dart';
 import '../widgets/admin_pat_modal.dart';
 import '../widgets/confirmation_dialog.dart';
+import '../utils/web_route_helper.dart';
+import '../utils/app_router.dart';
 import 'add_transaction_screen.dart';
+import 'main_screen.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final TransactionModel transaction;
   final String? personId;
+  final String? returnRoute;
+  final bool isRestoredAfterRefresh;
 
   const TransactionDetailScreen({
     super.key,
     required this.transaction,
     this.personId,
+    this.returnRoute,
+    this.isRestoredAfterRefresh = false,
   });
 
   @override
@@ -29,6 +36,15 @@ class TransactionDetailScreen extends StatefulWidget {
 
 class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   bool _isDeleting = false;
+
+  void _handleBack() {
+    final target = widget.returnRoute ?? 'transactions';
+    AppRouter.popOrNavigateTo(
+      context,
+      target,
+      forceDirect: widget.isRestoredAfterRefresh,
+    );
+  }
 
   Future<void> _delete() async {
     final repo = context.read<FundRepository>();
@@ -109,17 +125,28 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       pairedDebit = siblings.firstWhere((t) => t.type == 'debit', orElse: () => tx);
     }
 
+    final currentTxRoute = widget.returnRoute != null
+        ? WebRouteHelper.buildTxRouteFromReturnRoute(widget.transaction.id, widget.returnRoute!)
+        : 'tx?id=${widget.transaction.id}';
+    final editRoute = 'add_tx?from=${Uri.encodeComponent(currentTxRoute)}';
+    WebRouteHelper.setRoute(editRoute);
+    context.read<StorageService>().pushRoute(editRoute);
+
     final updated = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => AddTransactionScreen(
           existingTransaction: tx,
           pairedExpenseTransaction: pairedDebit,
+          returnRoute: currentTxRoute,
         ),
       ),
     );
 
     if (updated == true && mounted) {
-      Navigator.of(context).pop();
+      _handleBack();
+    } else if (mounted) {
+      WebRouteHelper.setRoute(currentTxRoute);
+      context.read<StorageService>().setLastRoute(currentTxRoute);
     }
   }
 
@@ -154,18 +181,22 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           )
         : null;
 
-    final splitMembers = tx.splitAmong ??
-        (tx.parentId != null
-            ? groupSiblings
-                .firstWhere((t) => t.type == 'debit', orElse: () => tx)
-                .splitAmong
-            : null) ??
-        config.members.where((m) => m.active).map((m) => m.id).toList();
+    final debitSibling = tx.parentId != null
+        ? groupSiblings.firstWhere((t) => t.type == 'debit', orElse: () => tx)
+        : null;
+    final activeCustomSplit = tx.customSplit ?? debitSibling?.customSplit;
+    final hasCustomSplit = activeCustomSplit != null && activeCustomSplit.isNotEmpty;
+
+    final splitMembers = hasCustomSplit
+        ? activeCustomSplit.keys.toList()
+        : (tx.splitAmong ??
+            debitSibling?.splitAmong ??
+            config.members.where((m) => m.active).map((m) => m.id).toList());
 
     final perPersonSplit = splitMembers.isNotEmpty ? (tx.amount / splitMembers.length) : 0.0;
 
-    // Focused member for balance stats
-    final targetPersonId = widget.personId ?? storage.currentUser;
+    // Focused member for balance stats (only shown when inspecting a specific member's timeline)
+    final targetPersonId = widget.personId;
     MemberConfig? focusedMember;
     Map<String, double>? balanceStats;
 
@@ -189,9 +220,20 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     final personBalBefore = balanceStats?['balanceBefore'] ?? 0.0;
     final personBalAfter = balanceStats?['balanceAfter'] ?? 0.0;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transaction Details'),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back to previous page',
+            onPressed: _handleBack,
+          ),
+          title: const Text('Transaction Details'),
         actions: [
           // Only show edit & delete actions when admin write access is verified
           if (isAdminVerified) ...[
@@ -440,17 +482,33 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Split Breakdown',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                              ),
                               Text(
-                                '${FormatUtils.formatCurrency(perPersonSplit, config.currency)} / person',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
-                                ),
+                                hasCustomSplit ? 'Custom Split Breakdown' : 'Split Breakdown',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                               ),
+                              hasCustomSplit
+                                  ? Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'Custom / Unequal',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                    )
+                                  : Text(
+                                      '${FormatUtils.formatCurrency(perPersonSplit, config.currency)} / person',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -466,6 +524,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                 orElse: () => MemberConfig(id: id, name: id),
                               );
                               final isTarget = id == targetPersonId;
+                              final memberShare = hasCustomSplit
+                                  ? (activeCustomSplit[id] ?? 0.0)
+                                  : perPersonSplit;
+                              final pct = tx.amount > 0 ? (memberShare / tx.amount) * 100 : 0.0;
 
                               return Container(
                                 margin: const EdgeInsets.symmetric(vertical: 3),
@@ -500,8 +562,19 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                         ),
                                       ),
                                     ),
+                                    if (hasCustomSplit)
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 8),
+                                        child: Text(
+                                          '(${pct.toStringAsFixed(1)}%)',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ),
                                     Text(
-                                      '-${FormatUtils.formatCurrency(perPersonSplit, config.currency)}',
+                                      '-${FormatUtils.formatCurrency(memberShare, config.currency)}',
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
@@ -525,6 +598,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

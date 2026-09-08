@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import '../models/app_config.dart';
 import '../models/transaction.dart';
 import '../repositories/fund_repository.dart';
-import '../services/storage_service.dart';
 import '../utils/date_utils.dart';
+import '../utils/format_utils.dart';
 import '../widgets/confirmation_dialog.dart';
+import '../utils/app_router.dart';
+import 'main_screen.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final TransactionModel? existingTransaction;
@@ -14,6 +16,8 @@ class AddTransactionScreen extends StatefulWidget {
   final String? initialType;
   final String? initialBillTypeId;
   final int initialMode;
+  final String? returnRoute;
+  final bool isRestoredAfterRefresh;
 
   const AddTransactionScreen({
     super.key,
@@ -22,6 +26,8 @@ class AddTransactionScreen extends StatefulWidget {
     this.initialType,
     this.initialBillTypeId,
     this.initialMode = 0,
+    this.returnRoute,
+    this.isRestoredAfterRefresh = false,
   });
 
   @override
@@ -42,8 +48,26 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   String _selectedDate = AppDateUtils.todayString();
   TimeOfDay _selectedTime = TimeOfDay.now();
   final Set<String> _exemptions = {}; // IDs exempt from split or distribution
+  String _splitMode = 'equal'; // 'equal' or 'custom' (exact amount)
+  final Map<String, TextEditingController> _customAmountControllers = {};
   bool _isLoading = false;
   String? _error;
+
+  TextEditingController _getCustomController(String memberId) {
+    return _customAmountControllers.putIfAbsent(
+      memberId,
+      () => TextEditingController(),
+    );
+  }
+
+  double _getCustomAllocatedTotal() {
+    double total = 0.0;
+    for (final controller in _customAmountControllers.values) {
+      final val = double.tryParse(controller.text.trim()) ?? 0.0;
+      total += val;
+    }
+    return total;
+  }
 
   // Scroll controllers & keys for auto-scrolling to selected items
   final ScrollController _payerScrollController = ScrollController();
@@ -83,6 +107,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   @override
   void initState() {
     super.initState();
+    _amountController.addListener(() {
+      if (mounted) setState(() {});
+    });
+
     if (widget.initialType != null) {
       _type = widget.initialType!;
     } else {
@@ -176,12 +204,31 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           _noteController.text = cleanNote;
         }
 
-        if (pairedDebit?.splitAmong != null && config != null) {
-          final allActive = config.members.where((m) => m.active).map((m) => m.id).toSet();
-          final splitSet = pairedDebit!.splitAmong!.toSet();
-          for (final mId in allActive) {
-            if (!splitSet.contains(mId)) {
-              _exemptions.add(mId);
+        if (pairedDebit != null) {
+          if (pairedDebit.customSplit != null && pairedDebit.customSplit!.isNotEmpty) {
+            _splitMode = 'custom';
+            pairedDebit.customSplit!.forEach((mId, val) {
+              final textVal = val % 1.0 == 0.0 ? val.toInt().toString() : val.toString();
+              _getCustomController(mId).text = textVal;
+            });
+          } else if (pairedDebit.splitPercentages != null && pairedDebit.splitPercentages!.isNotEmpty) {
+            final isEq = TransactionModel.isSplitEqual(pairedDebit.splitPercentages!);
+            if (!isEq) {
+              _splitMode = 'custom';
+              final totalAmt = existing.amount;
+              pairedDebit.splitPercentages!.forEach((mId, pct) {
+                final val = totalAmt > 0 ? (totalAmt * pct / 100.0) : 0.0;
+                final textVal = val % 1.0 == 0.0 ? val.toInt().toString() : val.toStringAsFixed(2);
+                _getCustomController(mId).text = textVal;
+              });
+            }
+          } else if (pairedDebit.splitAmong != null && config != null) {
+            final allActive = config.members.where((m) => m.active).map((m) => m.id).toSet();
+            final splitSet = pairedDebit.splitAmong!.toSet();
+            for (final mId in allActive) {
+              if (!splitSet.contains(mId)) {
+                _exemptions.add(mId);
+              }
             }
           }
         }
@@ -193,7 +240,24 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         _type = 'debit';
         _noteController.text = existing.note;
         _selectedBillTypeId = existing.billTypeId ?? existing.whoOrBill;
-        if (existing.exemptions != null) {
+        if (existing.customSplit != null && existing.customSplit!.isNotEmpty) {
+          _splitMode = 'custom';
+          existing.customSplit!.forEach((mId, val) {
+            final textVal = val % 1.0 == 0.0 ? val.toInt().toString() : val.toString();
+            _getCustomController(mId).text = textVal;
+          });
+        } else if (existing.splitPercentages != null && existing.splitPercentages!.isNotEmpty) {
+          final isEq = TransactionModel.isSplitEqual(existing.splitPercentages!);
+          if (!isEq) {
+            _splitMode = 'custom';
+            final totalAmt = existing.amount;
+            existing.splitPercentages!.forEach((mId, pct) {
+              final val = totalAmt > 0 ? (totalAmt * pct / 100.0) : 0.0;
+              final textVal = val % 1.0 == 0.0 ? val.toInt().toString() : val.toStringAsFixed(2);
+              _getCustomController(mId).text = textVal;
+            });
+          }
+        } else if (existing.exemptions != null) {
           _exemptions.addAll(existing.exemptions!);
         }
       }
@@ -221,6 +285,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
+    for (final c in _customAmountControllers.values) {
+      c.dispose();
+    }
     _payerScrollController.dispose();
     _billTypeScrollController.dispose();
     _fromScrollController.dispose();
@@ -362,6 +429,36 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     List<String> splitMembers = [];
     List<String> exemptMembers = _exemptions.toList();
 
+    Map<String, double>? customSplitMap;
+
+    if ((_type == 'expense' || _type == 'debit') && _splitMode == 'custom') {
+      final activeMembers = config.members.where((m) => m.active).toList();
+      final includedMembers = activeMembers.where((m) => !_exemptions.contains(m.id)).toList();
+
+      customSplitMap = {};
+      double totalAllocated = 0.0;
+      for (final m in includedMembers) {
+        final ctrl = _customAmountControllers[m.id];
+        final val = double.tryParse(ctrl?.text.trim() ?? '') ?? 0.0;
+        if (val > 0) {
+          customSplitMap[m.id] = val;
+          totalAllocated += val;
+        }
+      }
+
+      if (customSplitMap.isEmpty) {
+        setState(() => _error = 'Please enter amounts for at least one member in Custom Split mode');
+        return;
+      }
+
+      final diff = (amount - totalAllocated).abs();
+      if (diff > 0.05) {
+        setState(() => _error =
+            'Custom split total (${config.currency} ${totalAllocated.toStringAsFixed(2)}) does not match transaction amount (${config.currency} ${amount.toStringAsFixed(2)})');
+        return;
+      }
+    }
+
     if (_type == 'expense') {
       if (_selectedPayerId == null || _selectedBillTypeId == null) {
         setState(() => _error = 'Please select a payer and a bill category');
@@ -425,6 +522,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       ).name;
     }
 
+    final memberNamesMap = {for (var m in config.members) m.id: m.name};
+
     // Show Confirmation UI Dialog
     final confirmed = await TransactionConfirmationDialog.show(
       context,
@@ -438,8 +537,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       fromName: fromName,
       toName: toName,
       note: note,
-      splitMembers: splitMembers,
+      splitMembers: customSplitMap != null ? customSplitMap.keys.toList() : splitMembers,
       exemptMembers: exemptMembers,
+      customSplit: customSplitMap,
+      memberNames: memberNamesMap,
       isEditing: isEditing,
     );
 
@@ -462,6 +563,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             note: note,
             date: fullDateTime,
             exemptions: _exemptions.toList(),
+            customSplit: customSplitMap,
           );
         } else {
           success = await repo.addQuickExpense(
@@ -471,6 +573,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             note: note,
             date: fullDateTime,
             exemptions: _exemptions.toList(),
+            customSplit: customSplitMap,
           );
         }
       } else if (_type == 'credit') {
@@ -494,7 +597,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         }
       } else if (_type == 'debit') {
         final activeMembers = config.members.where((m) => m.active).map((m) => m.id).toList();
-        final splitAmong = activeMembers.where((id) => !_exemptions.contains(id)).toList();
+        final splitAmong = customSplitMap != null
+            ? customSplitMap.keys.toList()
+            : activeMembers.where((id) => !_exemptions.contains(id)).toList();
 
         if (isEditing) {
           success = await repo.editSingleTransaction(
@@ -506,6 +611,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             date: fullDateTime,
             splitAmong: splitAmong,
             exemptions: _exemptions.toList(),
+            customSplit: customSplitMap,
           );
         } else {
           success = await repo.addSingleTransaction(
@@ -516,6 +622,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             date: fullDateTime,
             splitAmong: splitAmong,
             exemptions: _exemptions.toList(),
+            customSplit: customSplitMap,
           );
         }
       } else if (_type == 'distribute') {
@@ -622,9 +729,29 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         themeColor = const Color(0xFF3B82F6);
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
+    void handleBack() {
+      final target = widget.returnRoute ?? 'admin';
+      AppRouter.popOrNavigateTo(
+        context,
+        target,
+        forceDirect: widget.isRestoredAfterRefresh,
+      );
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back',
+            onPressed: handleBack,
+          ),
+          title: Text(
           isEditing ? 'Edit Transaction' : 'Record Transaction',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
@@ -729,11 +856,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         ),
                         const SizedBox(height: 18),
 
-                        _buildSectionHeader('Split Among Active Members'),
-                        const SizedBox(height: 4),
-                        const Text('Tap to toggle member inclusion in this expense', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        const SizedBox(height: 8),
-                        _buildExemptionToggles(members, themeColor),
+                        _buildSplitConfigurationSection(
+                          members,
+                          themeColor,
+                          config.currency,
+                        ),
                       ] else if (_type == 'credit') ...[
                         _buildSectionHeader('Depositing Member'),
                         const SizedBox(height: 8),
@@ -764,11 +891,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         ),
                         const SizedBox(height: 18),
 
-                        _buildSectionHeader('Split Among Active Members'),
-                        const SizedBox(height: 4),
-                        const Text('Tap to toggle member inclusion in this debit', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        const SizedBox(height: 8),
-                        _buildExemptionToggles(members, themeColor),
+                        _buildSplitConfigurationSection(
+                          members,
+                          themeColor,
+                          config.currency,
+                        ),
                       ] else if (_type == 'distribute') ...[
                         _buildSectionHeader('Distribute Credit Equally Among'),
                         const SizedBox(height: 4),
@@ -890,6 +1017,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -1164,6 +1292,494 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  void _distributeEvenlyToCustom(List<MemberConfig> members) {
+    final double totalAmount = double.tryParse(_amountController.text.trim()) ?? 0.0;
+    final included = members.where((m) => m.active && !_exemptions.contains(m.id)).toList();
+    if (included.isEmpty || totalAmount <= 0) return;
+
+    final int count = included.length;
+    final double baseShare = (totalAmount / count);
+    final double roundedBase = (baseShare * 100).floorToDouble() / 100;
+    double distributed = roundedBase * count;
+    double remainder = ((totalAmount - distributed) * 100).round() / 100;
+
+    setState(() {
+      for (int i = 0; i < included.length; i++) {
+        final m = included[i];
+        double share = roundedBase;
+        if (remainder > 0.001) {
+          share += 0.01;
+          remainder = ((remainder - 0.01) * 100).round() / 100;
+        }
+        final shareStr = share % 1.0 == 0.0 ? share.toInt().toString() : share.toStringAsFixed(2);
+        _getCustomController(m.id).text = shareStr;
+      }
+    });
+  }
+
+  void _splitRemainingEqually(List<MemberConfig> members) {
+    final double totalAmount = double.tryParse(_amountController.text.trim()) ?? 0.0;
+    final double currentAllocated = _getCustomAllocatedTotal();
+    final double remaining = totalAmount - currentAllocated;
+    if (remaining <= 0.009) return;
+
+    final candidates = members.where((m) {
+      if (!m.active || _exemptions.contains(m.id)) return false;
+      final val = double.tryParse(_getCustomController(m.id).text.trim()) ?? 0.0;
+      return val <= 0;
+    }).toList();
+
+    final targetList = candidates.isNotEmpty
+        ? candidates
+        : members.where((m) => m.active && !_exemptions.contains(m.id)).toList();
+
+    if (targetList.isEmpty) return;
+
+    final int count = targetList.length;
+    final double baseShare = (remaining / count);
+    final double roundedBase = (baseShare * 100).floorToDouble() / 100;
+    double distributed = roundedBase * count;
+    double remainder = ((remaining - distributed) * 100).round() / 100;
+
+    setState(() {
+      for (int i = 0; i < targetList.length; i++) {
+        final m = targetList[i];
+        final currentVal = double.tryParse(_getCustomController(m.id).text.trim()) ?? 0.0;
+        double added = roundedBase;
+        if (remainder > 0.001) {
+          added += 0.01;
+          remainder = ((remainder - 0.01) * 100).round() / 100;
+        }
+        final finalVal = currentVal + added;
+        final valStr = finalVal % 1.0 == 0.0 ? finalVal.toInt().toString() : finalVal.toStringAsFixed(2);
+        _getCustomController(m.id).text = valStr;
+      }
+    });
+  }
+
+  Widget _buildSplitModeChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required Color activeColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: activeColor.withOpacity(0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? Colors.white : Colors.grey.shade700,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSplitConfigurationSection(
+    List<MemberConfig> members,
+    Color activeColor,
+    String currency,
+  ) {
+    final activeMembers = members.where((m) => m.active).toList();
+    final double totalAmount = double.tryParse(_amountController.text.trim()) ?? 0.0;
+    final double allocated = _getCustomAllocatedTotal();
+    final double diff = totalAmount - allocated;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildSectionHeader('Split Allocation'),
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(3),
+              child: Row(
+                children: [
+                  _buildSplitModeChip(
+                    label: 'Equal',
+                    icon: Icons.pie_chart_outline_rounded,
+                    isSelected: _splitMode == 'equal',
+                    activeColor: activeColor,
+                    onTap: () {
+                      setState(() => _splitMode = 'equal');
+                    },
+                  ),
+                  _buildSplitModeChip(
+                    label: 'Custom',
+                    icon: Icons.tune_rounded,
+                    isSelected: _splitMode == 'custom',
+                    activeColor: activeColor,
+                    onTap: () {
+                      setState(() {
+                        _splitMode = 'custom';
+                        if (allocated == 0.0 && totalAmount > 0) {
+                          _distributeEvenlyToCustom(activeMembers);
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+
+        if (_splitMode == 'equal') ...[
+          const Text(
+            'Tap member chips to toggle inclusion or exemption in this split:',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          _buildExemptionToggles(members, activeColor),
+          if (totalAmount > 0) ...[
+            const SizedBox(height: 10),
+            Builder(
+              builder: (context) {
+                final includedCount = activeMembers.where((m) => !_exemptions.contains(m.id)).length;
+                if (includedCount > 0) {
+                  final perPerson = totalAmount / includedCount;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: activeColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: activeColor.withOpacity(0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: activeColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Split equally among $includedCount member${includedCount > 1 ? 's' : ''}: ~${FormatUtils.formatCurrency(perPerson, currency)} each',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: activeColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
+        ] else ...[
+          // EXACT AMOUNT SPLIT MODE
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Enter exact amounts allocated to each member:',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+              Wrap(
+                spacing: 6,
+                children: [
+                  InkWell(
+                    onTap: () => _distributeEvenlyToCustom(activeMembers),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: activeColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_fix_high, size: 14, color: activeColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Split Evenly',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: activeColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        for (final m in activeMembers) {
+                          _getCustomController(m.id).clear();
+                        }
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.refresh, size: 14, color: Colors.grey),
+                          SizedBox(width: 4),
+                          Text(
+                            'Clear',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          ...activeMembers.map((m) {
+            final isIncluded = !_exemptions.contains(m.id);
+            final ctrl = _getCustomController(m.id);
+            final memberVal = double.tryParse(ctrl.text.trim()) ?? 0.0;
+            final pct = totalAmount > 0 ? (memberVal / totalAmount) * 100 : 0.0;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isIncluded
+                    ? Theme.of(context).colorScheme.surface
+                    : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isIncluded
+                      ? (memberVal > 0 ? activeColor.withOpacity(0.5) : Colors.grey.shade300)
+                      : Colors.transparent,
+                  width: memberVal > 0 ? 1.5 : 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        if (_exemptions.contains(m.id)) {
+                          _exemptions.remove(m.id);
+                        } else {
+                          _exemptions.add(m.id);
+                          _getCustomController(m.id).clear();
+                        }
+                      });
+                    },
+                    child: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: isIncluded ? activeColor.withOpacity(0.15) : Colors.grey.shade300,
+                      child: Text(
+                        m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isIncluded ? activeColor : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          m.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isIncluded ? null : Colors.grey,
+                            decoration: isIncluded ? null : TextDecoration.lineThrough,
+                          ),
+                        ),
+                        if (isIncluded && totalAmount > 0 && memberVal > 0)
+                          Text(
+                            '${pct.toStringAsFixed(1)}% of total',
+                            style: TextStyle(fontSize: 11, color: activeColor, fontWeight: FontWeight.w500),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (isIncluded) ...[
+                    SizedBox(
+                      width: 130,
+                      height: 42,
+                      child: TextField(
+                        controller: ctrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        onChanged: (_) {
+                          setState(() {});
+                        },
+                        decoration: InputDecoration(
+                          prefixText: '$currency ',
+                          prefixStyle: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: activeColor,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: activeColor, width: 2),
+                          ),
+                          hintText: '0.00',
+                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('Exempt', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.35),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: diff.abs() <= 0.05
+                    ? Colors.green.withOpacity(0.5)
+                    : (diff > 0.05 ? Colors.orange.withOpacity(0.5) : Colors.red.withOpacity(0.5)),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Total Expense:', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                    Text(
+                      FormatUtils.formatCurrency(totalAmount, currency),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Allocated So Far:', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                    Text(
+                      FormatUtils.formatCurrency(allocated, currency),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: diff.abs() <= 0.05 ? Colors.green : (diff > 0 ? Colors.orange.shade800 : Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      diff.abs() <= 0.05
+                          ? Icons.check_circle_rounded
+                          : (diff > 0.05 ? Icons.pending_outlined : Icons.error_outline_rounded),
+                      size: 16,
+                      color: diff.abs() <= 0.05 ? Colors.green : (diff > 0 ? Colors.orange.shade800 : Colors.red),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        diff.abs() <= 0.05
+                            ? 'Allocations perfectly match transaction amount'
+                            : (diff > 0.05
+                                ? '${FormatUtils.formatCurrency(diff, currency)} remaining to allocate'
+                                : '${FormatUtils.formatCurrency(-diff, currency)} over-allocated'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: diff.abs() <= 0.05 ? Colors.green : (diff > 0 ? Colors.orange.shade800 : Colors.red),
+                        ),
+                      ),
+                    ),
+                    if (diff > 0.05) ...[
+                      InkWell(
+                        onTap: () => _splitRemainingEqually(activeMembers),
+                        child: Text(
+                          'Fill Remaining',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: activeColor,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
