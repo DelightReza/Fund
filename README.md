@@ -1,66 +1,73 @@
-# 💰 Fund & Expense Tracker
+# 💎 Fund & Expense Tracker
 
-A modern, cross-platform **Group Fund & Expense Management** application built with **Flutter**, supporting **Android**, **Web**, and **Desktop** platforms.
+A production-grade, cross-platform **Group Fund, Shared Expense & Debt Simplification** application built with **Flutter**, designed specifically for **Web** and **Android**.
 
-It uses a serverless, zero-database architecture powered by the **GitHub Contents API & Raw Content CDN**, allowing you to store, audit, and synchronize your fund ledger (`data.json`) and configuration (`config.json`) directly in your own GitHub repository.
-
----
-
-## ✨ Key Features
-
-### 📊 **Dashboard & Analytics**
-* **Financial Overview**: Real-time summary of Total Fund Collections, Total Incurred Expenses, Net Fund Balance, and Active Member Count.
-* **Member Ledger**: Clear breakdown of member contributions, incurred expense shares, net balances, and settlement recommendations.
-* **Transaction Feed**: Comprehensive list of recent fund transactions with grouped expense badges, category icons, timestamps, and details.
-
-### 💳 **Transaction Management**
-* **Multiple Transaction Types**:
-  * **Quick Expense**: Automatically handles paired Credit + Debit operations when a member pays for a shared bill.
-  * **Debit**: Direct expense drawn from the fund balance.
-  * **Credit**: Deposit or regular contribution added to the fund.
-  * **Distribute**: Equal distribution of funds among selected active participants.
-  * **Settle Debt / Transfer**: Direct balance transfers and debt settlements between members.
-* **Dynamic Split & Exemptions**: Selectively include or exclude individual members from any expense or distribution.
-* **Confirmation Modals**: Detailed summary review before committing any transaction.
-* **Intelligent Edit Flow**: Automatically scrolls and focuses on selected bill types and members when editing existing entries.
-
-### 📁 **Repository & Workspace Management**
-* **Multi-Workspace Support**: Switch between multiple fund repositories with one tap.
-* **Flexible Connection**: Connect using `owner/repo`, GitHub repository URLs, raw URLs, or GitHub Pages links.
-* **Public & Private Repositories**: Works directly without tokens for public repos; securely supports GitHub Personal Access Tokens (PAT) for private repos.
-
-### 👥 **Profiles & Categories**
-* **Member Profiles**: Filtered history and individual financial statistics for each member.
-* **Category Breakdown**: Group expenses by bill category (e.g., Food, WiFi, Utilities, Groceries).
-
-### ⚙️ **Admin Controls**
-* **Repository Configuration**: Manage members (add, activate/deactivate), bill categories, currency symbols, and site titles.
-* **Commit History & Rollback**: View GitHub commit logs with SHA hashes and roll back invalid transactions or state changes.
-* **Local Data Caching**: Offline-first storage with automatic cache invalidation and refresh.
-
-### 🎨 **UI / UX Design**
-* **Material Design 3**: Polished design system with responsive layouts for mobile and large screens.
-* **Dark & Light Mode**: Manual theme switcher in the app bar alongside system preference matching.
+The application features a **100% Liquid Glass (Frosted Glassmorphism)** design system and operates on a **zero-database, serverless architecture** powered directly by the **GitHub REST API & GitHub Pages CDN**. Your group's configuration (`config.json`) and financial ledger (`data.json`) are stored with full version history in your own GitHub repository.
 
 ---
 
-## 🛠️ Tech Stack
+## ✨ Features & Capabilities
 
-* **Framework**: [Flutter](https://flutter.dev/) (Targeting Android, Web, and Desktop)
-* **Language**: [Dart](https://dart.dev/)
-* **State Management**: [Provider](https://pub.dev/packages/provider)
-* **Local Persistence**: [shared_preferences](https://pub.dev/packages/shared_preferences)
-* **HTTP & API**: [http](https://pub.dev/packages/http)
-* **GitHub Backend**: GitHub REST API & GitHub Raw Content CDN
+### 🎨 100% Liquid Glass Aesthetic
+* **Multi-Color Ambient Aurora**: Dynamic fluid gradient meshes that smoothly transition across dark and light palettes.
+* **Frosted Glass Surfaces**: Deep backdrop blur (`sigma: 16–24`), specular border highlights, and subtle translucency across all cards, dialogs, forms, and bottom navigation.
+* **Floating Glass Island Navigation**: Compact, floating navigation capsule on mobile with responsive navigation rail support on wide screens.
+* **Vibrant Fintech Palette**: Deep Emerald Green (`#047857`) for deposits, Electric Crimson (`#DC2626`) for expenses, Violet (`#7C3AED`) for settlements, and Indigo (`#312E81`) for total fund liquidity.
+
+### 💳 Transaction Management & Split Engine
+* **Transaction Types**:
+  * **Quick Expense**: Automatically generates a paired Credit (who paid) + Debit (bill category) transaction with real-time fund balancing.
+  * **Debit**: Direct expense drawn from the common fund.
+  * **Credit**: Deposit or regular contribution added to the fund by a member.
+  * **Distribute**: Equal disbursement of surplus fund credit among selected active participants.
+  * **Settle Debt**: Direct balance settlement from debtor to creditor.
+  * **Transfer**: Direct member-to-member balance transfer.
+* **Equal & Custom Unequal Splits**:
+  * Equal division across all participants with automatic 1-cent rounding adjustment.
+  * Custom decimal amounts with real-time percentage allocation badges and validation.
+* **Smart Repeat / Copy**: One-tap duplication of previous expenses with pre-filled category, split participants, and amounts.
+* **Visual Confirmation Dialogs**: Interactive pre-submission review showing payer, recipients, category, custom breakdown, and notes with specular frosted modals.
+
+### 📊 Financial Ledger, Analytics & Debt Simplifier
+* **Real-Time Fund Health**: Instant calculations of Total Fund Balance, Incurred Debits, Member Credits, and Month-over-Month surplus/deficit.
+* **Member Ledger**: Real-time net balance calculations (Paid − Consumed = Net Balance) for every member.
+* **Debt Simplification Graph**: Automatically computes the minimum number of transactions required to settle all debts across group members using an optimal greedy settlement algorithm.
+* **Category Breakdown**: Aggregated expense totals with percentage progress indicators per category.
+* **Monthly Filters**: Instant monthly filtering chips and category analytics.
+
+### 🛡️ GitHub-Powered Serverless Backend & Offline-First Sync
+* **Zero Database Overhead**: Your GitHub repository (`DelightReza/Fund`) acts as the permanent, auditable backend.
+* **3-Way Conflict Resolution**: Detects remote commit SHA changes, fetches the latest remote state, preserves local pending changes, and re-applies non-conflicting transactions before committing.
+* **Offline-First Persistence**: Cached locally via `shared_preferences`. If offline, transactions are queued and marked with a pending badge, automatically synchronizing as soon as connectivity is restored.
+* **Commit History & Rollback**:
+  * Inspect recent commits with author, message, and short SHA.
+  * One-tap `Reset HEAD~1` quick undo or targeted hard reset to any previous commit via the GitHub Git Trees/Refs API.
+
+### 🔐 Security & Access Control
+* **Public & Private Repository Support**: Seamless read-only browsing for public funds; write actions (adding transactions, modifying config, rolling back commits) are gated behind an authenticated GitHub Personal Access Token (PAT) with `repo` scope.
+* **Zero Secret Storage in Code**: Tokens are never committed or hardcoded. They are stored exclusively in client-side secure storage.
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technology | Details |
+| :--- | :--- | :--- |
+| **Framework** | [Flutter](https://flutter.dev/) 3.22+ / 3.47+ | Cross-platform targeting Web (HTML5/CanvasKit) & Android |
+| **Language** | [Dart](https://dart.dev/) 3.3+ | Strong typing, null safety, structured async/await |
+| **State Management** | [Provider](https://pub.dev/packages/provider) | Decoupled MVVM pattern with `ChangeNotifier` |
+| **Data Layer** | [GitHub REST API v3](https://docs.github.com/rest) | Direct commit, branch ref, blob, and tree synchronization |
+| **Local Cache** | [shared_preferences](https://pub.dev/packages/shared_preferences) | Offline-first ledger and configuration storage |
+| **CI / CD** | [GitHub Actions](https://github.com/features/actions) | Automated GitHub Pages artifact build and deployment |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-* **Flutter SDK**: 3.22.0 or higher
-* **Dart SDK**: 3.4.0 or higher
-* **Android Studio / VS Code** with Flutter extensions
+* [Flutter SDK](https://docs.flutter.dev/get-started/install) (version `3.22.0` or higher)
+* [Dart SDK](https://dart.dev/get-dart) (version `3.3.0` or higher)
+* Chrome / Edge (for Web) or Android Studio / Device (for Android)
 
 ### Installation
 
@@ -75,52 +82,123 @@ It uses a serverless, zero-database architecture powered by the **GitHub Content
    flutter pub get
    ```
 
-3. **Run the application:**
-   * **Android:**
-     ```bash
-     flutter run
-     ```
+3. **Run Locally:**
    * **Web:**
      ```bash
      flutter run -d chrome
      ```
+   * **Android:**
+     ```bash
+     flutter run -d android
+     ```
 
-4. **Build APK / Bundle:**
+4. **Verify Code Quality:**
    ```bash
-   flutter build apk --release
-   flutter build appbundle --release
+   flutter analyze
    ```
 
 ---
 
-## 📁 Project Structure
+## 🌐 Production Web Deployment (GitHub Pages)
+
+The project includes an automated GitHub Actions deployment workflow at `.github/workflows/deploy-web.yml`.
+
+### Deployment Architecture
+- Built with `--base-href /Fund/` to support repository subpaths.
+- Automatically copies `config.json` and `data.json` into the root of `build/web/`.
+- Deploys `404.html` (SPA routing fallback) to preserve deep links and bookmark routes.
+- Uses the official `actions/upload-pages-artifact@v3` and `actions/deploy-pages@v4`.
+
+### Enabling GitHub Pages in Your Repository
+1. Navigate to your repository on GitHub: `https://github.com/DelightReza/Fund`
+2. Go to **Settings** > **Pages**.
+3. Under **Build and deployment** > **Source**, select **GitHub Actions**.
+4. Any push to the `main` branch will automatically trigger the workflow and publish your site to:
+   ```
+   https://delightreza.github.io/Fund/
+   ```
+
+---
+
+## 📱 Production Android Build
+
+To compile release APKs or Android App Bundles (AAB) for Google Play or direct installation:
+
+1. **Generate Release APK:**
+   ```bash
+   flutter build apk --release
+   ```
+   Output: `build/app/outputs/flutter-apk/app-release.apk`
+
+2. **Generate Android App Bundle (AAB):**
+   ```bash
+   flutter build appbundle --release
+   ```
+   Output: `build/app/outputs/bundle/release/app-release.aab`
+
+---
+
+## 📁 Project Directory Structure
 
 ```
+.
+├── .github/
+│   └── workflows/
+│       └── deploy-web.yml             # Automated GitHub Pages CI/CD workflow
 ├── lib/
-│   ├── main.dart                      # App entry point and Provider setup
-│   ├── models/                        # Data models (AppConfig, Transaction, GitHub models)
-│   ├── repositories/                  # FundRepository & GitHub data coordination
-│   ├── screens/                       # Flutter screens
-│   │   ├── repo_selection_screen.dart # Workspace / repository selector
-│   │   ├── user_selection_screen.dart # Active user switcher
-│   │   ├── home_screen.dart           # Dashboard, ledger, and recent transactions
-│   │   ├── add_transaction_screen.dart# Transaction creator and editor
-│   │   ├── transaction_detail_screen.dart # Transaction inspection and paired view
-│   │   ├── category_expenses_screen.dart  # Expenses filtered by category
-│   │   ├── profile_screen.dart        # Member profile and personal transaction list
-│   │   ├── admin_screen.dart          # Admin control panel and workspace settings
-│   │   ├── manage_config_screen.dart  # Members and bill categories configuration
-│   │   └── reset_commit_screen.dart   # GitHub commit rollback tool
-│   ├── services/                      # GitHub API and SharedPreferences storage services
-│   ├── theme/                         # Light and Dark Material 3 theme configurations
-│   ├── utils/                         # Date, financial calculations, and string helpers
-│   └── widgets/                       # Reusable UI components and confirmation dialogs
-├── .github/workflows/                 # CI/CD workflows for automated builds and releases
-└── pubspec.yaml                       # Flutter dependencies and metadata
+│   ├── main.dart                      # App entry point, Provider configuration, AppRouter
+│   ├── models/
+│   │   ├── app_config.dart            # AppConfig, MemberConfig, BillTypeConfig models
+│   │   ├── fund_data.dart             # FundData, BalanceEngine, settlements calculation
+│   │   ├── github_models.dart         # GitHubCommit, GitHubRef, Tree models
+│   │   └── transaction.dart           # TransactionModel (splits, exemptions, parents)
+│   ├── repositories/
+│   │   └── fund_repository.dart       # Workspace state, cache invalidation, 3-way merge sync
+│   ├── screens/
+│   │   ├── add_transaction_screen.dart# Transaction creation, custom splits, repeat action
+│   │   ├── admin_screen.dart          # Admin control panel, sync modals, quick action grid
+│   │   ├── category_expenses_screen.dart # Filtered expenses by category with month chips
+│   │   ├── home_screen.dart           # Dashboard, Ledger, People, and Category tabs
+│   │   ├── main_screen.dart           # Floating liquid glass navigation bar & shell
+│   │   ├── manage_config_screen.dart  # People, bill types, and workspace config editor
+│   │   ├── profile_screen.dart        # Member financial profile and personal timeline
+│   │   ├── repo_selection_screen.dart # Multi-workspace repository switcher
+│   │   ├── reset_commit_screen.dart   # Git commit inspector & rollback engine
+│   │   ├── transaction_detail_screen.dart # Detailed split breakdown and edit/delete actions
+│   │   └── user_selection_screen.dart # Profile selection for personal share calculation
+│   ├── services/
+│   │   ├── github_api_service.dart    # Direct GitHub REST API integration & raw content fallback
+│   │   └── storage_service.dart       # SharedPreferences persistence and route state
+│   ├── theme/
+│   │   └── app_theme.dart             # Material 3 colors, gradients, and typography
+│   ├── utils/
+│   │   ├── app_router.dart            # Deep linking and cross-platform navigation helper
+│   │   ├── date_utils.dart            # Date formatting and timeline helpers
+│   │   ├── debt_simplifier.dart       # Greedy debt simplification engine
+│   │   ├── format_utils.dart          # Currency formatting and percentage helpers
+│   │   └── web_route_helper.dart      # Web URL synchronization & query param handling
+│   └── widgets/
+│       ├── admin_pat_modal.dart       # Frosted glass GitHub PAT authentication modal
+│       ├── confirmation_dialog.dart   # Transaction pre-flight review & animated success dialogs
+│       ├── glass_container.dart       # Core Liquid Glass engine (AuroraBackground, GlassCard)
+│       ├── settlement_card.dart       # Frosted glass debt settlement item
+│       ├── summary_cards.dart         # Liquidity cards, member net balances, category totals
+│       └── transaction_tile.dart      # Frosted glass transaction list items
+├── config.json                        # Default repository configuration
+├── data.json                          # Financial ledger database
+└── pubspec.yaml                       # Flutter project dependencies and metadata
 ```
+
+---
+
+## 🔒 Security Best Practices
+
+1. **Token Principle of Least Privilege**: When generating a GitHub Personal Access Token (PAT) for Admin actions, select only the **`repo`** (or Fine-grained: **`Contents: Read & Write`**) scope. Never grant administrative or billing permissions.
+2. **Never Commit Tokens**: Tokens entered in the app are stored exclusively in the browser's or device's local private storage. They are never sent to external third parties or committed to git.
+3. **Audit Trail**: Every update to `data.json` or `config.json` creates a standard Git commit with a detailed commit message, providing an immutable audit log of who made which change and when.
 
 ---
 
 ## 📄 License
 
-This project is open-source and available under the **MIT License**.
+This project is licensed under the **MIT License**.

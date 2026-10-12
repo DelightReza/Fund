@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/app_config.dart';
+import '../theme/app_theme.dart';
 import '../utils/date_utils.dart';
 import '../utils/debt_simplifier.dart';
 import '../utils/format_utils.dart';
+import 'glass_container.dart';
 
 class FundBalanceSummaryCard extends StatelessWidget {
   final double totalBalance;
@@ -23,27 +25,11 @@ class FundBalanceSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final isPositive = totalBalance >= 0;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isPositive
-              ? [const Color(0xFF047857), const Color(0xFF059669), const Color(0xFF10B981)]
-              : [const Color(0xFFB91C1C), const Color(0xFFDC2626), const Color(0xFFEF4444)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: (isPositive ? const Color(0xFF059669) : const Color(0xFFDC2626))
-                .withOpacity(0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return GlassContainer(
+      borderRadius: 24,
       padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,33 +37,70 @@ class FundBalanceSummaryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Total Fund Balance',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: Colors.white.withOpacity(0.9),
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.12)
+                          : Colors.black.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: isDark ? Colors.white : AppTheme.primaryIndigo,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Total Fund Balance',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.95),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: (isPositive ? AppTheme.emeraldGreen : AppTheme.roseCrimson)
+                      .withValues(alpha: isDark ? 0.20 : 0.14),
                   borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: (isPositive ? AppTheme.emeraldGreen : AppTheme.roseCrimson)
+                        .withValues(alpha: 0.4),
+                    width: 0.8,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      isPositive ? Icons.account_balance_wallet : Icons.warning_amber_rounded,
-                      color: Colors.white,
-                      size: 14,
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isPositive ? AppTheme.emeraldGreen : AppTheme.roseCrimson,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (isPositive ? AppTheme.emeraldGreen : AppTheme.roseCrimson)
+                                .withValues(alpha: 0.6),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     Text(
-                      isPositive ? 'In Fund' : 'Deficit',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
+                      isPositive ? 'Surplus Reserve' : 'Deficit Alert',
+                      style: TextStyle(
+                        color: isPositive ? AppTheme.emeraldDark : AppTheme.roseDark,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -86,28 +109,62 @@ class FundBalanceSummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Text(
             FormatUtils.formatCurrency(totalBalance, currency),
             style: theme.textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
+              color: isPositive
+                  ? (isDark ? const Color(0xFF34D399) : const Color(0xFF047857))
+                  : (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626)),
+              fontWeight: FontWeight.w900,
+              fontSize: 34,
+              letterSpacing: -0.6,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.08),
+                width: 0.8,
+              ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildSubItem('Total Paid (Credit)', totalCredits, currency, Colors.greenAccent),
-                Container(height: 24, width: 1, color: Colors.white.withOpacity(0.2)),
-                _buildSubItem('Total Spent (Debit)', totalDebits, currency, Colors.orangeAccent),
+                Expanded(
+                  child: _buildMetricTile(
+                    label: 'Total Deposits (+)',
+                    amount: totalCredits,
+                    currency: currency,
+                    color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                    icon: Icons.arrow_downward_rounded,
+                    isDark: isDark,
+                  ),
+                ),
+                Container(
+                  height: 38,
+                  width: 1,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.08),
+                ),
+                Expanded(
+                  child: _buildMetricTile(
+                    label: 'Total Spent (-)',
+                    amount: totalDebits,
+                    currency: currency,
+                    color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
+                    icon: Icons.arrow_upward_rounded,
+                    isDark: isDark,
+                  ),
+                ),
               ],
             ),
           ),
@@ -116,23 +173,55 @@ class FundBalanceSummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSubItem(String title, double amount, String currency, Color color) {
-    return Column(
-      children: [
-        Text(
-          title,
-          style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          FormatUtils.formatCurrency(amount, currency),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
+  Widget _buildMetricTile({
+    required String label,
+    required double amount,
+    required String currency,
+    required Color color,
+    required IconData icon,
+    required bool isDark,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 12, color: color),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.80)
+                      : Colors.black.withValues(alpha: 0.65),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 5),
+          Text(
+            FormatUtils.formatCurrency(amount, currency),
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontSize: 15.5,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -157,112 +246,187 @@ class MemberSummaryCard extends StatelessWidget {
       orElse: () => MemberConfig(id: summary.memberId, name: summary.memberId),
     );
 
-    final isPositive = summary.netBalance >= 0;
+    final isPositive = summary.netBalance > 0.001;
+    final isNegative = summary.netBalance < -0.001;
 
-    return Card(
+    final avatarGradient = isPositive
+        ? AppTheme.emeraldGradient
+        : (isNegative ? AppTheme.roseGradient : AppTheme.violetGradient);
+
+    final badgeColor = isPositive
+        ? AppTheme.emeraldDark
+        : (isNegative ? AppTheme.roseDark : AppTheme.violetDark);
+
+    final badgeBg = isPositive
+        ? AppTheme.emeraldGreen.withValues(alpha: 0.12)
+        : (isNegative
+            ? AppTheme.roseCrimson.withValues(alpha: 0.12)
+            : AppTheme.electricViolet.withValues(alpha: 0.12));
+
+    final badgeBorder = isPositive
+        ? AppTheme.emeraldGreen.withValues(alpha: 0.35)
+        : (isNegative
+            ? AppTheme.roseCrimson.withValues(alpha: 0.35)
+            : AppTheme.electricViolet.withValues(alpha: 0.35));
+
+    return GlassCard(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: isPositive
-                        ? const Color(0xFF047857).withOpacity(0.15)
-                        : const Color(0xFFDC2626).withOpacity(0.15),
-                    child: Text(
-                      member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        color: isPositive ? const Color(0xFF047857) : const Color(0xFFDC2626),
-                        fontWeight: FontWeight.bold,
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  gradient: avatarGradient,
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isPositive
+                              ? AppTheme.emeraldGreen
+                              : (isNegative ? AppTheme.roseCrimson : AppTheme.electricViolet))
+                          .withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 19,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      member.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
                         fontSize: 16,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          member.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        Text(
-                          '@${member.id}',
-                          style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color?.withOpacity(0.6)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        FormatUtils.formatCurrency(summary.netBalance.abs(), config.currency),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: isPositive ? const Color(0xFF047857) : const Color(0xFFDC2626),
-                        ),
+                    const SizedBox(height: 1),
+                    Text(
+                      '@${member.id}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                       ),
-                      Text(
-                        isPositive ? 'to receive' : 'owes fund',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isPositive ? const Color(0xFF047857) : const Color(0xFFDC2626),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (onTap != null) ...[
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
                     ),
                   ],
-                ],
+                ),
               ),
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Column(
-                    children: [
-                      const Text('Total Deposited', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                      const SizedBox(height: 2),
-                      Text(
-                        FormatUtils.formatCurrency(summary.totalPaid, config.currency),
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: badgeBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      isPositive
+                          ? '+${FormatUtils.formatCurrency(summary.netBalance, config.currency)}'
+                          : (isNegative
+                              ? '-${FormatUtils.formatCurrency(summary.netBalance.abs(), config.currency)}'
+                              : FormatUtils.formatCurrency(0, config.currency)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: badgeColor,
                       ),
-                    ],
-                  ),
-                  Container(height: 20, width: 1, color: theme.dividerColor),
-                  Column(
-                    children: [
-                      const Text('Share Consumed', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                      const SizedBox(height: 2),
-                      Text(
-                        FormatUtils.formatCurrency(summary.totalConsumed, config.currency),
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    Text(
+                      isPositive
+                          ? 'to receive'
+                          : (isNegative ? 'owes fund' : 'settled up'),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: badgeColor,
+                        fontWeight: FontWeight.w700,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
+              if (onTap != null) ...[
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ],
             ],
           ),
-        ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: theme.dividerColor.withValues(alpha: 0.15),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Column(
+                  children: [
+                    Text(
+                      'Total Deposited',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      FormatUtils.formatCurrency(summary.totalPaid, config.currency),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ],
+                ),
+                Container(
+                  height: 20,
+                  width: 1,
+                  color: theme.dividerColor.withValues(alpha: 0.4),
+                ),
+                Column(
+                  children: [
+                    Text(
+                      'Share Consumed',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      FormatUtils.formatCurrency(summary.totalConsumed, config.currency),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -289,66 +453,81 @@ class BillTypeSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final categoryColor = AppTheme.getCategoryColor(billType.id);
 
-    return Card(
+    return GlassCard(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      categoryColor.withValues(alpha: 0.25),
+                      categoryColor.withValues(alpha: 0.10),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: categoryColor.withValues(alpha: 0.4),
+                    width: 1.2,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(billType.icon, style: const TextStyle(fontSize: 22)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      billType.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
                     ),
-                    child: Text(billType.icon, style: const TextStyle(fontSize: 20)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(billType.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                        Text(
-                          '${(percentage * 100).toStringAsFixed(1)}% of total expenditure${transactionCount > 0 ? ' • $transactionCount txs' : ''}',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    FormatUtils.formatCurrency(totalAmount, currency),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  if (onTap != null) ...[
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${(percentage * 100).toStringAsFixed(1)}% of total spent${transactionCount > 0 ? " • $transactionCount txs" : ""}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.75),
+                      ),
                     ),
                   ],
-                ],
-              ),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: percentage,
-                  backgroundColor: Colors.grey.withOpacity(0.15),
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFFF59E0B)),
-                  minHeight: 6,
                 ),
               ),
+              Text(
+                FormatUtils.formatCurrency(totalAmount, currency),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ],
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: percentage.clamp(0.0, 1.0),
+              backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              valueColor: AlwaysStoppedAnimation(categoryColor),
+              minHeight: 7,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -378,30 +557,9 @@ class MonthSummaryCard extends StatelessWidget {
     final netCashFlow = totalCredits - totalDebits;
     final isSurplus = netCashFlow >= 0;
 
-    return Container(
+    return GlassContainer(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primaryContainer.withOpacity(0.7),
-            theme.colorScheme.surfaceVariant.withOpacity(0.85),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: theme.colorScheme.primary.withOpacity(0.25),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      borderRadius: 20,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -412,23 +570,23 @@ class MonthSummaryCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppTheme.primaryIndigo.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.calendar_month_rounded,
-                      color: theme.colorScheme.primary,
+                      color: AppTheme.primaryIndigo,
                       size: 18,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Text(
                     AppDateUtils.formatMonthName(monthKey),
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16.5,
                       color: theme.colorScheme.onSurface,
                     ),
                   ),
@@ -437,12 +595,17 @@ class MonthSummaryCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
                       color: isSurplus
-                          ? const Color(0xFF10B981).withOpacity(0.15)
-                          : const Color(0xFFEF4444).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
+                          ? AppTheme.emeraldGreen.withValues(alpha: 0.20)
+                          : AppTheme.roseCrimson.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isSurplus
+                            ? AppTheme.emeraldGreen.withValues(alpha: 0.4)
+                            : AppTheme.roseCrimson.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -450,7 +613,7 @@ class MonthSummaryCard extends StatelessWidget {
                         Icon(
                           isSurplus ? Icons.trending_up_rounded : Icons.trending_down_rounded,
                           size: 13,
-                          color: isSurplus ? const Color(0xFF047857) : const Color(0xFFDC2626),
+                          color: isSurplus ? AppTheme.emeraldDark : AppTheme.roseDark,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -458,7 +621,7 @@ class MonthSummaryCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: isSurplus ? const Color(0xFF047857) : const Color(0xFFDC2626),
+                            color: isSurplus ? AppTheme.emeraldDark : AppTheme.roseDark,
                           ),
                         ),
                       ],
@@ -482,8 +645,11 @@ class MonthSummaryCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(12),
+              color: theme.colorScheme.surface.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: theme.dividerColor.withValues(alpha: 0.25),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -500,12 +666,12 @@ class MonthSummaryCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Color(0xFF047857),
+                        color: AppTheme.emeraldDark,
                       ),
                     ),
                   ],
                 ),
-                Container(height: 24, width: 1, color: theme.dividerColor.withOpacity(0.5)),
+                Container(height: 24, width: 1, color: theme.dividerColor.withValues(alpha: 0.3)),
                 Column(
                   children: [
                     const Text(
@@ -518,12 +684,12 @@ class MonthSummaryCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Color(0xFFDC2626),
+                        color: AppTheme.roseDark,
                       ),
                     ),
                   ],
                 ),
-                Container(height: 24, width: 1, color: theme.dividerColor.withOpacity(0.5)),
+                Container(height: 24, width: 1, color: theme.dividerColor.withValues(alpha: 0.3)),
                 Column(
                   children: [
                     const Text(
@@ -536,7 +702,7 @@ class MonthSummaryCard extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: isSurplus ? const Color(0xFF047857) : const Color(0xFFDC2626),
+                        color: isSurplus ? AppTheme.emeraldDark : AppTheme.roseDark,
                       ),
                     ),
                   ],
@@ -546,10 +712,10 @@ class MonthSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Showing $transactionCount ${transactionCount == 1 ? 'transaction' : 'transactions'} in ${AppDateUtils.formatMonthName(monthKey)}',
+            'Showing $transactionCount ${transactionCount == 1 ? "transaction" : "transactions"} in ${AppDateUtils.formatMonthName(monthKey)}',
             style: TextStyle(
               fontSize: 11.5,
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
             ),
           ),
         ],
@@ -557,4 +723,3 @@ class MonthSummaryCard extends StatelessWidget {
     );
   }
 }
-

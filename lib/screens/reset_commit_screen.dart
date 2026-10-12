@@ -10,8 +10,8 @@ import '../services/github_api_service.dart';
 import '../services/storage_service.dart';
 import '../utils/date_utils.dart';
 import '../widgets/admin_pat_modal.dart';
+import '../widgets/glass_container.dart';
 import '../utils/app_router.dart';
-import 'main_screen.dart';
 
 class ResetCommitScreen extends StatefulWidget {
   final bool isRestoredAfterRefresh;
@@ -62,6 +62,7 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
         token: token,
         owner: config.repoOwner,
         repo: config.repoName,
+        branch: config.repoBranch.isNotEmpty ? config.repoBranch : null,
         perPage: 50,
       );
 
@@ -116,7 +117,7 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.12),
+                  color: Colors.red.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
@@ -177,9 +178,9 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.08),
+                    color: Colors.grey.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                    border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,83 +323,81 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
     final latestShortSha = latestCommit.sha.substring(0, 7.clamp(0, latestCommit.sha.length));
     final isResetting = _resettingSha == parentCommit.sha;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF87171).withOpacity(0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: GlassContainer(
+        borderRadius: 20,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.undo_rounded, color: Color(0xFFEF4444), size: 18),
                 ),
-                child: const Icon(Icons.undo_rounded, color: Color(0xFFDC2626), size: 18),
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Quick Undo: Reset HEAD~1',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF991B1B),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Quick Undo: Reset HEAD~1',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFDC2626),
+                    ),
                   ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDC2626),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'git reset --hard HEAD~1',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'monospace',
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDC2626),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'git reset --hard HEAD~1',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'monospace',
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Discards latest commit $latestShortSha ("${latestCommit.message}") and resets branch HEAD back to $parentShortSha.',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
-                foregroundColor: Colors.white,
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              ),
-              icon: isResetting
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.restore_page_rounded, size: 16),
-              label: Text(isResetting ? 'Resetting HEAD...' : 'Reset HEAD~1'),
-              onPressed: isResetting ? null : () => _hardResetToCommit(parentCommit, isHeadMinusOne: true),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              'Discards latest commit $latestShortSha ("${latestCommit.message}") and resets branch HEAD back to $parentShortSha.',
+              style: const TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                ),
+                icon: isResetting
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.restore_page_rounded, size: 16),
+                label: Text(isResetting ? 'Resetting HEAD...' : 'Reset HEAD~1'),
+                onPressed: isResetting ? null : () => _hardResetToCommit(parentCommit, isHeadMinusOne: true),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -447,7 +446,8 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: AuroraBackground(
+        child: Column(
         children: [
           // Search Field
           Padding(
@@ -555,20 +555,10 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
                               final isHead = index == 0 && _searchQuery.isEmpty;
                               final shortSha = c.sha.substring(0, 7.clamp(0, c.sha.length));
 
-                              return Card(
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(
-                                    color: isHead
-                                        ? Colors.green.withOpacity(0.4)
-                                        : Theme.of(context).dividerColor.withOpacity(0.15),
-                                    width: isHead ? 1.5 : 1.0,
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
+                              return GlassCard(
+                                borderRadius: 18,
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       // Top row: Commit badge + Author + Date
@@ -607,7 +597,7 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
                                                   Icon(
                                                     Icons.copy_rounded,
                                                     size: 11,
-                                                    color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.7),
+                                                    color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
                                                   ),
                                                 ],
                                               ),
@@ -695,14 +685,14 @@ class _ResetCommitScreenState extends State<ResetCommitScreen> {
                                       ),
                                     ],
                                   ),
-                                ),
-                              );
+                                );
                             },
                           ),
           ),
         ],
       ),
     ),
-    );
-  }
+    ),
+  );
+}
 }

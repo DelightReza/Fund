@@ -4,7 +4,7 @@ import '../models/app_config.dart';
 import '../repositories/fund_repository.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../utils/app_router.dart';
-import 'main_screen.dart';
+import '../widgets/glass_container.dart';
 
 class ManageConfigScreen extends StatefulWidget {
   final bool isRestoredAfterRefresh;
@@ -316,12 +316,13 @@ class _ManageConfigScreenState extends State<ManageConfigScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+      body: AuroraBackground(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            GlassCard(
+              borderRadius: 20,
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -344,11 +345,10 @@ class _ManageConfigScreenState extends State<ManageConfigScreen> {
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+            const SizedBox(height: 14),
+            GlassCard(
+              borderRadius: 20,
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -397,11 +397,10 @@ class _ManageConfigScreenState extends State<ManageConfigScreen> {
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+            const SizedBox(height: 14),
+            GlassCard(
+              borderRadius: 20,
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -434,9 +433,9 @@ class _ManageConfigScreenState extends State<ManageConfigScreen> {
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 40),
-        ],
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     ),
     );

@@ -14,6 +14,7 @@ Thumbs.db
 
 # Platform Container Outputs
 .build-outputs/
+.aistudio/
 
 # Flutter & Dart
 .dart_tool/

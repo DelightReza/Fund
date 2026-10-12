@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/transaction.dart';
 import '../repositories/fund_repository.dart';
 import '../services/storage_service.dart';
 import '../screens/main_screen.dart';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/date_utils.dart';
 import '../utils/format_utils.dart';
+import 'glass_container.dart';
 
 class TransactionConfirmationDialog extends StatelessWidget {
   final String type; // 'expense', 'credit', 'debit', 'distribute', 'settlement', 'transfer'
@@ -127,7 +128,16 @@ class TransactionConfirmationDialog extends StatelessWidget {
     final isCredit = type == 'credit';
 
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: theme.brightness == Brightness.dark
+          ? const Color(0xFF151F32).withValues(alpha: 0.92)
+          : Colors.white.withValues(alpha: 0.92),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(
+          color: Colors.white.withValues(alpha: 0.22),
+          width: 1.2,
+        ),
+      ),
       contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       title: Row(
@@ -135,7 +145,7 @@ class TransactionConfirmationDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: themeColor.withOpacity(0.15),
+              color: themeColor.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(typeIcon, color: themeColor, size: 22),
@@ -175,9 +185,9 @@ class TransactionConfirmationDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: themeColor.withOpacity(0.08),
+                  color: themeColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: themeColor.withOpacity(0.25)),
+                  border: Border.all(color: themeColor.withValues(alpha: 0.25)),
                 ),
                 child: Column(
                   children: [
@@ -207,9 +217,9 @@ class TransactionConfirmationDialog extends StatelessWidget {
               // Details Summary List
               Container(
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+                  border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
                 ),
                 padding: const EdgeInsets.all(14),
                 child: Column(
@@ -263,7 +273,7 @@ class TransactionConfirmationDialog extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
@@ -429,8 +439,18 @@ class ActionConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: theme.brightness == Brightness.dark
+          ? const Color(0xFF151F32).withValues(alpha: 0.92)
+          : Colors.white.withValues(alpha: 0.92),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(
+          color: Colors.white.withValues(alpha: 0.22),
+          width: 1.2,
+        ),
+      ),
       titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       title: Row(
@@ -438,7 +458,7 @@ class ActionConfirmationDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: confirmColor.withOpacity(0.12),
+              color: confirmColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: confirmColor, size: 22),
@@ -590,25 +610,22 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog>
     return Center(
       child: Material(
         color: Colors.transparent,
-        child: Container(
+        child: SizedBox(
           width: 280,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(28),
+          child: GlassContainer(
+            borderRadius: 28,
+            blur: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            borderColor: widget.themeColor.withValues(alpha: 0.35),
+            borderWidth: 1.5,
             boxShadow: [
               BoxShadow(
-                color: widget.themeColor.withOpacity(0.25),
+                color: widget.themeColor.withValues(alpha: 0.25),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
             ],
-            border: Border.all(
-              color: widget.themeColor.withOpacity(0.3),
-              width: 1.5,
-            ),
-          ),
-          child: Column(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Animated Checkmark Bloom
@@ -626,7 +643,7 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog>
                           height: 80,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: widget.themeColor.withOpacity(0.15),
+                            color: widget.themeColor.withValues(alpha: 0.15),
                           ),
                         ),
                       ),
@@ -641,14 +658,14 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog>
                             gradient: LinearGradient(
                               colors: [
                                 widget.themeColor,
-                                widget.themeColor.withOpacity(0.85),
+                                widget.themeColor.withValues(alpha: 0.85),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: widget.themeColor.withOpacity(0.4),
+                                color: widget.themeColor.withValues(alpha: 0.4),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -692,13 +709,14 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog>
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12.5,
-                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -42,11 +42,20 @@ class GitHubApiService {
   static String formatAuthHeader(String token) {
     final t = token.trim();
     if (t.isEmpty) return '';
-    if (t.startsWith('token ') || t.startsWith('Bearer ')) {
+    final lower = t.toLowerCase();
+    if (lower.startsWith('token ') || lower.startsWith('bearer ')) {
       return t;
     }
     // 'Bearer' is supported by all modern GitHub tokens (ghp_, github_pat_, etc.)
     return 'Bearer $t';
+  }
+
+  static String _encodeContentPath(String path) {
+    return path
+        .split('/')
+        .where((segment) => segment.isNotEmpty)
+        .map(Uri.encodeComponent)
+        .join('/');
   }
 
   static Map<String, String> buildHeaders({String? token, String? accept}) {
@@ -123,8 +132,13 @@ class GitHubApiService {
     final sanitizedToken = token?.trim();
 
     // 1. Direct GitHub REST API call
-    final query = (branch != null && branch.isNotEmpty) ? '?ref=$branch' : '';
-    final url = Uri.parse('$baseUrl/repos/$owner/$repo/contents/$path$query');
+    final query = (branch != null && branch.isNotEmpty)
+        ? '?ref=${Uri.encodeQueryComponent(branch)}'
+        : '';
+    final encodedPath = _encodeContentPath(path);
+    final url = Uri.parse(
+      '$baseUrl/repos/$owner/$repo/contents/$encodedPath$query',
+    );
     final headers = buildHeaders(token: sanitizedToken);
 
     try {
@@ -211,7 +225,8 @@ class GitHubApiService {
     String? sha,
     String? branch,
   }) async {
-    final url = Uri.parse('$baseUrl/repos/$owner/$repo/contents/$path');
+    final encodedPath = _encodeContentPath(path);
+    final url = Uri.parse('$baseUrl/repos/$owner/$repo/contents/$encodedPath');
     final headers = buildHeaders(token: token);
     headers['Content-Type'] = 'application/json';
 
@@ -339,10 +354,14 @@ class GitHubApiService {
     required String? token,
     required String owner,
     required String repo,
+    String? branch,
     String? path,
     int perPage = 50,
   }) async {
     String urlStr = '$baseUrl/repos/$owner/$repo/commits?per_page=$perPage';
+    if (branch != null && branch.trim().isNotEmpty) {
+      urlStr += '&sha=${Uri.encodeQueryComponent(branch.trim())}';
+    }
     if (path != null && path.trim().isNotEmpty) {
       urlStr += '&path=${path.trim()}';
     }

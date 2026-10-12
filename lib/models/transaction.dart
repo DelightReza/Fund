@@ -411,8 +411,10 @@ class TransactionModel {
     return TransactionModel(
       id: json['id']?.toString() ?? '',
       type: json['type']?.toString() ?? '',
-      payerId: json['payerId']?.toString(),
-      billTypeId: json['billTypeId']?.toString(),
+      payerId: json['payerId']?.toString() ??
+          (json['type'] == 'credit' ? json['whoOrBill']?.toString() : null),
+      billTypeId: json['billTypeId']?.toString() ??
+          (json['type'] == 'debit' ? json['whoOrBill']?.toString() : null),
       splitAmong: cleanMembers.isNotEmpty ? cleanMembers : null,
       exemptions: exemptionsList,
       customSplit: parsedCustomSplit != null && parsedCustomSplit.isNotEmpty ? parsedCustomSplit : null,

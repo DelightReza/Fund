@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/app_config.dart';
 import '../models/fund_data.dart';
@@ -11,10 +10,10 @@ import '../utils/debt_simplifier.dart';
 import '../utils/format_utils.dart';
 import '../widgets/admin_pat_modal.dart';
 import '../widgets/confirmation_dialog.dart';
+import '../widgets/glass_container.dart';
 import '../utils/web_route_helper.dart';
 import '../utils/app_router.dart';
 import 'add_transaction_screen.dart';
-import 'main_screen.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final TransactionModel transaction;
@@ -64,9 +63,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       extraContent: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.08),
+          color: Colors.red.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.red.withOpacity(0.2)),
+          border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,29 +261,20 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           ],
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Top Header Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: isCredit
-                        ? const Color(0xFF10B981).withOpacity(0.12)
-                        : const Color(0xFFEF4444).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isCredit
-                          ? const Color(0xFF10B981).withOpacity(0.3)
-                          : const Color(0xFFEF4444).withOpacity(0.3),
-                    ),
-                  ),
-                  child: Column(
+      body: AuroraBackground(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Top Liquid Glass Header Card
+                  GlassContainer(
+                    borderRadius: 24,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                    child: Column(
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -319,7 +309,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       Text(
                         AppDateUtils.formatDisplayDate(tx.date),
                         style: TextStyle(
-                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                           fontSize: 13,
                         ),
                       ),
@@ -330,15 +320,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                 // Focused Person's Running Balance & Impact Card (if involved)
                 if (focusedMember != null && isPersonInvolved) ...[
                   const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                      ),
-                    ),
+                  GlassContainer(
+                    borderRadius: 20,
+                    blur: 16,
+                    padding: const EdgeInsets.all(18),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -346,7 +331,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           children: [
                             CircleAvatar(
                               radius: 14,
-                              backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
+                              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
                               child: Text(
                                 focusedMember.name.isNotEmpty ? focusedMember.name[0] : '?',
                                 style: TextStyle(
@@ -370,8 +355,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: personChange >= 0
-                                    ? const Color(0xFF10B981).withOpacity(0.15)
-                                    : const Color(0xFFEF4444).withOpacity(0.15),
+                                    ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                                    : const Color(0xFFEF4444).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -415,7 +400,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                             Icon(
                               Icons.arrow_forward_rounded,
                               size: 16,
-                              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
+                              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                             ),
                             Column(
                               children: [
@@ -445,41 +430,40 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
                 const SizedBox(height: 16),
 
-                // General Information Card
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildDetailRow('Description', tx.note.isNotEmpty ? tx.note : '—'),
+                // General Information Liquid Glass Card
+                GlassCard(
+                  borderRadius: 20,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailRow('Description', tx.note.isNotEmpty ? tx.note : '—'),
+                      const Divider(height: 24),
+                      _buildDetailRow('Reference Code', tx.whoOrBill.isNotEmpty ? tx.whoOrBill : '—'),
+                      if (payerMember != null) ...[
                         const Divider(height: 24),
-                        _buildDetailRow('Reference Code', tx.whoOrBill.isNotEmpty ? tx.whoOrBill : '—'),
-                        if (payerMember != null) ...[
-                          const Divider(height: 24),
-                          _buildDetailRow('Paid By', '${payerMember.name} (@${tx.payerId})'),
-                        ],
-                        if (billCategory != null) ...[
-                          const Divider(height: 24),
-                          _buildDetailRow('Category', '${billCategory.icon} ${billCategory.name}'),
-                        ],
-                        const Divider(height: 24),
-                        _buildDetailRow('Transaction ID', tx.id, isMonospace: true),
+                        _buildDetailRow('Paid By', '${payerMember.name} (@${tx.payerId})'),
                       ],
-                    ),
+                      if (billCategory != null) ...[
+                        const Divider(height: 24),
+                        _buildDetailRow('Category', '${billCategory.icon} ${billCategory.name}'),
+                      ],
+                      const Divider(height: 24),
+                      _buildDetailRow('Transaction ID', tx.id, isMonospace: true),
+                    ],
                   ),
                 ),
 
-                // Split Details Breakdown Card
+                // Split Details Breakdown Liquid Glass Card
                 if (!isCredit || (tx.parentId != null && tx.parentId!.isNotEmpty)) ...[
                   const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                  GlassCard(
+                    borderRadius: 20,
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
@@ -490,7 +474,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                   ? Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: theme.colorScheme.primary.withOpacity(0.12),
+                                        color: theme.colorScheme.primary.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
@@ -534,7 +518,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: isTarget
-                                      ? theme.colorScheme.primary.withOpacity(0.08)
+                                      ? theme.colorScheme.primary.withValues(alpha: 0.08)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -542,7 +526,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                   children: [
                                     CircleAvatar(
                                       radius: 12,
-                                      backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
+                                      backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
                                       child: Text(
                                         memberObj.name.isNotEmpty ? memberObj.name[0] : '?',
                                         style: TextStyle(
@@ -589,8 +573,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                         ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
 
                 const SizedBox(height: 24),
               ],
@@ -599,8 +582,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
         ),
       ),
     ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDetailRow(String label, String value, {bool isMonospace = false}) {
     return Row(

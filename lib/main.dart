@@ -275,7 +275,7 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.12),
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -297,7 +297,7 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
               'Expense & Fund Tracker',
               style: TextStyle(
                 fontSize: 13,
-                color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 32),

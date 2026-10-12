@@ -11,6 +11,7 @@ import '../utils/file_helper.dart';
 import '../utils/format_utils.dart';
 import '../utils/web_route_helper.dart';
 import '../widgets/admin_pat_modal.dart';
+import '../widgets/glass_container.dart';
 import 'add_transaction_screen.dart';
 import 'manage_config_screen.dart';
 import 'reset_commit_screen.dart';
@@ -298,9 +299,9 @@ class _AdminScreenState extends State<AdminScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+                    border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
                   ),
                   child: Column(
                     children: [
@@ -322,7 +323,7 @@ class _AdminScreenState extends State<AdminScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: hasToken ? Colors.green.withOpacity(0.15) : Colors.orange.withOpacity(0.15),
+                              color: hasToken ? Colors.green.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -371,7 +372,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0284C7).withOpacity(0.12),
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.download_rounded, color: Color(0xFF0284C7), size: 22),
@@ -389,7 +390,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF047857).withOpacity(0.12),
+                    color: const Color(0xFF047857).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.upload_rounded, color: Color(0xFF047857), size: 22),
@@ -407,7 +408,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF7C3AED).withOpacity(0.12),
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.sync_rounded, color: Color(0xFF7C3AED), size: 22),
@@ -425,7 +426,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.blueGrey.withOpacity(0.12),
+                    color: Colors.blueGrey.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.vpn_key_outlined, color: Colors.blueGrey, size: 22),
@@ -517,132 +518,128 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        children: [
-          // 1. Transaction Entry Section (Kotlin Grid Action Cards)
-          _buildSectionTitle(context, 'Transaction Entry'),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: AdminActionCard(
-                  title: 'Quick Expense',
-                  icon: Icons.flash_on,
-                  color: const Color(0xFF3B82F6),
-                  onClick: () => _openAddTransaction('expense'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AdminActionCard(
-                  title: 'Add Credit',
-                  icon: Icons.arrow_downward,
-                  color: const Color(0xFF10B981),
-                  onClick: () => _openAddTransaction('credit'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AdminActionCard(
-                  title: 'Add Debit',
-                  icon: Icons.arrow_upward,
-                  color: const Color(0xFFEF4444),
-                  onClick: () => _openAddTransaction('debit'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // 2. Advanced Tools Section
-          _buildSectionTitle(context, 'Advanced Tools'),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: AdminActionCard(
-                  title: 'Distribute',
-                  icon: Icons.people,
-                  color: const Color(0xFF8B5CF6),
-                  onClick: () => _openAddTransaction('distribute'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AdminActionCard(
-                  title: 'Settle Debt',
-                  icon: Icons.handshake,
-                  color: const Color(0xFF059669),
-                  onClick: () => _openAddTransaction('settlement'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AdminActionCard(
-                  title: 'Transfer',
-                  icon: Icons.swap_horiz,
-                  color: const Color(0xFF2563EB),
-                  onClick: () => _openAddTransaction('transfer'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: AdminActionCard(
-                  title: 'Reset Commit',
-                  icon: Icons.history,
-                  color: const Color(0xFFDC2626),
-                  onClick: () {
-                    WebRouteHelper.setRoute('reset_commit');
-                    context.read<StorageService>().pushRoute('reset_commit');
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ResetCommitScreen()),
-                    ).then((_) {
-                      if (mounted) {
-                        WebRouteHelper.setRoute('admin');
-                        context.read<StorageService>().popRoute();
-                      }
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AdminActionCard(
-                  title: 'Manage Data',
-                  icon: Icons.import_export_rounded,
-                  color: const Color(0xFFD97706),
-                  onClick: () => _showManageDataModal(repo),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AdminActionCard(
-                  title: _isSyncing ? 'Syncing...' : 'Sync GitHub',
-                  icon: _isSyncing ? Icons.hourglass_top_rounded : Icons.sync_rounded,
-                  color: const Color(0xFF0284C7),
-                  onClick: _isSyncing ? null : () => _showSyncGitHubModal(repo),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // 3. Debt Simplifier Section (if settlements exist)
-          if (settlements.isNotEmpty) ...[
-            _buildSectionTitle(context, 'Debt Simplifier'),
+      body: AuroraBackground(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          children: [
+            // 1. Transaction Entry Section (Kotlin Grid Action Cards)
+            _buildSectionTitle(context, 'Transaction Entry'),
             const SizedBox(height: 12),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: theme.dividerColor.withOpacity(0.5)),
-              ),
-              elevation: 1,
-              child: Padding(
+            Row(
+              children: [
+                Expanded(
+                  child: AdminActionCard(
+                    title: 'Quick Expense',
+                    icon: Icons.flash_on,
+                    color: const Color(0xFF3B82F6),
+                    onClick: () => _openAddTransaction('expense'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AdminActionCard(
+                    title: 'Add Credit',
+                    icon: Icons.arrow_downward,
+                    color: const Color(0xFF10B981),
+                    onClick: () => _openAddTransaction('credit'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AdminActionCard(
+                    title: 'Add Debit',
+                    icon: Icons.arrow_upward,
+                    color: const Color(0xFFEF4444),
+                    onClick: () => _openAddTransaction('debit'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // 2. Advanced Tools Section
+            _buildSectionTitle(context, 'Advanced Tools'),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: AdminActionCard(
+                    title: 'Distribute',
+                    icon: Icons.people,
+                    color: const Color(0xFF8B5CF6),
+                    onClick: () => _openAddTransaction('distribute'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AdminActionCard(
+                    title: 'Settle Debt',
+                    icon: Icons.handshake,
+                    color: const Color(0xFF059669),
+                    onClick: () => _openAddTransaction('settlement'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AdminActionCard(
+                    title: 'Transfer',
+                    icon: Icons.swap_horiz,
+                    color: const Color(0xFF2563EB),
+                    onClick: () => _openAddTransaction('transfer'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: AdminActionCard(
+                    title: 'Reset Commit',
+                    icon: Icons.history,
+                    color: const Color(0xFFDC2626),
+                    onClick: () {
+                      WebRouteHelper.setRoute('reset_commit');
+                      context.read<StorageService>().pushRoute('reset_commit');
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ResetCommitScreen()),
+                      ).then((_) {
+                        if (mounted) {
+                          WebRouteHelper.setRoute('admin');
+                          context.read<StorageService>().popRoute();
+                        }
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AdminActionCard(
+                    title: 'Manage Data',
+                    icon: Icons.import_export_rounded,
+                    color: const Color(0xFFD97706),
+                    onClick: () => _showManageDataModal(repo),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AdminActionCard(
+                    title: _isSyncing ? 'Syncing...' : 'Sync GitHub',
+                    icon: _isSyncing ? Icons.hourglass_top_rounded : Icons.sync_rounded,
+                    color: const Color(0xFF0284C7),
+                    onClick: _isSyncing ? null : () => _showSyncGitHubModal(repo),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // 3. Debt Simplifier Section (if settlements exist)
+            if (settlements.isNotEmpty) ...[
+              _buildSectionTitle(context, 'Debt Simplifier'),
+              const SizedBox(height: 12),
+              GlassCard(
+                borderRadius: 18,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   children: settlements.map((s) {
@@ -696,22 +693,16 @@ class _AdminScreenState extends State<AdminScreen> {
                   }).toList(),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 24),
+            ],
 
-          // 4. Configuration Section (Kotlin Style M3 Cards)
-          _buildSectionTitle(context, 'Configuration'),
-          const SizedBox(height: 12),
+            // 4. Configuration Section (Liquid Glass Cards)
+            _buildSectionTitle(context, 'Configuration'),
+            const SizedBox(height: 12),
 
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.dividerColor.withOpacity(0.5)),
-            ),
-            elevation: 1,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
+            GlassCard(
+              borderRadius: 18,
+              padding: EdgeInsets.zero,
               onTap: () {
                 WebRouteHelper.setRoute('manage_config');
                 context.read<StorageService>().pushRoute('manage_config');
@@ -732,7 +723,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.12),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
@@ -752,7 +743,7 @@ class _AdminScreenState extends State<AdminScreen> {
                             'People, categories, currency & repository sync',
                             style: TextStyle(
                               fontSize: 12,
-                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -763,18 +754,12 @@ class _AdminScreenState extends State<AdminScreen> {
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-          // Cache Reset Tile
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.dividerColor.withOpacity(0.5)),
-            ),
-            elevation: 1,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
+            // Cache Reset Tile
+            GlassCard(
+              borderRadius: 18,
+              padding: EdgeInsets.zero,
               onTap: () async {
                 final confirmed = await showDialog<bool>(
                   context: context,
@@ -815,7 +800,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.12),
+                        color: Colors.red.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
@@ -835,7 +820,7 @@ class _AdminScreenState extends State<AdminScreen> {
                             'Delete cached offline files and re-sync',
                             style: TextStyle(
                               fontSize: 12,
-                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -846,9 +831,9 @@ class _AdminScreenState extends State<AdminScreen> {
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 80),
-        ],
+            const SizedBox(height: 80),
+          ],
+        ),
       ),
     );
   }
@@ -898,7 +883,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.blue.withOpacity(0.12), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.12), shape: BoxShape.circle),
                   child: const Icon(Icons.download_rounded, color: Colors.blue, size: 20),
                 ),
                 title: const Text('Download data.json'),
@@ -935,7 +920,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.purple.withOpacity(0.12), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.12), shape: BoxShape.circle),
                   child: const Icon(Icons.file_download_outlined, color: Colors.purple, size: 20),
                 ),
                 title: const Text('Download config.json'),
@@ -972,7 +957,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.green.withOpacity(0.12), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.12), shape: BoxShape.circle),
                   child: const Icon(Icons.table_chart_outlined, color: Colors.green, size: 20),
                 ),
                 title: const Text('Download CSV Ledger'),
@@ -1021,7 +1006,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.teal.withOpacity(0.12), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.12), shape: BoxShape.circle),
                   child: const Icon(Icons.drive_folder_upload_rounded, color: Colors.teal, size: 20),
                 ),
                 title: const Text('Upload & Import JSON File'),
@@ -1050,7 +1035,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFFD97706).withOpacity(0.12), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: const Color(0xFFD97706).withValues(alpha: 0.12), shape: BoxShape.circle),
                   child: const Icon(Icons.upload_file_rounded, color: Color(0xFFD97706), size: 20),
                 ),
                 title: const Text('Import data.json (Paste or Upload)'),
@@ -1063,7 +1048,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.indigo.withOpacity(0.12), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: Colors.indigo.withValues(alpha: 0.12), shape: BoxShape.circle),
                   child: const Icon(Icons.settings_backup_restore_rounded, color: Colors.indigo, size: 20),
                 ),
                 title: const Text('Import config.json (Paste or Upload)'),
@@ -1225,7 +1210,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: isValid ? Colors.green.withOpacity(0.12) : Colors.red.withOpacity(0.12),
+                          color: isValid ? Colors.green.withValues(alpha: 0.12) : Colors.red.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1324,48 +1309,46 @@ class AdminActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.dividerColor.withOpacity(0.5)),
-      ),
-      elevation: 1,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onClick,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: color, size: 24),
+    return GlassContainer(
+      borderRadius: 18,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      onTap: onClick,
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: isDark ? 0.22 : 0.14),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
+      );
+    }
   }
-}

@@ -8,6 +8,7 @@ import '../repositories/fund_repository.dart';
 import '../services/github_api_service.dart';
 import '../services/storage_service.dart';
 import 'user_selection_screen.dart';
+import '../widgets/glass_container.dart';
 
 class RepoSelectionScreen extends StatefulWidget {
   const RepoSelectionScreen({super.key});
@@ -428,8 +429,9 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Center(
+      body: AuroraBackground(
+        child: SafeArea(
+          child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: ConstrainedBox(
@@ -447,7 +449,7 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF2563EB).withOpacity(0.3),
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -472,7 +474,7 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                   Text(
                     'Select a workspace to manage expenses',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                       fontSize: 14,
                     ),
                   ),
@@ -487,15 +489,10 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (ctx, index) {
                         final ws = _saved[index];
-                        return Card(
+                        return GlassCard(
                           margin: EdgeInsets.zero,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                            ),
-                          ),
+                          borderRadius: 16,
+                          padding: EdgeInsets.zero,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
                             onTap: () {
@@ -524,7 +521,7 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                                           '${ws.owner}/${ws.repo}',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                                           ),
                                         ),
                                       ],
@@ -552,18 +549,11 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                   ],
 
                   // Add New Fund Card
-                  Card(
+                  GlassCard(
                     margin: EdgeInsets.zero,
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: theme.colorScheme.outlineVariant.withOpacity(0.6),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
+                    borderRadius: 20,
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -638,9 +628,9 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
+                                color: Colors.red.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.red.withOpacity(0.3)),
+                                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -687,13 +677,13 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                         ],
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

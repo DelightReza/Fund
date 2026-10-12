@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_config.dart';
 import '../models/fund_data.dart';
+import '../theme/app_theme.dart';
 import '../repositories/fund_repository.dart';
 import '../services/storage_service.dart';
 import '../utils/date_utils.dart';
 import '../utils/format_utils.dart';
 import '../utils/web_route_helper.dart';
 import '../utils/app_router.dart';
+import '../widgets/glass_container.dart';
 import 'add_transaction_screen.dart';
-import 'main_screen.dart';
 import 'transaction_detail_screen.dart';
 
 class CategoryExpensesScreen extends StatefulWidget {
@@ -42,9 +43,11 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final repo = context.watch<FundRepository>();
     final config = repo.config ?? AppConfig();
     final data = repo.data ?? FundData();
+    final categoryColor = theme.colorScheme.primary;
 
     final billCategory = config.billTypes.firstWhere(
       (b) => b.id == widget.billTypeId,
@@ -160,33 +163,20 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
           ],
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          // Hero Category Banner Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFF59E0B).withOpacity(0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
+      body: AuroraBackground(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            // Hero Category Pure iOS Frosted Glass Banner Card
+            GlassContainer(
+              borderRadius: 24,
+              padding: const EdgeInsets.all(22),
+              child: Column(
               children: [
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.22),
+                    color: categoryColor.withValues(alpha: isDark ? 0.22 : 0.14),
                     shape: BoxShape.circle,
                   ),
                   child: Text(billCategory.icon, style: const TextStyle(fontSize: 36)),
@@ -194,16 +184,16 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                 const SizedBox(height: 10),
                 Text(
                   billCategory.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 Text(
                   '${pctOfTotal.toStringAsFixed(1)}% of total fund expenditure',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -211,10 +201,10 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                 const SizedBox(height: 12),
                 Text(
                   FormatUtils.formatCurrency(totalSpent, config.currency),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: categoryColor,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -222,8 +212,12 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.2),
+                    color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+                      width: 0.8,
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -233,7 +227,7 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                           Text(
                             'Transactions',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.75),
+                              color: isDark ? Colors.white.withValues(alpha: 0.75) : Colors.black.withValues(alpha: 0.60),
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -241,21 +235,21 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                           const SizedBox(height: 3),
                           Text(
                             '${allCategoryTransactions.length}',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
                           ),
                         ],
                       ),
-                      Container(height: 26, width: 1, color: Colors.white.withOpacity(0.2)),
+                      Container(height: 26, width: 1, color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.10)),
                       Column(
                         children: [
                           Text(
                             'Average Size',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.75),
+                              color: isDark ? Colors.white.withValues(alpha: 0.75) : Colors.black.withValues(alpha: 0.60),
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -263,21 +257,21 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                           const SizedBox(height: 3),
                           Text(
                             FormatUtils.formatCurrency(avgTx, config.currency),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
                           ),
                         ],
                       ),
-                      Container(height: 26, width: 1, color: Colors.white.withOpacity(0.2)),
+                      Container(height: 26, width: 1, color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.10)),
                       Column(
                         children: [
                           Text(
                             'This Month',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.75),
+                              color: isDark ? Colors.white.withValues(alpha: 0.75) : Colors.black.withValues(alpha: 0.60),
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -285,8 +279,8 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                           const SizedBox(height: 3),
                           Text(
                             FormatUtils.formatCurrency(thisMonthSpent, config.currency),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
@@ -301,15 +295,15 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
           ),
           const SizedBox(height: 18),
 
-          // Member Share Breakdown Card
+          // Member Share Breakdown Liquid Glass Card
           if (totalSpent > 0) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+            GlassCard(
+              borderRadius: 20,
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
@@ -320,7 +314,7 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                           '${config.members.length} members',
                           style: TextStyle(
                             fontSize: 12,
-                            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -338,7 +332,7 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                               children: [
                                 CircleAvatar(
                                   radius: 12,
-                                  backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+                                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
                                   child: Text(
                                     member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
                                     style: TextStyle(
@@ -363,12 +357,12 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                             ),
                             const SizedBox(height: 4),
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
+                              borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
                                 value: memberPct,
-                                backgroundColor: theme.colorScheme.surfaceVariant,
-                                valueColor: const AlwaysStoppedAnimation(Color(0xFFF59E0B)),
-                                minHeight: 4,
+                                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                                valueColor: AlwaysStoppedAnimation(AppTheme.getCategoryColor(billCategory.id)),
+                                minHeight: 6,
                               ),
                             ),
                           ],
@@ -378,7 +372,6 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                   ],
                 ),
               ),
-            ),
             const SizedBox(height: 18),
           ],
 
@@ -428,7 +421,7 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
                 'Tap receipt for full details',
                 style: TextStyle(
                   fontSize: 12,
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -436,25 +429,22 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
           const SizedBox(height: 10),
 
           if (displayedTransactions.isEmpty) ...[
-            Container(
+            GlassContainer(
+              borderRadius: 20,
               padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(16),
-              ),
               child: Column(
                 children: [
                   Icon(
                     Icons.receipt_long_outlined,
                     size: 48,
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'No expenses recorded in this category yet.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                       fontSize: 14,
                     ),
                   ),
@@ -513,129 +503,121 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
               final splitCount = tx.splitAmong?.length ??
                   (config.members.length - (tx.exemptions?.length ?? 0));
 
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 5),
-                elevation: 0.5,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withOpacity(0.4),
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () {
-                    final txRoute = WebRouteHelper.buildTxRoute(
-                      tx.id,
-                      from: 'category',
-                      catId: widget.billTypeId,
-                    );
-                    WebRouteHelper.setRoute(txRoute);
-                    context.read<StorageService>().pushRoute(txRoute);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => TransactionDetailScreen(
-                          transaction: tx,
-                          returnRoute: 'category?id=${widget.billTypeId}',
+              return GlassCard(
+                margin: const EdgeInsets.symmetric(vertical: 4.5),
+                borderRadius: 18,
+                padding: EdgeInsets.zero,
+                onTap: () {
+                  final txRoute = WebRouteHelper.buildTxRoute(
+                    tx.id,
+                    from: 'category',
+                    catId: widget.billTypeId,
+                  );
+                  WebRouteHelper.setRoute(txRoute);
+                  context.read<StorageService>().pushRoute(txRoute);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TransactionDetailScreen(
+                        transaction: tx,
+                        returnRoute: 'category?id=${widget.billTypeId}',
+                      ),
+                    ),
+                  ).then((_) {
+                    if (mounted) {
+                      WebRouteHelper.setRoute('category?id=${widget.billTypeId}');
+                      context.read<StorageService>().popRoute();
+                    }
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: const Color(0xFFDC2626).withValues(alpha: 0.12),
+                        child: const Icon(
+                          Icons.arrow_upward_rounded,
+                          color: Color(0xFFDC2626),
+                          size: 20,
                         ),
                       ),
-                    ).then((_) {
-                      if (mounted) {
-                        WebRouteHelper.setRoute('category?id=${widget.billTypeId}');
-                        context.read<StorageService>().popRoute();
-                      }
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: const Color(0xFFDC2626).withOpacity(0.12),
-                          child: const Icon(
-                            Icons.arrow_upward_rounded,
-                            color: Color(0xFFDC2626),
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tx.note.isNotEmpty ? tx.note : billCategory.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14.5,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Row(
-                                children: [
-                                  Text(
-                                    AppDateUtils.formatDisplayDate(tx.date),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: theme.textTheme.bodySmall?.color?.withOpacity(0.65),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.surfaceVariant,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      payerLabel,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '-${FormatUtils.formatCurrency(tx.amount, config.currency)}',
+                              tx.note.isNotEmpty ? tx.note : billCategory.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 14.5,
-                                color: Color(0xFFDC2626),
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              tx.customSplit != null && tx.customSplit!.isNotEmpty
-                                  ? 'Custom split (${tx.customSplit!.length})'
-                                  : 'Split with $splitCount',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
-                              ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Text(
+                                  AppDateUtils.formatDisplayDate(tx.date),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    payerLabel,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '-${FormatUtils.formatCurrency(tx.amount, config.currency)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                              color: Color(0xFFDC2626),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            tx.customSplit != null && tx.customSplit!.isNotEmpty
+                                ? 'Custom split (${tx.customSplit!.length})'
+                                : 'Split with $splitCount',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -644,6 +626,7 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
           const SizedBox(height: 24),
         ],
       ),
+    ),
     ),
     );
   }

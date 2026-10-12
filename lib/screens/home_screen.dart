@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/app_config.dart';
 import '../models/fund_data.dart';
 import '../models/transaction.dart';
+import '../theme/app_theme.dart';
 import '../repositories/fund_repository.dart';
 import '../services/storage_service.dart';
 import '../utils/date_utils.dart';
@@ -11,6 +12,7 @@ import '../utils/debt_simplifier.dart';
 import '../utils/format_utils.dart';
 import '../utils/web_route_helper.dart';
 import '../widgets/admin_pat_modal.dart';
+import '../widgets/glass_container.dart';
 import '../widgets/summary_cards.dart';
 import '../widgets/transaction_tile.dart';
 import 'category_expenses_screen.dart';
@@ -38,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen>
   String? _selectedBillFilter;
   bool _showFilters = false;
   int _transactionLimit = 20;
+  bool _isSyncingPending = false;
 
   bool get _hasActiveFilters =>
       _selectedFilterType != 'all' ||
@@ -288,11 +291,62 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       final storage = context.read<StorageService>();
+      final token = storage.currentToken;
+      if (storage.hasPendingSyncFlag && token != null && token.isNotEmpty && !_isSyncingPending) {
+        _triggerAutoSync();
+      }
       if (storage.getLastRoute() == null) {
         // Cache expired after 10+ minutes: animate back to Transactions tab
         if (mounted && _tabController.index != 0) {
           _tabController.animateTo(0);
         }
+      }
+    }
+  }
+
+  Future<void> _triggerManualSync() async {
+    if (_isSyncingPending) return;
+    final storage = context.read<StorageService>();
+    final repo = context.read<FundRepository>();
+    final token = storage.currentToken;
+
+    if (token == null || token.isEmpty) {
+      AdminPatModal.show(context);
+      return;
+    }
+
+    setState(() => _isSyncingPending = true);
+    final ok = await repo.syncPending(token);
+    if (mounted) {
+      setState(() => _isSyncingPending = false);
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Offline transactions synchronized with GitHub successfully.'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sync failed: ${repo.error ?? "Please check connection or GitHub PAT."}'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _triggerAutoSync() async {
+    if (_isSyncingPending) return;
+    final storage = context.read<StorageService>();
+    final repo = context.read<FundRepository>();
+    final token = storage.currentToken;
+    if (token != null && token.isNotEmpty && storage.hasPendingSyncFlag) {
+      setState(() => _isSyncingPending = true);
+      await repo.syncPending(token);
+      if (mounted) {
+        setState(() => _isSyncingPending = false);
       }
     }
   }
@@ -412,7 +466,7 @@ class _HomeScreenState extends State<HomeScreen>
                       config.siteSubtitle,
                       style: TextStyle(
                         fontSize: 11,
-                        color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                       ),
                     ),
                 ],
@@ -438,7 +492,7 @@ class _HomeScreenState extends State<HomeScreen>
                               config.siteSubtitle,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                               ),
                             ),
                         ],
@@ -478,65 +532,121 @@ class _HomeScreenState extends State<HomeScreen>
             tooltip: 'Refresh from GitHub',
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: theme.colorScheme.primary,
-          labelColor: theme.colorScheme.primary,
-          unselectedLabelColor: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
-          tabs: const [
-            Tab(text: 'Transactions', icon: Icon(Icons.receipt_long_rounded, size: 20)),
-            Tab(text: 'People', icon: Icon(Icons.people_outline_rounded, size: 20)),
-            Tab(text: 'Expenses', icon: Icon(Icons.pie_chart_outline_rounded, size: 20)),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          if (storage.hasPendingSyncFlag)
-            Container(
-              width: double.infinity,
-              color: Colors.amber.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.cloud_off_rounded, color: Colors.white, size: 18),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Offline changes pending sync to GitHub.',
-                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(58),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: GlassContainer(
+              borderRadius: 16,
+              padding: const EdgeInsets.all(4),
+              child: TabBar(
+                controller: _tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                indicator: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primaryIndigo, AppTheme.primaryIndigoDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryIndigo.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                labelColor: Colors.white,
+                unselectedLabelColor: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                tabs: const [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.receipt_long_rounded, size: 16),
+                        SizedBox(width: 6),
+                        Text('Ledger'),
+                      ],
                     ),
                   ),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.black26,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.people_alt_rounded, size: 16),
+                        SizedBox(width: 6),
+                        Text('People'),
+                      ],
                     ),
-                    onPressed: () {
-                      final token = storage.currentToken;
-                      if (token != null && token.isNotEmpty) {
-                        repo.syncPending(token);
-                      } else {
-                        AdminPatModal.show(context);
-                      }
-                    },
-                    child: const Text('Sync Now', style: TextStyle(fontSize: 12)),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.pie_chart_rounded, size: 16),
+                        SizedBox(width: 6),
+                        Text('Categories'),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildTransactionsTab(data, config, fundBalance, totalCredits, totalDebits, sortedMonths),
-                _buildPeopleTab(summaries, settlements, config),
-                _buildBillsTab(data, billTotals, totalDebits, config),
-              ],
-            ),
           ),
-        ],
+        ),
+      ),
+      body: AuroraBackground(
+        child: Column(
+          children: [
+            if (storage.hasPendingSyncFlag)
+              Container(
+                width: double.infinity,
+                color: Colors.amber.shade700,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_off_rounded, color: Colors.white, size: 18),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Offline changes pending sync to GitHub.',
+                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.black26,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      ),
+                      onPressed: _isSyncingPending ? null : _triggerManualSync,
+                      child: _isSyncingPending
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Sync Now', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildTransactionsTab(data, config, fundBalance, totalCredits, totalDebits, sortedMonths),
+                  _buildPeopleTab(summaries, settlements, config),
+                  _buildBillsTab(data, billTotals, totalDebits, config),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -698,7 +808,7 @@ class _HomeScreenState extends State<HomeScreen>
             Center(
               child: Column(
                 children: [
-                  Icon(Icons.inbox_rounded, size: 50, color: Colors.grey.withOpacity(0.4)),
+                  Icon(Icons.inbox_rounded, size: 50, color: Colors.grey.withValues(alpha: 0.4)),
                   const SizedBox(height: 10),
                   const Text('No transactions match the criteria', style: TextStyle(color: Colors.grey)),
                   if (query.isNotEmpty || _selectedFilterType != 'all' || _selectedMonthFilter != null || _selectedMemberFilter != null || _selectedBillFilter != null) ...[
@@ -754,10 +864,10 @@ class _HomeScreenState extends State<HomeScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.35),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: theme.dividerColor.withOpacity(0.12),
+                    color: theme.dividerColor.withValues(alpha: 0.12),
                   ),
                 ),
                 child: Column(
@@ -767,7 +877,7 @@ class _HomeScreenState extends State<HomeScreen>
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -819,7 +929,7 @@ class _HomeScreenState extends State<HomeScreen>
                     Icon(
                       Icons.check_circle_outline_rounded,
                       size: 16,
-                      color: theme.colorScheme.primary.withOpacity(0.7),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.7),
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -827,7 +937,7 @@ class _HomeScreenState extends State<HomeScreen>
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
@@ -848,35 +958,36 @@ class _HomeScreenState extends State<HomeScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Search Input Bar
-        TextField(
-          controller: _searchController,
-          keyboardType: TextInputType.text,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: 'Search note, payer, category, amount...',
-            prefixIcon: const Icon(Icons.search, size: 20),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {
-                        _transactionLimit = 20;
-                      });
-                    },
-                  )
-                : null,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: theme.dividerColor),
+        GlassContainer(
+          borderRadius: 14,
+          child: TextField(
+            controller: _searchController,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search note, payer, category, amount...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _transactionLimit = 20;
+                        });
+                      },
+                    )
+                  : null,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              filled: false,
             ),
-            filled: true,
-            fillColor: theme.cardColor,
+            onChanged: (val) => setState(() {
+              _transactionLimit = 20;
+            }),
           ),
-          onChanged: (val) => setState(() {
-            _transactionLimit = 20;
-          }),
         ),
         const SizedBox(height: 10),
 
@@ -888,11 +999,31 @@ class _HomeScreenState extends State<HomeScreen>
               // Type Filter
               FilterChip(
                 showCheckmark: false,
-                label: Text(_selectedFilterType == 'all'
-                    ? 'All Types'
-                    : _selectedFilterType == 'credit'
-                        ? 'Deposits / Credits'
-                        : 'Expenses / Debits'),
+                selectedColor: _selectedFilterType == 'credit'
+                    ? AppTheme.emeraldGreen.withValues(alpha: 0.18)
+                    : (_selectedFilterType == 'debit'
+                        ? AppTheme.roseCrimson.withValues(alpha: 0.18)
+                        : AppTheme.primaryIndigo.withValues(alpha: 0.18)),
+                side: BorderSide(
+                  color: _selectedFilterType == 'credit'
+                      ? AppTheme.emeraldGreen.withValues(alpha: 0.45)
+                      : (_selectedFilterType == 'debit'
+                          ? AppTheme.roseCrimson.withValues(alpha: 0.45)
+                          : theme.dividerColor.withValues(alpha: 0.4)),
+                ),
+                label: Text(
+                  _selectedFilterType == 'all'
+                      ? 'All Types'
+                      : _selectedFilterType == 'credit'
+                          ? 'Deposits / Credits'
+                          : 'Expenses / Debits',
+                  style: TextStyle(
+                    fontWeight: _selectedFilterType != 'all' ? FontWeight.w700 : FontWeight.w500,
+                    color: _selectedFilterType == 'credit'
+                        ? AppTheme.emeraldDark
+                        : (_selectedFilterType == 'debit' ? AppTheme.roseDark : null),
+                  ),
+                ),
                 selected: _selectedFilterType != 'all',
                 onSelected: (_) => _showTypeFilterSheet(),
               ),
@@ -901,9 +1032,21 @@ class _HomeScreenState extends State<HomeScreen>
               // Month Filter
               FilterChip(
                 showCheckmark: false,
-                label: Text(_selectedMonthFilter == null
-                    ? 'All Months'
-                    : AppDateUtils.formatMonthName(_selectedMonthFilter!)),
+                selectedColor: AppTheme.primaryIndigo.withValues(alpha: 0.18),
+                side: BorderSide(
+                  color: _selectedMonthFilter != null
+                      ? AppTheme.primaryIndigo.withValues(alpha: 0.45)
+                      : theme.dividerColor.withValues(alpha: 0.4),
+                ),
+                label: Text(
+                  _selectedMonthFilter == null
+                      ? 'All Months'
+                      : AppDateUtils.formatMonthName(_selectedMonthFilter!),
+                  style: TextStyle(
+                    fontWeight: _selectedMonthFilter != null ? FontWeight.w700 : FontWeight.w500,
+                    color: _selectedMonthFilter != null ? AppTheme.primaryIndigo : null,
+                  ),
+                ),
                 selected: _selectedMonthFilter != null,
                 onSelected: (_) => _showMonthFilterSheet(sortedMonths),
               ),
@@ -912,9 +1055,21 @@ class _HomeScreenState extends State<HomeScreen>
               // Member Filter
               FilterChip(
                 showCheckmark: false,
-                label: Text(_selectedMemberFilter == null
-                    ? 'All Members'
-                    : (config.members.firstWhere((m) => m.id == _selectedMemberFilter, orElse: () => MemberConfig(id: _selectedMemberFilter!, name: _selectedMemberFilter!)).name)),
+                selectedColor: AppTheme.electricViolet.withValues(alpha: 0.18),
+                side: BorderSide(
+                  color: _selectedMemberFilter != null
+                      ? AppTheme.electricViolet.withValues(alpha: 0.45)
+                      : theme.dividerColor.withValues(alpha: 0.4),
+                ),
+                label: Text(
+                  _selectedMemberFilter == null
+                      ? 'All Members'
+                      : (config.members.firstWhere((m) => m.id == _selectedMemberFilter, orElse: () => MemberConfig(id: _selectedMemberFilter!, name: _selectedMemberFilter!)).name),
+                  style: TextStyle(
+                    fontWeight: _selectedMemberFilter != null ? FontWeight.w700 : FontWeight.w500,
+                    color: _selectedMemberFilter != null ? AppTheme.violetDark : null,
+                  ),
+                ),
                 selected: _selectedMemberFilter != null,
                 onSelected: (_) => _showMemberFilterSheet(config),
               ),
@@ -923,9 +1078,21 @@ class _HomeScreenState extends State<HomeScreen>
               // Bill Filter
               FilterChip(
                 showCheckmark: false,
-                label: Text(_selectedBillFilter == null
-                    ? 'All Categories'
-                    : (config.billTypes.firstWhere((b) => b.id == _selectedBillFilter, orElse: () => BillTypeConfig(id: _selectedBillFilter!, name: _selectedBillFilter!, icon: '')).name)),
+                selectedColor: AppTheme.amberSun.withValues(alpha: 0.18),
+                side: BorderSide(
+                  color: _selectedBillFilter != null
+                      ? AppTheme.amberSun.withValues(alpha: 0.45)
+                      : theme.dividerColor.withValues(alpha: 0.4),
+                ),
+                label: Text(
+                  _selectedBillFilter == null
+                      ? 'All Categories'
+                      : (config.billTypes.firstWhere((b) => b.id == _selectedBillFilter, orElse: () => BillTypeConfig(id: _selectedBillFilter!, name: _selectedBillFilter!, icon: '')).name),
+                  style: TextStyle(
+                    fontWeight: _selectedBillFilter != null ? FontWeight.w700 : FontWeight.w500,
+                    color: _selectedBillFilter != null ? const Color(0xFFB45309) : null,
+                  ),
+                ),
                 selected: _selectedBillFilter != null,
                 onSelected: (_) => _showBillFilterSheet(config),
               ),
@@ -937,8 +1104,8 @@ class _HomeScreenState extends State<HomeScreen>
                   _searchController.text.trim().isNotEmpty) ...[
                 const SizedBox(width: 8),
                 ActionChip(
-                  avatar: const Icon(Icons.close, size: 14),
-                  label: const Text('Clear All'),
+                  avatar: const Icon(Icons.close_rounded, size: 14),
+                  label: const Text('Clear All', style: TextStyle(fontWeight: FontWeight.w600)),
                   onPressed: () {
                     setState(() {
                       _searchController.clear();
@@ -1185,7 +1352,7 @@ class _HomeScreenState extends State<HomeScreen>
                 (m) => ListTile(
                   leading: CircleAvatar(
                     radius: 14,
-                    backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                     child: Text(m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
                         style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
@@ -1258,12 +1425,37 @@ class _HomeScreenState extends State<HomeScreen>
     List<Settlement> settlements,
     AppConfig config,
   ) {
+    final theme = Theme.of(context);
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        const Text(
-          'Individual Balances',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Individual Balances',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Text(
+                '${summaries.length} members',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         ...summaries.values.map(
@@ -1312,20 +1504,68 @@ class _HomeScreenState extends State<HomeScreen>
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Total Expenditure', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                const SizedBox(height: 4),
-                Text(
-                  FormatUtils.formatCurrency(totalDebits, config.currency),
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF1E1B4B),
+                Color(0xFF312E81),
+                Color(0xFF4338CA),
               ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryIndigo.withValues(alpha: 0.3),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.16),
+              width: 1.2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.pie_chart_rounded, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Group Expenditure',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      FormatUtils.formatCurrency(totalDebits, config.currency),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -1340,7 +1580,7 @@ class _HomeScreenState extends State<HomeScreen>
               'Tap category to view expenses',
               style: TextStyle(
                 fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
             ),
           ],

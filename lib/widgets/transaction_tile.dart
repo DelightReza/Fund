@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/app_config.dart';
 import '../models/transaction.dart';
+import '../theme/app_theme.dart';
 import '../utils/date_utils.dart';
 import '../utils/format_utils.dart';
+import 'glass_container.dart';
 
 class TransactionTile extends StatelessWidget {
   final TransactionModel transaction;
@@ -24,6 +26,9 @@ class TransactionTile extends StatelessWidget {
     String title = transaction.note;
     String subtitle = '';
     String iconText = '💰';
+    Color iconBgColor = AppTheme.primaryIndigo.withValues(alpha: 0.12);
+    Color iconBorderColor = AppTheme.primaryIndigo.withValues(alpha: 0.28);
+    Color pillColor = AppTheme.primaryIndigo;
 
     if (isCredit) {
       final payer = config.members.firstWhere(
@@ -41,6 +46,9 @@ class TransactionTile extends StatelessWidget {
         subtitle = 'Deposit / Contribution';
       }
       iconText = '💵';
+      iconBgColor = AppTheme.emeraldGreen.withValues(alpha: 0.18);
+      iconBorderColor = AppTheme.emeraldGreen.withValues(alpha: 0.38);
+      pillColor = AppTheme.emeraldDark;
     } else {
       final bill = config.billTypes.firstWhere(
         (b) => b.id == transaction.billTypeId || b.id == transaction.whoOrBill,
@@ -58,26 +66,31 @@ class TransactionTile extends StatelessWidget {
         subtitle = 'Expense';
       }
       iconText = bill.icon;
+      final categoryColor = AppTheme.getCategoryColor(bill.id);
+      iconBgColor = categoryColor.withValues(alpha: 0.18);
+      iconBorderColor = categoryColor.withValues(alpha: 0.38);
+      pillColor = categoryColor;
     }
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 0),
+    return GlassCard(
+      margin: const EdgeInsets.symmetric(vertical: 4.5, horizontal: 0),
+      borderRadius: 18,
+      padding: EdgeInsets.zero,
+      onTap: onTap,
       child: ListTile(
-        onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         leading: Container(
-          width: 44,
-          height: 44,
+          width: 46,
+          height: 46,
           decoration: BoxDecoration(
-            color: isCredit
-                ? const Color(0xFF10B981).withOpacity(0.12)
-                : const Color(0xFFEF4444).withOpacity(0.12),
-            borderRadius: BorderRadius.circular(12),
+            color: iconBgColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: iconBorderColor, width: 1.2),
           ),
           alignment: Alignment.center,
           child: Text(
             iconText,
-            style: const TextStyle(fontSize: 20),
+            style: const TextStyle(fontSize: 22),
           ),
         ),
         title: Row(
@@ -86,8 +99,8 @@ class TransactionTile extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15.5,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -96,51 +109,84 @@ class TransactionTile extends StatelessWidget {
             if (transaction.parentId != null && transaction.parentId!.isNotEmpty)
               Container(
                 margin: const EdgeInsets.only(left: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
+                  color: AppTheme.electricViolet.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AppTheme.electricViolet.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: const Text(
                   'Grouped',
                   style: TextStyle(
-                    color: Colors.blue,
+                    color: AppTheme.violetDark,
                     fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
           ],
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
-                fontSize: 13,
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: pillColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: pillColor.withValues(alpha: 0.25),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: pillColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              AppDateUtils.formatRelativeDate(transaction.date),
-              style: TextStyle(
-                color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
-                fontSize: 11,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 11.5,
+                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.55),
+                    ),
+                    const SizedBox(width: 3),
+                    Expanded(
+                      child: Text(
+                        AppDateUtils.formatRelativeDate(transaction.date),
+                        style: TextStyle(
+                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.65),
+                          fontSize: 11.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         trailing: Text(
           '${isCredit ? "+" : "-"}${FormatUtils.formatCurrency(transaction.amount, config.currency)}',
           style: TextStyle(
-            color: isCredit ? const Color(0xFF059669) : const Color(0xFFDC2626),
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
+            color: isCredit ? AppTheme.emeraldDark : AppTheme.roseDark,
+            fontWeight: FontWeight.w800,
+            fontSize: 15.5,
+            letterSpacing: -0.2,
           ),
         ),
       ),

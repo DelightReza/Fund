@@ -5,6 +5,7 @@ import '../models/fund_data.dart';
 import '../models/transaction.dart';
 import '../services/github_api_service.dart';
 import '../services/storage_service.dart';
+import '../utils/date_utils.dart';
 import '../utils/fund_merger.dart';
 import '../utils/json_formatter.dart';
 
@@ -32,6 +33,117 @@ class FundRepository extends ChangeNotifier {
   FundData? get data => _data;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  static const double _duplicateAmountTolerance = 0.0001;
+  static const Duration _duplicateTimeWindow = Duration(hours: 1);
+
+  String _normalizedText(String value) => value.trim().toLowerCase();
+
+  bool _doubleEquals(double a, double b) => (a - b).abs() <= _duplicateAmountTolerance;
+
+  List<String> _normalizedList(List<String>? values) {
+    final list = (values ?? const <String>[])
+        .map((v) => v.trim())
+        .where((v) => v.isNotEmpty)
+        .toList()
+      ..sort();
+    return list;
+  }
+
+  Map<String, double> _normalizedSplitMap(Map<String, double>? values) {
+    final entries = <MapEntry<String, double>>[];
+    (values ?? const <String, double>{}).forEach((k, v) {
+      final key = k.trim();
+      if (key.isNotEmpty) {
+        entries.add(MapEntry(key, double.parse(v.toStringAsFixed(4))));
+      }
+    });
+    entries.sort((a, b) => a.key.compareTo(b.key));
+    return {for (final e in entries) e.key: e.value};
+  }
+
+  bool _isEquivalentTransaction(TransactionModel a, TransactionModel b) {
+    if (a.type != b.type) return false;
+    if (!_doubleEquals(a.amount, b.amount)) return false;
+
+    // Prevent duplicate entries within 1 hour (covers rapid double-taps, 5m, 10m, 30m, 1h)
+    // Legitimately distinct transactions outside 1 hour (e.g. 2 hours later or next day) are allowed.
+    final dtA = AppDateUtils.parseDateTime(a.date);
+    final dtB = AppDateUtils.parseDateTime(b.date);
+    final timeDiff = dtA.difference(dtB).abs();
+    if (timeDiff > _duplicateTimeWindow) return false;
+
+    if (_normalizedText(a.note) != _normalizedText(b.note)) return false;
+    if (_normalizedText(a.whoOrBill) != _normalizedText(b.whoOrBill)) return false;
+
+    final aPayer = _normalizedText(a.payerId ?? (a.type == 'credit' ? a.whoOrBill : ''));
+    final bPayer = _normalizedText(b.payerId ?? (b.type == 'credit' ? b.whoOrBill : ''));
+    if (aPayer != bPayer) return false;
+
+    final aBill = _normalizedText(a.billTypeId ?? (a.type == 'debit' ? a.whoOrBill : ''));
+    final bBill = _normalizedText(b.billTypeId ?? (b.type == 'debit' ? b.whoOrBill : ''));
+    if (aBill != bBill) return false;
+
+    if (!_doubleEquals(a.distributionTotal ?? 0.0, b.distributionTotal ?? 0.0)) return false;
+
+    final aSplit = _normalizedList(a.splitAmong);
+    final bSplit = _normalizedList(b.splitAmong);
+    if (aSplit.length != bSplit.length) return false;
+    for (int i = 0; i < aSplit.length; i++) {
+      if (aSplit[i] != bSplit[i]) return false;
+    }
+
+    final aEx = _normalizedList(a.exemptions);
+    final bEx = _normalizedList(b.exemptions);
+    if (aEx.length != bEx.length) return false;
+    for (int i = 0; i < aEx.length; i++) {
+      if (aEx[i] != bEx[i]) return false;
+    }
+
+    final aCustom = _normalizedSplitMap(a.customSplit);
+    final bCustom = _normalizedSplitMap(b.customSplit);
+    if (aCustom.length != bCustom.length) return false;
+    for (final entry in aCustom.entries) {
+      if (!bCustom.containsKey(entry.key)) return false;
+      if (!_doubleEquals(entry.value, bCustom[entry.key]!)) return false;
+    }
+
+    final aPct = _normalizedSplitMap(a.splitPercentages);
+    final bPct = _normalizedSplitMap(b.splitPercentages);
+    if (aPct.length != bPct.length) return false;
+    for (final entry in aPct.entries) {
+      if (!bPct.containsKey(entry.key)) return false;
+      if (!_doubleEquals(entry.value, bPct[entry.key]!)) return false;
+    }
+
+    return true;
+  }
+
+  bool _containsEquivalentTransaction(List<TransactionModel> existing, TransactionModel candidate) {
+    return existing.any((tx) => _isEquivalentTransaction(tx, candidate));
+  }
+
+  bool _containsEquivalentPair(
+    List<TransactionModel> existing, {
+    required TransactionModel first,
+    required TransactionModel second,
+  }) {
+    return _containsEquivalentTransaction(existing, first) &&
+        _containsEquivalentTransaction(existing, second);
+  }
+
+  bool _containsEquivalentSet(
+    List<TransactionModel> existing,
+    List<TransactionModel> candidates,
+  ) {
+    if (candidates.isEmpty) return false;
+    for (final candidate in candidates) {
+      if (!_containsEquivalentTransaction(existing, candidate)) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   Future<void> switchWorkspace(String owner, String repo) async {
     await storage.setActiveRepo(owner, repo);
@@ -80,9 +192,7 @@ class FundRepository extends ChangeNotifier {
       owner: owner,
       repo: repo,
       path: 'config.json',
-      branch: (curConfig.repoBranch.isNotEmpty && curConfig.repoBranch != 'main')
-          ? curConfig.repoBranch
-          : null,
+      branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
     );
 
     if (file != null && file.content.isNotEmpty) {
@@ -122,9 +232,7 @@ class FundRepository extends ChangeNotifier {
       owner: owner,
       repo: repo,
       path: curConfig.dataFileName,
-      branch: (curConfig.repoBranch.isNotEmpty && curConfig.repoBranch != 'main')
-          ? curConfig.repoBranch
-          : null,
+      branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
     );
 
     if (file != null && file.content.isNotEmpty) {
@@ -158,6 +266,7 @@ class FundRepository extends ChangeNotifier {
     Map<String, double>? customSplit,
     Map<String, double>? splitPercentages,
   }) async {
+    _error = null;
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
 
@@ -206,6 +315,10 @@ class FundRepository extends ChangeNotifier {
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
     final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    if (_containsEquivalentPair(currentData.transactions, first: creditTx, second: debitTx)) {
+      _error = 'Duplicate expense detected. An identical expense was recorded within the last hour.';
+      return false;
+    }
     currentData.transactions.insert(0, creditTx);
     currentData.transactions.insert(0, debitTx);
     currentData.updateSummaries(curConfig);
@@ -309,6 +422,7 @@ class FundRepository extends ChangeNotifier {
     Map<String, double>? customSplit,
     Map<String, double>? splitPercentages,
   }) async {
+    _error = null;
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
 
@@ -336,6 +450,10 @@ class FundRepository extends ChangeNotifier {
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
     final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    if (_containsEquivalentTransaction(currentData.transactions, tx)) {
+      _error = 'Duplicate transaction detected. An identical transaction was recorded within the last hour.';
+      return false;
+    }
     currentData.transactions.insert(0, tx);
     currentData.updateSummaries(curConfig);
 
@@ -364,6 +482,7 @@ class FundRepository extends ChangeNotifier {
     required String date,
     List<String> participantIds = const [],
   }) async {
+    _error = null;
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
 
@@ -397,6 +516,10 @@ class FundRepository extends ChangeNotifier {
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
     final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    if (_containsEquivalentSet(currentData.transactions, newTxs)) {
+      _error = 'Duplicate distribution detected. An identical distribution was recorded within the last hour.';
+      return false;
+    }
     for (final tx in newTxs) {
       currentData.transactions.insert(0, tx);
     }
@@ -415,6 +538,7 @@ class FundRepository extends ChangeNotifier {
     required String note,
     required String date,
   }) async {
+    _error = null;
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
 
@@ -454,6 +578,10 @@ class FundRepository extends ChangeNotifier {
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
     final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    if (_containsEquivalentPair(currentData.transactions, first: payerTx, second: receiverTx)) {
+      _error = 'Duplicate settlement detected. An identical settlement was recorded within the last hour.';
+      return false;
+    }
     currentData.transactions.insert(0, payerTx);
     currentData.transactions.insert(0, receiverTx);
     currentData.updateSummaries(curConfig);
@@ -471,6 +599,7 @@ class FundRepository extends ChangeNotifier {
     required String note,
     required String date,
   }) async {
+    _error = null;
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
 
@@ -510,6 +639,10 @@ class FundRepository extends ChangeNotifier {
 
     final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
     final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    if (_containsEquivalentPair(currentData.transactions, first: senderTx, second: recipientTx)) {
+      _error = 'Duplicate transfer detected. An identical transfer was recorded within the last hour.';
+      return false;
+    }
     currentData.transactions.insert(0, senderTx);
     currentData.transactions.insert(0, recipientTx);
     currentData.updateSummaries(curConfig);
@@ -646,6 +779,7 @@ class FundRepository extends ChangeNotifier {
           owner: owner,
           repo: repo,
           path: curConfig.dataFileName,
+          branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
         );
 
         // Automated 3-Way Merge: If remote data exists, merge remote state with local changes
@@ -670,6 +804,7 @@ class FundRepository extends ChangeNotifier {
           token: token,
           owner: owner,
           repo: repo,
+          branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
           path: curConfig.dataFileName,
           message: msg,
           base64Content: encoded,
@@ -719,6 +854,7 @@ class FundRepository extends ChangeNotifier {
         owner: owner,
         repo: repo,
         path: 'config.json',
+        branch: branch.isNotEmpty ? branch : null,
       );
 
       if (file != null && file.content.isNotEmpty) {
@@ -791,6 +927,7 @@ class FundRepository extends ChangeNotifier {
         owner: owner,
         repo: repo,
         path: curConfig.dataFileName,
+        branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
       );
 
       if (file != null && file.content.isNotEmpty) {
@@ -813,6 +950,7 @@ class FundRepository extends ChangeNotifier {
         token: token,
         owner: owner,
         repo: repo,
+        branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
         path: curConfig.dataFileName,
         message: 'Sync offline transactions with automated 3-way merge',
         base64Content: encoded,

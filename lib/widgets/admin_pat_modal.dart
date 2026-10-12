@@ -126,15 +126,24 @@ class _AdminPatModalState extends State<AdminPatModal> {
     final isAlreadyVerified = storage.isAdminVerified;
 
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: theme.brightness == Brightness.dark
+          ? const Color(0xFF151F32).withValues(alpha: 0.92)
+          : Colors.white.withValues(alpha: 0.92),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(
+          color: Colors.white.withValues(alpha: 0.22),
+          width: 1.2,
+        ),
+      ),
       title: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: isAlreadyVerified
-                  ? const Color(0xFF10B981).withOpacity(0.15)
-                  : theme.colorScheme.primary.withOpacity(0.15),
+                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                  : theme.colorScheme.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
