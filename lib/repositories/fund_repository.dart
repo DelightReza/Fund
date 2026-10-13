@@ -240,6 +240,13 @@ class FundRepository extends ChangeNotifier {
         final decoded = utf8.decode(base64.decode(file.content));
         final json = jsonDecode(decoded) as Map<String, dynamic>;
         final fetched = FundData.fromJson(json);
+        final activeDeletedTxIds = storage.getDeletedTxIds(owner: owner, repo: repo);
+        final activeDeletedParentIds = storage.getDeletedParentIds(owner: owner, repo: repo);
+        if (activeDeletedTxIds.isNotEmpty || activeDeletedParentIds.isNotEmpty) {
+          fetched.transactions.removeWhere((t) =>
+              activeDeletedTxIds.contains(t.id) ||
+              (t.parentId != null && activeDeletedParentIds.contains(t.parentId)));
+        }
         fetched.updateSummaries(curConfig);
         _data = fetched;
         await storage.saveDataCache(fetched, owner: owner, repo: repo);
@@ -324,12 +331,17 @@ class FundRepository extends ChangeNotifier {
     currentData.updateSummaries(curConfig);
 
     final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
-    final noteExtra = (note.trim().isNotEmpty && note.trim() != billName) ? ' ($note)' : '';
+    final billConfig = curConfig.billTypes.firstWhere(
+      (b) => b.id == billTypeId,
+      orElse: () => BillTypeConfig(id: billTypeId, name: billName, icon: ''),
+    );
+    final billDisplay = billConfig.icon.trim().isNotEmpty ? '${billConfig.icon.trim()} ${billConfig.name}' : billConfig.name;
+    final noteExtra = (note.trim().isNotEmpty && note.trim() != billConfig.name) ? ' ($note)' : '';
     final activeCount = curConfig.members.where((m) => m.active).length;
     final splitStr = (customSplit != null && customSplit.isNotEmpty)
         ? 'Custom split (${customSplit.length} members)'
         : (splitAmong.length == activeCount ? 'Split equally' : 'Split among ${splitAmong.length}');
-    final msg = 'Expense: $payerName paid $amtStr for $billName$noteExtra - $splitStr';
+    final msg = 'Expense: $payerName paid $amtStr for $billDisplay$noteExtra - $splitStr';
 
     _data = currentData;
     notifyListeners();
@@ -401,8 +413,13 @@ class FundRepository extends ChangeNotifier {
     currentData.updateSummaries(curConfig);
 
     final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
-    final noteExtra = (note.trim().isNotEmpty && note.trim() != billName) ? ' ($note)' : '';
-    final msg = 'Edit Expense: $payerName paid $amtStr for $billName$noteExtra';
+    final billConfig = curConfig.billTypes.firstWhere(
+      (b) => b.id == billTypeId,
+      orElse: () => BillTypeConfig(id: billTypeId, name: billName, icon: ''),
+    );
+    final billDisplay = billConfig.icon.trim().isNotEmpty ? '${billConfig.icon.trim()} ${billConfig.name}' : billConfig.name;
+    final noteExtra = (note.trim().isNotEmpty && note.trim() != billConfig.name) ? ' ($note)' : '';
+    final msg = 'Edit Expense: $payerName paid $amtStr for $billDisplay$noteExtra';
 
     _data = currentData;
     notifyListeners();
@@ -464,8 +481,9 @@ class FundRepository extends ChangeNotifier {
       final payer = curConfig.members.firstWhere((m) => m.id == payerId, orElse: () => MemberConfig(id: payerId ?? '', name: payerId ?? '')).name;
       msg = 'Deposit: $payer added $amtStr$noteStr';
     } else if (type == 'debit') {
-      final bill = curConfig.billTypes.firstWhere((b) => b.id == billTypeId, orElse: () => BillTypeConfig(id: billTypeId ?? '', name: billTypeId ?? '')).name;
-      msg = 'Debit: Spent $amtStr on $bill$noteStr';
+      final bill = curConfig.billTypes.firstWhere((b) => b.id == billTypeId, orElse: () => BillTypeConfig(id: billTypeId ?? '', name: billTypeId ?? '', icon: ''));
+      final billDisplay = bill.icon.trim().isNotEmpty ? '${bill.icon.trim()} ${bill.name}' : bill.name;
+      msg = 'Debit: Spent $amtStr on $billDisplay$noteStr';
     } else {
       msg = 'Transaction: Added $type of $amtStr$noteStr';
     }
@@ -706,8 +724,9 @@ class FundRepository extends ChangeNotifier {
       final payer = curConfig.members.firstWhere((m) => m.id == payerId, orElse: () => MemberConfig(id: payerId ?? '', name: payerId ?? '')).name;
       msg = 'Edit Deposit: Updated $payer deposit of $amtStr$noteStr';
     } else if (type == 'debit') {
-      final bill = curConfig.billTypes.firstWhere((b) => b.id == billTypeId, orElse: () => BillTypeConfig(id: billTypeId ?? '', name: billTypeId ?? '')).name;
-      msg = 'Edit Debit: Updated debit of $amtStr for $bill$noteStr';
+      final bill = curConfig.billTypes.firstWhere((b) => b.id == billTypeId, orElse: () => BillTypeConfig(id: billTypeId ?? '', name: billTypeId ?? '', icon: ''));
+      final billDisplay = bill.icon.trim().isNotEmpty ? '${bill.icon.trim()} ${bill.name}' : bill.name;
+      msg = 'Edit Debit: Updated debit of $amtStr for $billDisplay$noteStr';
     } else {
       msg = 'Edit Transaction: Updated $type of $amtStr$noteStr';
     }
@@ -722,12 +741,31 @@ class FundRepository extends ChangeNotifier {
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
 
+    final owner = curConfig.repoOwner;
+    final repo = curConfig.repoName;
     final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
 
+    final deletedTxIds = <String>{};
+    final deletedParentIds = <String>{};
+
     if (tx.parentId != null && tx.parentId!.isNotEmpty) {
+      final siblings = currentData.transactions.where((t) => t.parentId == tx.parentId).toList();
+      for (final s in siblings) {
+        deletedTxIds.add(s.id);
+      }
+      deletedParentIds.add(tx.parentId!);
       currentData.transactions.removeWhere((t) => t.parentId == tx.parentId);
     } else {
+      deletedTxIds.add(tx.id);
       currentData.transactions.removeWhere((t) => t.id == tx.id);
+    }
+
+    // Persist tombstones to ensure background sync or 3-way merge never resurrects deleted transactions
+    for (final id in deletedTxIds) {
+      await storage.addDeletedTombstone(txId: id, owner: owner, repo: repo);
+    }
+    for (final pId in deletedParentIds) {
+      await storage.addDeletedTombstone(parentId: pId, owner: owner, repo: repo);
     }
 
     currentData.updateSummaries(curConfig);
@@ -744,8 +782,9 @@ class FundRepository extends ChangeNotifier {
       final name = curConfig.members.firstWhere((m) => m.id == tx.payerId, orElse: () => MemberConfig(id: tx.whoOrBill, name: tx.whoOrBill)).name;
       detail = '$name ($amtStr - ${tx.note})';
     } else if (tx.type == 'debit') {
-      final bill = curConfig.billTypes.firstWhere((b) => b.id == tx.billTypeId, orElse: () => BillTypeConfig(id: tx.whoOrBill, name: tx.whoOrBill)).name;
-      detail = '$bill ($amtStr - ${tx.note})';
+      final bill = curConfig.billTypes.firstWhere((b) => b.id == tx.billTypeId, orElse: () => BillTypeConfig(id: tx.whoOrBill, name: tx.whoOrBill, icon: ''));
+      final billDisplay = bill.icon.trim().isNotEmpty ? '${bill.icon.trim()} ${bill.name}' : bill.name;
+      detail = '$billDisplay ($amtStr - ${tx.note})';
     } else {
       detail = '${tx.note} ($amtStr)';
     }
@@ -782,7 +821,10 @@ class FundRepository extends ChangeNotifier {
           branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
         );
 
-        // Automated 3-Way Merge: If remote data exists, merge remote state with local changes
+        final activeDeletedTxIds = storage.getDeletedTxIds(owner: owner, repo: repo);
+        final activeDeletedParentIds = storage.getDeletedParentIds(owner: owner, repo: repo);
+
+        // Automated 3-Way Merge: If remote data exists, merge remote state with local changes respecting tombstones
         if (file != null && file.content.isNotEmpty) {
           try {
             final decoded = utf8.decode(base64.decode(file.content));
@@ -791,6 +833,8 @@ class FundRepository extends ChangeNotifier {
               remoteData: remoteData,
               localData: dataToPush,
               config: curConfig,
+              deletedIds: activeDeletedTxIds,
+              deletedParentIds: activeDeletedParentIds,
             );
           } catch (_) {}
         } else {
@@ -815,6 +859,13 @@ class FundRepository extends ChangeNotifier {
           _data = dataToPush;
           await storage.saveDataCache(dataToPush, owner: owner, repo: repo);
           await storage.setPendingSync(false, null, owner, repo);
+          // Clean up tombstones that are confirmed removed
+          await storage.removeDeletedTombstones(
+            txIds: activeDeletedTxIds,
+            parentIds: activeDeletedParentIds,
+            owner: owner,
+            repo: repo,
+          );
           notifyListeners();
           return true;
         }
@@ -930,6 +981,9 @@ class FundRepository extends ChangeNotifier {
         branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
       );
 
+      final activeDeletedTxIds = storage.getDeletedTxIds(owner: owner, repo: repo);
+      final activeDeletedParentIds = storage.getDeletedParentIds(owner: owner, repo: repo);
+
       if (file != null && file.content.isNotEmpty) {
         try {
           final decoded = utf8.decode(base64.decode(file.content));
@@ -938,6 +992,8 @@ class FundRepository extends ChangeNotifier {
             remoteData: remoteData,
             localData: dataToSync,
             config: curConfig,
+            deletedIds: activeDeletedTxIds,
+            deletedParentIds: activeDeletedParentIds,
           );
         } catch (_) {}
       } else {
@@ -952,7 +1008,7 @@ class FundRepository extends ChangeNotifier {
         repo: repo,
         branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
         path: curConfig.dataFileName,
-        message: 'Sync offline transactions with automated 3-way merge',
+        message: 'Sync: Merge offline changes with remote ledger (3-way merge)',
         base64Content: encoded,
         sha: file?.sha,
       );
@@ -961,6 +1017,12 @@ class FundRepository extends ChangeNotifier {
         _data = dataToSync;
         await storage.saveDataCache(dataToSync, owner: owner, repo: repo);
         await storage.setPendingSync(false, null, owner, repo);
+        await storage.removeDeletedTombstones(
+          txIds: activeDeletedTxIds,
+          parentIds: activeDeletedParentIds,
+          owner: owner,
+          repo: repo,
+        );
         notifyListeners();
         return true;
       }
@@ -1002,7 +1064,8 @@ class FundRepository extends ChangeNotifier {
     final owner = curConfig.repoOwner;
     final repo = curConfig.repoName;
     final token = await storage.getToken(owner: owner, repo: repo);
-    final msg = commitMessage ?? 'Push: update ledger with ${currentData?.transactions.length ?? 0} transactions';
+    final txCount = currentData?.transactions.length ?? 0;
+    final msg = commitMessage ?? 'Sync: Push $txCount offline transactions to remote ledger';
 
     if (currentData == null || owner.isEmpty || repo.isEmpty) return false;
 
@@ -1068,7 +1131,8 @@ class FundRepository extends ChangeNotifier {
     final owner = curConfig.repoOwner;
     final repo = curConfig.repoName;
     final token = await storage.getToken(owner: owner, repo: repo);
-    final msg = commitMessage ?? 'Import data: updated transactions and ledger';
+    final txCount = importedData.transactions.length;
+    final msg = commitMessage ?? 'Import: Load ledger with $txCount transactions';
 
     importedData.updateSummaries(curConfig);
     _data = importedData;
@@ -1107,61 +1171,159 @@ class FundRepository extends ChangeNotifier {
 
   String _generateConfigCommitMessage(AppConfig? oldConfig, AppConfig newConfig) {
     if (oldConfig == null) {
-      return 'Config: Initialized configuration settings';
+      return 'Config: Initialize configuration settings';
     }
 
-    final changes = <String>[];
+    final addedMembers = <String>[];
+    final removedMembers = <String>[];
+    final updatedMembers = <String>[];
 
-    // Check members
-    final oldMemberIds = oldConfig.members.map((m) => m.id).toSet();
-    final newMemberIds = newConfig.members.map((m) => m.id).toSet();
+    final oldMemberMap = {for (final m in oldConfig.members) m.id: m};
+    final newMemberMap = {for (final m in newConfig.members) m.id: m};
 
-    final addedMembers = newConfig.members.where((m) => !oldMemberIds.contains(m.id)).toList();
-    final removedMembers = oldConfig.members.where((m) => !newMemberIds.contains(m.id)).toList();
-
-    if (addedMembers.length == 1) {
-      changes.add('added member "${addedMembers.first.name}"');
-    } else if (addedMembers.length > 1) {
-      changes.add('added ${addedMembers.length} members');
+    // 1. Added members
+    for (final m in newConfig.members) {
+      if (!oldMemberMap.containsKey(m.id)) {
+        addedMembers.add('Add member "${m.name}" (@${m.id})');
+      }
     }
 
-    if (removedMembers.length == 1) {
-      changes.add('removed member "${removedMembers.first.name}"');
-    } else if (removedMembers.length > 1) {
-      changes.add('removed ${removedMembers.length} members');
+    // 2. Removed members
+    for (final m in oldConfig.members) {
+      if (!newMemberMap.containsKey(m.id)) {
+        removedMembers.add('Remove member "${m.name}" (@${m.id})');
+      }
+    }
+
+    // 3. Updated/renamed members
+    for (final newM in newConfig.members) {
+      final oldM = oldMemberMap[newM.id];
+      if (oldM != null) {
+        final nameChanged = oldM.name.trim() != newM.name.trim();
+        final activeChanged = oldM.active != newM.active;
+
+        if (nameChanged && activeChanged) {
+          final status = newM.active ? 'active' : 'inactive';
+          updatedMembers.add('Rename member "${oldM.name}" to "${newM.name}" and set $status (@${newM.id})');
+        } else if (nameChanged) {
+          updatedMembers.add('Rename member "${oldM.name}" to "${newM.name}" (@${newM.id})');
+        } else if (activeChanged) {
+          if (newM.active) {
+            updatedMembers.add('Activate member "${newM.name}" (@${newM.id})');
+          } else {
+            updatedMembers.add('Deactivate member "${newM.name}" (@${newM.id})');
+          }
+        }
+      }
     }
 
     // Check categories (billTypes)
-    final oldBillIds = oldConfig.billTypes.map((b) => b.id).toSet();
-    final newBillIds = newConfig.billTypes.map((b) => b.id).toSet();
+    final addedBills = <String>[];
+    final removedBills = <String>[];
+    final updatedBills = <String>[];
 
-    final addedBills = newConfig.billTypes.where((b) => !oldBillIds.contains(b.id)).toList();
-    final removedBills = oldConfig.billTypes.where((b) => !newBillIds.contains(b.id)).toList();
+    final oldBillMap = {for (final b in oldConfig.billTypes) b.id: b};
+    final newBillMap = {for (final b in newConfig.billTypes) b.id: b};
 
-    if (addedBills.length == 1) {
-      changes.add('added category "${addedBills.first.icon} ${addedBills.first.name}"');
-    } else if (addedBills.length > 1) {
-      changes.add('added ${addedBills.length} categories');
+    // 1. Added categories
+    for (final b in newConfig.billTypes) {
+      if (!oldBillMap.containsKey(b.id)) {
+        final iconStr = b.icon.trim().isNotEmpty ? '${b.icon.trim()} ' : '';
+        addedBills.add('Add category "$iconStr${b.name.trim()}" (@${b.id})');
+      }
     }
 
-    if (removedBills.length == 1) {
-      changes.add('removed category "${removedBills.first.icon} ${removedBills.first.name}"');
-    } else if (removedBills.length > 1) {
-      changes.add('removed ${removedBills.length} categories');
+    // 2. Removed categories
+    for (final b in oldConfig.billTypes) {
+      if (!newBillMap.containsKey(b.id)) {
+        final iconStr = b.icon.trim().isNotEmpty ? '${b.icon.trim()} ' : '';
+        removedBills.add('Remove category "$iconStr${b.name.trim()}" (@${b.id})');
+      }
+    }
+
+    // 3. Updated categories
+    for (final newB in newConfig.billTypes) {
+      final oldB = oldBillMap[newB.id];
+      if (oldB != null) {
+        final nameChanged = oldB.name.trim() != newB.name.trim();
+        final iconChanged = oldB.icon.trim() != newB.icon.trim();
+
+        if (nameChanged && iconChanged) {
+          final oldDisplay = oldB.icon.trim().isNotEmpty ? '${oldB.icon.trim()} ${oldB.name.trim()}' : oldB.name.trim();
+          final newDisplay = newB.icon.trim().isNotEmpty ? '${newB.icon.trim()} ${newB.name.trim()}' : newB.name.trim();
+          updatedBills.add('Update category "$oldDisplay" to "$newDisplay" (@${newB.id})');
+        } else if (nameChanged) {
+          final iconStr = newB.icon.trim().isNotEmpty ? '${newB.icon.trim()} ' : '';
+          updatedBills.add('Rename category "$iconStr${oldB.name.trim()}" to "${newB.name.trim()}" (@${newB.id})');
+        } else if (iconChanged) {
+          updatedBills.add('Update icon for category "${newB.name.trim()}" from ${oldB.icon.trim()} to ${newB.icon.trim()} (@${newB.id})');
+        }
+      }
     }
 
     // Check general settings
-    if (oldConfig.currency != newConfig.currency) {
-      changes.add('currency (${newConfig.currency})');
+    final generalChanges = <String>[];
+    if (oldConfig.currency.trim() != newConfig.currency.trim() && newConfig.currency.trim().isNotEmpty) {
+      generalChanges.add('Change currency from "${oldConfig.currency.trim()}" to "${newConfig.currency.trim()}"');
     }
-    if (oldConfig.siteTitle != newConfig.siteTitle) {
-      changes.add('title "${newConfig.siteTitle}"');
+    if (oldConfig.siteTitle.trim() != newConfig.siteTitle.trim() && newConfig.siteTitle.trim().isNotEmpty) {
+      generalChanges.add('Change title to "${newConfig.siteTitle.trim()}"');
+    }
+    if (oldConfig.siteSubtitle.trim() != newConfig.siteSubtitle.trim() && newConfig.siteSubtitle.trim().isNotEmpty) {
+      generalChanges.add('Change subtitle to "${newConfig.siteSubtitle.trim()}"');
+    }
+    if (oldConfig.dataFileName.trim() != newConfig.dataFileName.trim() && newConfig.dataFileName.trim().isNotEmpty) {
+      generalChanges.add('Change data file to "${newConfig.dataFileName.trim()}"');
+    }
+    if (oldConfig.repoBranch.trim() != newConfig.repoBranch.trim() && newConfig.repoBranch.trim().isNotEmpty) {
+      generalChanges.add('Change branch to "${newConfig.repoBranch.trim()}"');
     }
 
-    if (changes.isNotEmpty) {
-      return 'Config: ${changes.join(', ')}';
+    final allChanges = [
+      ...addedMembers,
+      ...updatedMembers,
+      ...removedMembers,
+      ...addedBills,
+      ...updatedBills,
+      ...removedBills,
+      ...generalChanges,
+    ];
+
+    if (allChanges.isEmpty) {
+      final oldMemberOrder = oldConfig.members.map((m) => m.id).join(',');
+      final newMemberOrder = newConfig.members.map((m) => m.id).join(',');
+      if (oldMemberOrder != newMemberOrder) {
+        return 'Config: Reorder members';
+      }
+      final oldBillOrder = oldConfig.billTypes.map((b) => b.id).join(',');
+      final newBillOrder = newConfig.billTypes.map((b) => b.id).join(',');
+      if (oldBillOrder != newBillOrder) {
+        return 'Config: Reorder categories';
+      }
+      return 'Config: Update configuration';
     }
 
-    return 'Config: Updated configuration (${newConfig.members.length} members, ${newConfig.billTypes.length} categories)';
+    if (allChanges.length == 1) {
+      return 'Config: ${allChanges.first}';
+    }
+
+    // Multi-line commit with summary subject and bulleted body
+    final hasMemberChanges = addedMembers.isNotEmpty || updatedMembers.isNotEmpty || removedMembers.isNotEmpty;
+    final hasBillChanges = addedBills.isNotEmpty || updatedBills.isNotEmpty || removedBills.isNotEmpty;
+    final hasGeneralChanges = generalChanges.isNotEmpty;
+
+    String subject;
+    if (hasMemberChanges && !hasBillChanges && !hasGeneralChanges) {
+      subject = 'Config: Update members (${allChanges.length} changes)';
+    } else if (!hasMemberChanges && hasBillChanges && !hasGeneralChanges) {
+      subject = 'Config: Update categories (${allChanges.length} changes)';
+    } else if (!hasMemberChanges && !hasBillChanges && hasGeneralChanges) {
+      subject = 'Config: Update settings (${allChanges.length} changes)';
+    } else {
+      subject = 'Config: Update configuration (${allChanges.length} changes)';
+    }
+
+    final body = allChanges.map((c) => '- $c').join('\n');
+    return '$subject\n\n$body';
   }
 }

@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -17,8 +17,48 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository code
         uses: actions/checkout@v4
+
+      - name: Update config.json automatically
+        run: |
+          CONFIG_FILE="config.json"
+          if [ -f "$CONFIG_FILE" ]; then
+            # Extract owner, repository name, and branch
+            REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+            REPO_NAME="${GITHUB_REPOSITORY#*/}"
+            REPO_BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+
+            # 1. Read existing values from the file (defaulting to empty string if missing)
+            OLD_OWNER=$(jq -r '.repoOwner // ""' "$CONFIG_FILE")
+            OLD_NAME=$(jq -r '.repoName // ""' "$CONFIG_FILE")
+            OLD_BRANCH=$(jq -r '.repoBranch // ""' "$CONFIG_FILE")
+
+            echo "Current file values -> Owner: '$OLD_OWNER', Name: '$OLD_NAME', Branch: '$OLD_BRANCH'"
+            echo "Target repo values   -> Owner: '$REPO_OWNER', Name: '$REPO_NAME', Branch: '$REPO_BRANCH'"
+
+            # 2. Check if the values match perfectly
+            if [ "$OLD_OWNER" = "$REPO_OWNER" ] && [ "$OLD_NAME" = "$REPO_NAME" ] && [ "$OLD_BRANCH" = "$REPO_BRANCH" ]; then
+              echo "✅ Config fields already match the current repository. Skipping update!"
+            else
+              echo "🔄 Configuration mismatch or empty. Updating config.json..."
+
+              # 3. Use jq to update the values inline
+              jq --arg owner "$REPO_OWNER" \
+                 --arg name "$REPO_NAME" \
+                 --arg branch "$REPO_BRANCH" \
+                 '.repoOwner = $owner | .repoName = $name | .repoBranch = $branch' \
+                 "$CONFIG_FILE" > temp.json && mv temp.json "$CONFIG_FILE"
+
+              # 4. Commit and push only if there are changes
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git add "$CONFIG_FILE"
+              git commit -m "chore: sync config.json with repository settings [skip ci]" || true
+              git push || true
+              echo "🎉 config.json updated and committed successfully!"
+            fi
+          fi
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2

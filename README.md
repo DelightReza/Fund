@@ -25,7 +25,7 @@ The application features a **100% Liquid Glass (Frosted Glassmorphism)** design 
 * **Equal & Custom Unequal Splits**:
   * Equal division across all participants with automatic 1-cent rounding adjustment.
   * Custom decimal amounts with real-time percentage allocation badges and validation.
-* **Smart Repeat / Copy**: One-tap duplication of previous expenses with pre-filled category, split participants, and amounts.
+* **Intelligent Duplicate Prevention**: Built-in 1-hour anti-collision safeguard that automatically detects and blocks identical duplicate transactions (matching amount, category, payer, and participants within a 60-minute window).
 * **Visual Confirmation Dialogs**: Interactive pre-submission review showing payer, recipients, category, custom breakdown, and notes with specular frosted modals.
 
 ### 📊 Financial Ledger, Analytics & Debt Simplifier
@@ -155,7 +155,7 @@ To compile release APKs or Android App Bundles (AAB) for Google Play or direct i
 │   ├── repositories/
 │   │   └── fund_repository.dart       # Workspace state, cache invalidation, 3-way merge sync
 │   ├── screens/
-│   │   ├── add_transaction_screen.dart# Transaction creation, custom splits, repeat action
+│   │   ├── add_transaction_screen.dart# Transaction creation and custom split breakdown
 │   │   ├── admin_screen.dart          # Admin control panel, sync modals, quick action grid
 │   │   ├── category_expenses_screen.dart # Filtered expenses by category with month chips
 │   │   ├── home_screen.dart           # Dashboard, Ledger, People, and Category tabs
@@ -178,6 +178,15 @@ To compile release APKs or Android App Bundles (AAB) for Google Play or direct i
 │   │   ├── format_utils.dart          # Currency formatting and percentage helpers
 │   │   └── web_route_helper.dart      # Web URL synchronization & query param handling
 │   └── widgets/
+│       ├── admin/
+│       │   ├── admin_action_card.dart         # Frosted glass admin quick action cards
+│       │   └── admin_data_management_helper.dart # File upload, JSON parser, and 3-way merge import modal
+│       ├── home/
+│       │   └── transaction_filter_sheets.dart # Frosted bottom filter sheets (type, month, member, bill)
+│       ├── transaction/
+│       │   ├── custom_split_allocation_section.dart # Custom unequal split input grid with real-time badges
+│       │   ├── transaction_date_time_picker.dart    # Cupertino/Material date & time picker trigger
+│       │   └── transaction_form_selectors.dart      # Frosted participant selectors and bill category chips
 │       ├── admin_pat_modal.dart       # Frosted glass GitHub PAT authentication modal
 │       ├── confirmation_dialog.dart   # Transaction pre-flight review & animated success dialogs
 │       ├── glass_container.dart       # Core Liquid Glass engine (AuroraBackground, GlassCard)

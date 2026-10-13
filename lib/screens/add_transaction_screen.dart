@@ -9,6 +9,8 @@ import '../utils/format_utils.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../utils/app_router.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/transaction/transaction_date_time_picker.dart';
+import '../widgets/transaction/custom_split_allocation_section.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final TransactionModel? existingTransaction;
@@ -1024,103 +1026,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 }
 
   Widget _buildDateTimePickers(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildSectionHeader('Date & Time'),
-            TextButton.icon(
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              onPressed: _setToCurrentDateTime,
-              icon: const Icon(Icons.restore_rounded, size: 16),
-              label: const Text('Set Now', style: TextStyle(fontSize: 12)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            // Date Picker Tile
-            Expanded(
-              flex: 3,
-              child: InkWell(
-                onTap: _pickDate,
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: theme.dividerColor),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Date', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                            Text(
-                              AppDateUtils.formatDisplayDate(_selectedDate),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_drop_down, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Time Picker Tile
-            Expanded(
-              flex: 2,
-              child: InkWell(
-                onTap: _pickTime,
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: theme.dividerColor),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.access_time_rounded, size: 18, color: Colors.grey),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Time', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                            Text(
-                              AppDateUtils.formatTimeOfDay(_selectedTime, context),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_drop_down, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+    return TransactionDateTimePickerTile(
+      selectedDate: _selectedDate,
+      selectedTime: _selectedTime,
+      onPickDate: _pickDate,
+      onPickTime: _pickTime,
+      onSetNow: _setToCurrentDateTime,
     );
   }
 
@@ -1362,426 +1273,51 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     });
   }
 
-  Widget _buildSplitModeChip({
-    required String label,
-    required IconData icon,
-    required bool isSelected,
-    required Color activeColor,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? activeColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: activeColor.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected ? Colors.white : Colors.grey.shade700,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSplitConfigurationSection(
     List<MemberConfig> members,
     Color activeColor,
     String currency,
   ) {
     final activeMembers = members.where((m) => m.active).toList();
-    final double totalAmount = double.tryParse(_amountController.text.trim()) ?? 0.0;
-    final double allocated = _getCustomAllocatedTotal();
-    final double diff = totalAmount - allocated;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildSectionHeader('Split Allocation'),
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  _buildSplitModeChip(
-                    label: 'Equal',
-                    icon: Icons.pie_chart_outline_rounded,
-                    isSelected: _splitMode == 'equal',
-                    activeColor: activeColor,
-                    onTap: () {
-                      setState(() => _splitMode = 'equal');
-                    },
-                  ),
-                  _buildSplitModeChip(
-                    label: 'Custom',
-                    icon: Icons.tune_rounded,
-                    isSelected: _splitMode == 'custom',
-                    activeColor: activeColor,
-                    onTap: () {
-                      setState(() {
-                        _splitMode = 'custom';
-                        if (allocated == 0.0 && totalAmount > 0) {
-                          _distributeEvenlyToCustom(activeMembers);
-                        }
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-
-        if (_splitMode == 'equal') ...[
-          const Text(
-            'Tap member chips to toggle inclusion or exemption in this split:',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          const SizedBox(height: 8),
-          _buildExemptionToggles(members, activeColor),
-          if (totalAmount > 0) ...[
-            const SizedBox(height: 10),
-            Builder(
-              builder: (context) {
-                final includedCount = activeMembers.where((m) => !_exemptions.contains(m.id)).length;
-                if (includedCount > 0) {
-                  final perPerson = totalAmount / includedCount;
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: activeColor.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: activeColor.withValues(alpha: 0.25)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline, size: 16, color: activeColor),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Split equally among $includedCount member${includedCount > 1 ? 's' : ''}: ~${FormatUtils.formatCurrency(perPerson, currency)} each',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: activeColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ],
-        ] else ...[
-          // EXACT AMOUNT SPLIT MODE
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Enter exact amounts allocated to each member:',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ),
-              Wrap(
-                spacing: 6,
-                children: [
-                  InkWell(
-                    onTap: () => _distributeEvenlyToCustom(activeMembers),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: activeColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.auto_fix_high, size: 14, color: activeColor),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Split Evenly',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: activeColor),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        for (final m in activeMembers) {
-                          _getCustomController(m.id).clear();
-                        }
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.refresh, size: 14, color: Colors.grey),
-                          SizedBox(width: 4),
-                          Text(
-                            'Clear',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          ...activeMembers.map((m) {
-            final isIncluded = !_exemptions.contains(m.id);
-            final ctrl = _getCustomController(m.id);
-            final memberVal = double.tryParse(ctrl.text.trim()) ?? 0.0;
-            final pct = totalAmount > 0 ? (memberVal / totalAmount) * 100 : 0.0;
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: isIncluded
-                    ? Theme.of(context).colorScheme.surface
-                    : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isIncluded
-                      ? (memberVal > 0 ? activeColor.withValues(alpha: 0.5) : Colors.grey.shade300)
-                      : Colors.transparent,
-                  width: memberVal > 0 ? 1.5 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        if (_exemptions.contains(m.id)) {
-                          _exemptions.remove(m.id);
-                        } else {
-                          _exemptions.add(m.id);
-                          _getCustomController(m.id).clear();
-                        }
-                      });
-                    },
-                    child: CircleAvatar(
-                      radius: 14,
-                      backgroundColor: isIncluded ? activeColor.withValues(alpha: 0.15) : Colors.grey.shade300,
-                      child: Text(
-                        m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: isIncluded ? activeColor : Colors.grey.shade700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          m.name,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: isIncluded ? null : Colors.grey,
-                            decoration: isIncluded ? null : TextDecoration.lineThrough,
-                          ),
-                        ),
-                        if (isIncluded && totalAmount > 0 && memberVal > 0)
-                          Text(
-                            '${pct.toStringAsFixed(1)}% of total',
-                            style: TextStyle(fontSize: 11, color: activeColor, fontWeight: FontWeight.w500),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (isIncluded) ...[
-                    SizedBox(
-                      width: 130,
-                      height: 42,
-                      child: TextField(
-                        controller: ctrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        textAlign: TextAlign.end,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        onChanged: (_) {
-                          setState(() {});
-                        },
-                        decoration: InputDecoration(
-                          prefixText: '$currency ',
-                          prefixStyle: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: activeColor,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: activeColor, width: 2),
-                          ),
-                          hintText: '0.00',
-                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text('Exempt', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          }),
-
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: diff.abs() <= 0.05
-                    ? Colors.green.withValues(alpha: 0.5)
-                    : (diff > 0.05 ? Colors.orange.withValues(alpha: 0.5) : Colors.red.withValues(alpha: 0.5)),
-                width: 1.5,
-              ),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Total Expense:', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-                    Text(
-                      FormatUtils.formatCurrency(totalAmount, currency),
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Allocated So Far:', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-                    Text(
-                      FormatUtils.formatCurrency(allocated, currency),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: diff.abs() <= 0.05 ? Colors.green : (diff > 0 ? Colors.orange.shade800 : Colors.red),
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 12),
-                Row(
-                  children: [
-                    Icon(
-                      diff.abs() <= 0.05
-                          ? Icons.check_circle_rounded
-                          : (diff > 0.05 ? Icons.pending_outlined : Icons.error_outline_rounded),
-                      size: 16,
-                      color: diff.abs() <= 0.05 ? Colors.green : (diff > 0 ? Colors.orange.shade800 : Colors.red),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        diff.abs() <= 0.05
-                            ? 'Allocations perfectly match transaction amount'
-                            : (diff > 0.05
-                                ? '${FormatUtils.formatCurrency(diff, currency)} remaining to allocate'
-                                : '${FormatUtils.formatCurrency(-diff, currency)} over-allocated'),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: diff.abs() <= 0.05 ? Colors.green : (diff > 0 ? Colors.orange.shade800 : Colors.red),
-                        ),
-                      ),
-                    ),
-                    if (diff > 0.05) ...[
-                      InkWell(
-                        onTap: () => _splitRemainingEqually(activeMembers),
-                        child: Text(
-                          'Fill Remaining',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: activeColor,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
+    return CustomSplitAllocationSection(
+      members: members,
+      exemptions: _exemptions,
+      amountController: _amountController,
+      activeColor: activeColor,
+      currency: currency,
+      splitMode: _splitMode,
+      onSplitModeChanged: (mode) {
+        setState(() {
+          _splitMode = mode;
+          if (mode == 'custom' && _getCustomAllocatedTotal() == 0.0) {
+            final amt = double.tryParse(_amountController.text.trim()) ?? 0.0;
+            if (amt > 0) {
+              _distributeEvenlyToCustom(activeMembers);
+            }
+          }
+        });
+      },
+      getController: _getCustomController,
+      onDistributeEvenly: () => _distributeEvenlyToCustom(activeMembers),
+      onClearAll: () {
+        setState(() {
+          for (final m in activeMembers) {
+            _getCustomController(m.id).clear();
+          }
+        });
+      },
+      onSplitRemaining: () => _splitRemainingEqually(activeMembers),
+      onToggleExemption: (memberId, included) {
+        setState(() {
+          if (included) {
+            _exemptions.remove(memberId);
+          } else {
+            _exemptions.add(memberId);
+            _getCustomController(memberId).clear();
+          }
+        });
+      },
+      onCustomAmountChanged: () => setState(() {}),
     );
   }
 }

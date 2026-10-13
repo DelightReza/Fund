@@ -11,6 +11,7 @@ import 'theme/app_theme.dart';
 import 'screens/repo_selection_screen.dart';
 import 'screens/user_selection_screen.dart';
 import 'screens/main_screen.dart';
+import 'utils/web_prefetch_helper.dart';
 import 'utils/web_route_helper.dart';
 
 void main() async {
@@ -69,92 +70,84 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
       final repo = context.read<FundRepository>();
 
       if (kIsWeb) {
-        // 1. Web Flow - Loads relative or remote config.json & data.json completely before displaying the UI
-        final api = GitHubApiService();
-        AppConfig? config;
-        FundData? data;
+        // 1. Web Flow - Instant Launch from cache followed by non-blocking background sync
+        AppConfig? config = storage.currentConfig;
+        FundData? data = storage.currentDataCache;
 
-        // Try reading relative config.json (e.g. GitHub Pages or local web server)
-        final relativeConfigRaw = await api.fetchRelativeFile('config.json');
-        if (relativeConfigRaw != null && relativeConfigRaw.trim().isNotEmpty) {
-          try {
-            config = AppConfig.fromJson(jsonDecode(relativeConfigRaw));
-          } catch (_) {}
-        }
-
-        // Fallback to storage config if relative wasn't found
-        config ??= await storage.getConfig();
-
-        // If config has repository details, fetch latest remote config if possible
-        if (config != null && config.hasRepository) {
-          final owner = config.repoOwner;
-          final repoName = config.repoName;
-          final token = await storage.getToken(owner: owner, repo: repoName);
-          final remoteConfigFile = await api.getFileDetails(
-            token: token,
-            owner: owner,
-            repo: repoName,
-            path: 'config.json',
-            branch: config.repoBranch.isNotEmpty ? config.repoBranch : null,
-          );
-          if (remoteConfigFile != null && remoteConfigFile.content.isNotEmpty) {
+        // Check if early prefetch restored config/data from window or localStorage
+        if (config == null) {
+          final prefetchedCfg = WebPrefetchHelper.getPrefetchedConfigRaw();
+          if (prefetchedCfg != null && prefetchedCfg.trim().isNotEmpty) {
             try {
-              final decoded = utf8.decode(base64.decode(remoteConfigFile.content));
-              final parsed = AppConfig.fromJson(jsonDecode(decoded));
-              config = parsed.copyWith(
-                repoOwner: parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
-                repoName: parsed.repoName.isNotEmpty ? parsed.repoName : repoName,
-                repoBranch: parsed.repoBranch.isNotEmpty ? parsed.repoBranch : config.repoBranch,
-                dataFileName: parsed.dataFileName.isNotEmpty ? parsed.dataFileName : config.dataFileName,
-              );
+              config = AppConfig.fromJson(jsonDecode(prefetchedCfg));
+            } catch (_) {}
+          }
+        }
+        if (data == null) {
+          final prefetchedData = WebPrefetchHelper.getPrefetchedDataRaw();
+          if (prefetchedData != null && prefetchedData.trim().isNotEmpty) {
+            try {
+              data = FundData.fromJson(jsonDecode(prefetchedData));
             } catch (_) {}
           }
         }
 
-        // Try reading relative data.json or custom dataFileName
-        final dataFileName = config?.dataFileName ?? 'data.json';
-        final relativeDataRaw = await api.fetchRelativeFile(dataFileName);
-        if (relativeDataRaw != null && relativeDataRaw.trim().isNotEmpty) {
-          try {
-            data = FundData.fromJson(jsonDecode(relativeDataRaw));
-          } catch (_) {}
-        }
+        // If cached or prefetched config is available, launch IMMEDIATELY!
+        if (config != null) {
+          data ??= FundData();
+          data.updateSummaries(config);
+          repo.initializeData(config, data);
 
-        // If data is null or has 0 transactions, and repository is configured, actively fetch full data from GitHub!
-        if ((data == null || data.transactions.isEmpty) && config != null && config.hasRepository) {
-          final owner = config.repoOwner;
-          final repoName = config.repoName;
-          final token = await storage.getToken(owner: owner, repo: repoName);
-          final remoteDataFile = await api.getFileDetails(
-            token: token,
-            owner: owner,
-            repo: repoName,
-            path: dataFileName,
-            branch: config.repoBranch.isNotEmpty ? config.repoBranch : null,
-          );
-          if (remoteDataFile != null && remoteDataFile.content.isNotEmpty) {
-            try {
-              final decoded = utf8.decode(base64.decode(remoteDataFile.content));
-              data = FundData.fromJson(jsonDecode(decoded));
-            } catch (_) {}
+          if (config.hasRepository) {
+            await storage.setActiveRepo(config.repoOwner, config.repoName);
+            await storage.saveConfig(config, owner: config.repoOwner, repo: config.repoName);
+            await storage.saveDataCache(data, owner: config.repoOwner, repo: config.repoName);
           }
-        }
 
-        // Fallbacks
-        config ??= storage.currentConfig ??
-            AppConfig(
-              repoOwner: '',
-              repoName: '',
-              siteTitle: 'Fund',
-              siteSubtitle: 'Expense Tracker',
-              currency: '₹',
-              members: [MemberConfig(id: 'me', name: 'Me', active: true)],
-              billTypes: [
-                BillTypeConfig(id: 'expense', name: 'General Expense', icon: '🧾')
-              ],
+          if (mounted) {
+            final initialRoute = WebRouteHelper.getCurrentRoute() ?? storage.getLastRoute();
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => MainScreen(initialRoute: initialRoute)),
             );
+          }
 
-        data ??= storage.currentDataCache ?? FundData();
+          // Trigger background sync to pull fresh updates without blocking UI
+          _syncWebInBackground(storage, repo, config);
+          return;
+        }
+
+        // First-time visit: no cached config exists yet.
+        // Fetch relative config.json with a brief timeout
+        final api = GitHubApiService();
+        try {
+          final relativeConfigRaw = await api.fetchRelativeFile('config.json').timeout(const Duration(seconds: 3));
+          if (relativeConfigRaw != null && relativeConfigRaw.trim().isNotEmpty) {
+            config = AppConfig.fromJson(jsonDecode(relativeConfigRaw));
+          }
+        } catch (_) {}
+
+        final dataFileName = config?.dataFileName ?? 'data.json';
+        try {
+          final relativeDataRaw = await api.fetchRelativeFile(dataFileName).timeout(const Duration(seconds: 3));
+          if (relativeDataRaw != null && relativeDataRaw.trim().isNotEmpty) {
+            data = FundData.fromJson(jsonDecode(relativeDataRaw));
+          }
+        } catch (_) {}
+
+        // Fallbacks if first visit was offline or empty
+        config ??= AppConfig(
+          repoOwner: '',
+          repoName: '',
+          siteTitle: 'Fund',
+          siteSubtitle: 'Expense Tracker',
+          currency: '₹',
+          members: [MemberConfig(id: 'me', name: 'Me', active: true)],
+          billTypes: [
+            BillTypeConfig(id: 'expense', name: 'General Expense', icon: '🧾')
+          ],
+        );
+
+        data ??= FundData();
         data.updateSummaries(config);
 
         if (config.hasRepository) {
@@ -171,6 +164,8 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
             MaterialPageRoute(builder: (_) => MainScreen(initialRoute: initialRoute)),
           );
         }
+
+        _syncWebInBackground(storage, repo, config);
       } else {
         // 2. Mobile / App Flow - Prompts RepoSelection and UserSelection
         final config = await storage.getConfig();
@@ -215,6 +210,124 @@ class _AppBootstrapScreenState extends State<AppBootstrapScreen> {
         });
       }
     }
+  }
+
+  static void _syncWebInBackground(
+    StorageService storage,
+    FundRepository repo,
+    AppConfig initialConfig,
+  ) {
+    Future.microtask(() async {
+      try {
+        final api = GitHubApiService();
+        AppConfig latestConfig = initialConfig;
+        FundData? latestData = repo.data ?? storage.currentDataCache;
+
+        // 1. Fetch fresh relative config.json
+        final relativeConfigRaw = await api.fetchRelativeFile('config.json');
+        if (relativeConfigRaw != null && relativeConfigRaw.trim().isNotEmpty) {
+          try {
+            final parsed = AppConfig.fromJson(jsonDecode(relativeConfigRaw));
+            latestConfig = parsed.copyWith(
+              repoOwner: parsed.repoOwner.isNotEmpty ? parsed.repoOwner : initialConfig.repoOwner,
+              repoName: parsed.repoName.isNotEmpty ? parsed.repoName : initialConfig.repoName,
+              repoBranch: parsed.repoBranch.isNotEmpty ? parsed.repoBranch : initialConfig.repoBranch,
+              dataFileName: parsed.dataFileName.isNotEmpty ? parsed.dataFileName : initialConfig.dataFileName,
+            );
+          } catch (_) {}
+        }
+
+        // 2. If configured with GitHub repo, check remote config
+        if (latestConfig.hasRepository) {
+          final owner = latestConfig.repoOwner;
+          final repoName = latestConfig.repoName;
+          final token = await storage.getToken(owner: owner, repo: repoName);
+          final remoteConfigFile = await api.getFileDetails(
+            token: token,
+            owner: owner,
+            repo: repoName,
+            path: 'config.json',
+            branch: latestConfig.repoBranch.isNotEmpty ? latestConfig.repoBranch : null,
+          );
+          if (remoteConfigFile != null && remoteConfigFile.content.isNotEmpty) {
+            try {
+              final decoded = utf8.decode(base64.decode(remoteConfigFile.content));
+              final parsed = AppConfig.fromJson(jsonDecode(decoded));
+              latestConfig = parsed.copyWith(
+                repoOwner: parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
+                repoName: parsed.repoName.isNotEmpty ? parsed.repoName : repoName,
+                repoBranch: parsed.repoBranch.isNotEmpty ? parsed.repoBranch : latestConfig.repoBranch,
+                dataFileName: parsed.dataFileName.isNotEmpty ? parsed.dataFileName : latestConfig.dataFileName,
+              );
+            } catch (_) {}
+          }
+        }
+
+        // 3. Fetch fresh relative data
+        final dataFileName = latestConfig.dataFileName.isNotEmpty ? latestConfig.dataFileName : 'data.json';
+        final relativeDataRaw = await api.fetchRelativeFile(dataFileName);
+        if (relativeDataRaw != null && relativeDataRaw.trim().isNotEmpty) {
+          try {
+            latestData = FundData.fromJson(jsonDecode(relativeDataRaw));
+          } catch (_) {}
+        }
+
+        // 4. If remote repo configured, also pull from GitHub if needed
+        if (latestConfig.hasRepository) {
+          final owner = latestConfig.repoOwner;
+          final repoName = latestConfig.repoName;
+          final token = await storage.getToken(owner: owner, repo: repoName);
+          final remoteDataFile = await api.getFileDetails(
+            token: token,
+            owner: owner,
+            repo: repoName,
+            path: dataFileName,
+            branch: latestConfig.repoBranch.isNotEmpty ? latestConfig.repoBranch : null,
+          );
+          if (remoteDataFile != null && remoteDataFile.content.isNotEmpty) {
+            try {
+              final decoded = utf8.decode(base64.decode(remoteDataFile.content));
+              latestData = FundData.fromJson(jsonDecode(decoded));
+            } catch (_) {}
+          }
+        }
+
+        if (latestData != null) {
+          final owner = latestConfig.hasRepository ? latestConfig.repoOwner : null;
+          final repo = latestConfig.hasRepository ? latestConfig.repoName : null;
+          final activeDeletedTxIds = storage.getDeletedTxIds(owner: owner, repo: repo);
+          final activeDeletedParentIds = storage.getDeletedParentIds(owner: owner, repo: repo);
+          if (activeDeletedTxIds.isNotEmpty || activeDeletedParentIds.isNotEmpty) {
+            latestData.transactions.removeWhere((t) =>
+                activeDeletedTxIds.contains(t.id) ||
+                (t.parentId != null && activeDeletedParentIds.contains(t.parentId)));
+          }
+          latestData.updateSummaries(latestConfig);
+        }
+
+        // 5. Update local storage, early web cache, and repository
+        if (latestConfig.hasRepository) {
+          await storage.setActiveRepo(latestConfig.repoOwner, latestConfig.repoName);
+          await storage.saveConfig(latestConfig, owner: latestConfig.repoOwner, repo: latestConfig.repoName);
+          if (latestData != null) {
+            await storage.saveDataCache(latestData, owner: latestConfig.repoOwner, repo: latestConfig.repoName);
+          }
+        } else {
+          await storage.saveConfig(latestConfig);
+          if (latestData != null) {
+            await storage.saveDataCache(latestData);
+          }
+        }
+
+        if (latestData != null) {
+          WebPrefetchHelper.updateEarlyCache(
+            jsonEncode(latestConfig.toJson()),
+            jsonEncode(latestData.toJson()),
+          );
+          repo.initializeData(latestConfig, latestData);
+        }
+      } catch (_) {}
+    });
   }
 
   @override

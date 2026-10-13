@@ -15,6 +15,7 @@ import '../widgets/admin_pat_modal.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/summary_cards.dart';
 import '../widgets/transaction_tile.dart';
+import '../widgets/home/transaction_filter_sheets.dart';
 import 'category_expenses_screen.dart';
 import 'profile_screen.dart';
 import 'repo_selection_screen.dart';
@@ -359,63 +360,112 @@ class _HomeScreenState extends State<HomeScreen>
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Switch Repository',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-              ),
-              const SizedBox(height: 12),
-              if (workspaces.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('No other workspaces saved.', style: TextStyle(color: Colors.grey)),
-                )
-              else
-                ...workspaces.map(
-                  (ws) {
-                    final isSelected = ws.owner.toLowerCase() == (currentOwner ?? '').toLowerCase() &&
-                        ws.repo.toLowerCase() == (currentRepo ?? '').toLowerCase();
+      builder: (ctx) {
+        final maxHeight = MediaQuery.of(ctx).size.height * 0.75;
+        final theme = Theme.of(ctx);
 
-                    return ListTile(
-                      leading: const Icon(Icons.folder_shared_outlined),
-                      title: Text('${ws.owner}/${ws.repo}',
-                          style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          )),
-                      subtitle: Text(ws.title ?? 'Fund Repository'),
-                      trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        if (!isSelected) {
-                          context.read<FundRepository>().switchWorkspace(ws.owner, ws.repo);
-                        }
-                      },
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.dividerColor.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Switch Repository',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: workspaces.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Text('No other workspaces saved.', style: TextStyle(color: Colors.grey)),
+                        )
+                      : Scrollbar(
+                          thumbVisibility: true,
+                          child: ListView(
+                            shrinkWrap: true,
+                            physics: const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            children: workspaces.map((ws) {
+                              final isSelected = ws.owner.toLowerCase() == (currentOwner ?? '').toLowerCase() &&
+                                  ws.repo.toLowerCase() == (currentRepo ?? '').toLowerCase();
+
+                              return ListTile(
+                                leading: const Icon(Icons.folder_shared_outlined),
+                                title: Text(
+                                  '${ws.owner}/${ws.repo}',
+                                  style: TextStyle(
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                                subtitle: Text(ws.title ?? 'Fund Repository'),
+                                selected: isSelected,
+                                selectedTileColor: theme.colorScheme.primary.withValues(alpha: 0.08),
+                                trailing: isSelected ? Icon(Icons.check_rounded, color: theme.colorScheme.primary) : null,
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  if (!isSelected) {
+                                    context.read<FundRepository>().switchWorkspace(ws.owner, ws.repo);
+                                  }
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(Icons.add_circle_outline, color: theme.colorScheme.primary),
+                  title: Text(
+                    'Add or Connect Another Repository',
+                    style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const RepoSelectionScreen()),
                     );
                   },
                 ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.add_circle_outline, color: Colors.blue),
-                title: const Text('Add or Connect Another Repository'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const RepoSelectionScreen()),
-                  );
-                },
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1227,196 +1277,57 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showTypeFilterSheet() {
-    showModalBottomSheet(
+    TransactionFilterSheets.showTypeFilterSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Filter by Transaction Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: const Icon(Icons.all_inclusive_rounded),
-                title: const Text('All Transactions'),
-                trailing: _selectedFilterType == 'all' ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedFilterType = 'all';
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.arrow_downward_rounded, color: Colors.green),
-                title: const Text('Deposits / Credits'),
-                trailing: _selectedFilterType == 'credit' ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedFilterType = 'credit';
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.arrow_upward_rounded, color: Colors.red),
-                title: const Text('Expenses / Debits'),
-                trailing: _selectedFilterType == 'debit' ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedFilterType = 'debit';
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+      currentType: _selectedFilterType,
+      onSelected: (val) {
+        setState(() {
+          _selectedFilterType = val;
+          _transactionLimit = 20;
+        });
+      },
     );
   }
 
   void _showMonthFilterSheet(List<String> months) {
-    showModalBottomSheet(
+    TransactionFilterSheets.showMonthFilterSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Filter by Month', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              ListTile(
-                title: const Text('All Months'),
-                trailing: _selectedMonthFilter == null ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedMonthFilter = null;
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ...months.map(
-                (m) => ListTile(
-                  title: Text(AppDateUtils.formatMonthName(m)),
-                  subtitle: Text(m, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  trailing: _selectedMonthFilter == m ? const Icon(Icons.check, color: Colors.blue) : null,
-                  onTap: () {
-                    setState(() {
-                      _selectedMonthFilter = m;
-                      _transactionLimit = 20;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      months: months,
+      currentMonth: _selectedMonthFilter,
+      onSelected: (val) {
+        setState(() {
+          _selectedMonthFilter = val;
+          _transactionLimit = 20;
+        });
+      },
     );
   }
 
   void _showMemberFilterSheet(AppConfig config) {
-    showModalBottomSheet(
+    TransactionFilterSheets.showMemberFilterSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Filter by Member', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              ListTile(
-                title: const Text('All Members'),
-                trailing: _selectedMemberFilter == null ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedMemberFilter = null;
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ...config.members.map(
-                (m) => ListTile(
-                  leading: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                    child: Text(m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
-                        style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
-                  title: Text(m.name),
-                  subtitle: Text('@${m.id}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  trailing: _selectedMemberFilter == m.id ? const Icon(Icons.check, color: Colors.blue) : null,
-                  onTap: () {
-                    setState(() {
-                      _selectedMemberFilter = m.id;
-                      _transactionLimit = 20;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      config: config,
+      currentMemberId: _selectedMemberFilter,
+      onSelected: (val) {
+        setState(() {
+          _selectedMemberFilter = val;
+          _transactionLimit = 20;
+        });
+      },
     );
   }
 
   void _showBillFilterSheet(AppConfig config) {
-    showModalBottomSheet(
+    TransactionFilterSheets.showBillFilterSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Filter by Bill Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              ListTile(
-                title: const Text('All Categories'),
-                trailing: _selectedBillFilter == null ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedBillFilter = null;
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ...config.billTypes.map(
-                (b) => ListTile(
-                  leading: Text(b.icon, style: const TextStyle(fontSize: 20)),
-                  title: Text(b.name),
-                  subtitle: Text(b.id, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  trailing: _selectedBillFilter == b.id ? const Icon(Icons.check, color: Colors.blue) : null,
-                  onTap: () {
-                    setState(() {
-                      _selectedBillFilter = b.id;
-                      _transactionLimit = 20;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      config: config,
+      currentBillId: _selectedBillFilter,
+      onSelected: (val) {
+        setState(() {
+          _selectedBillFilter = val;
+          _transactionLimit = 20;
+        });
+      },
     );
   }
 

@@ -530,4 +530,56 @@ class StorageService extends ChangeNotifier {
     await _prefs.remove(_legacyKeyLastRouteTime);
     notifyListeners();
   }
+
+  // Deletion Tombstones: tombstones_tx_${repoOwner}_${repoName} & tombstones_parent_${repoOwner}_${repoName}
+  static String tombstonesTxKey(String? owner, String? repo) {
+    if (owner != null && owner.isNotEmpty && repo != null && repo.isNotEmpty) {
+      return 'tombstones_tx_${owner}_$repo';
+    }
+    return 'tombstones_tx_global';
+  }
+
+  static String tombstonesParentKey(String? owner, String? repo) {
+    if (owner != null && owner.isNotEmpty && repo != null && repo.isNotEmpty) {
+      return 'tombstones_parent_${owner}_$repo';
+    }
+    return 'tombstones_parent_global';
+  }
+
+  Set<String> getDeletedTxIds({String? owner, String? repo}) {
+    final list = _prefs.getStringList(tombstonesTxKey(owner, repo));
+    return list != null ? list.toSet() : <String>{};
+  }
+
+  Set<String> getDeletedParentIds({String? owner, String? repo}) {
+    final list = _prefs.getStringList(tombstonesParentKey(owner, repo));
+    return list != null ? list.toSet() : <String>{};
+  }
+
+  Future<void> addDeletedTombstone({String? txId, String? parentId, String? owner, String? repo}) async {
+    if (txId != null && txId.isNotEmpty) {
+      final current = getDeletedTxIds(owner: owner, repo: repo);
+      current.add(txId);
+      await _prefs.setStringList(tombstonesTxKey(owner, repo), current.toList());
+    }
+    if (parentId != null && parentId.isNotEmpty) {
+      final current = getDeletedParentIds(owner: owner, repo: repo);
+      current.add(parentId);
+      await _prefs.setStringList(tombstonesParentKey(owner, repo), current.toList());
+    }
+  }
+
+  Future<void> removeDeletedTombstones({Set<String>? txIds, Set<String>? parentIds, String? owner, String? repo}) async {
+    if (txIds != null && txIds.isNotEmpty) {
+      final current = getDeletedTxIds(owner: owner, repo: repo);
+      current.removeAll(txIds);
+      await _prefs.setStringList(tombstonesTxKey(owner, repo), current.toList());
+    }
+    if (parentIds != null && parentIds.isNotEmpty) {
+      final current = getDeletedParentIds(owner: owner, repo: repo);
+      current.removeAll(parentIds);
+      await _prefs.setStringList(tombstonesParentKey(owner, repo), current.toList());
+    }
+  }
 }
+
