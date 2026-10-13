@@ -72,7 +72,8 @@ class BillTypeConfig {
         'icon': icon,
       };
 
-  BillTypeConfig copyWith({String? id, String? name, String? icon, bool? active}) {
+  BillTypeConfig copyWith(
+      {String? id, String? name, String? icon, bool? active}) {
     return BillTypeConfig(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -164,7 +165,8 @@ class AppConfig {
     );
   }
 
-  bool get hasRepository => repoOwner.trim().isNotEmpty && repoName.trim().isNotEmpty;
+  bool get hasRepository =>
+      repoOwner.trim().isNotEmpty && repoName.trim().isNotEmpty;
 
   Map<String, dynamic> toJson() => {
         'siteTitle': siteTitle,

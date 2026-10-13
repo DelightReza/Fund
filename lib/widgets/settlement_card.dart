@@ -61,7 +61,9 @@ class SettlementCard extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                fromMember.name.isNotEmpty ? fromMember.name[0].toUpperCase() : '?',
+                fromMember.name.isNotEmpty
+                    ? fromMember.name[0].toUpperCase()
+                    : '?',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -111,12 +113,14 @@ class SettlementCard extends StatelessWidget {
                       children: [
                         TextSpan(
                           text: fromMember.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         const TextSpan(text: ' pays '),
                         TextSpan(
                           text: toMember.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                       ],
                     ),

@@ -26,24 +26,37 @@ class FundDataMerger {
     final bWho = b.whoOrBill.trim().toLowerCase();
     if (aWho != bWho) return false;
 
-    final aPayer = (a.payerId ?? (a.type == 'credit' ? a.whoOrBill : '')).trim().toLowerCase();
-    final bPayer = (b.payerId ?? (b.type == 'credit' ? b.whoOrBill : '')).trim().toLowerCase();
+    final aPayer = (a.payerId ?? (a.type == 'credit' ? a.whoOrBill : ''))
+        .trim()
+        .toLowerCase();
+    final bPayer = (b.payerId ?? (b.type == 'credit' ? b.whoOrBill : ''))
+        .trim()
+        .toLowerCase();
     if (aPayer != bPayer) return false;
 
-    final aBill = (a.billTypeId ?? (a.type == 'debit' ? a.whoOrBill : '')).trim().toLowerCase();
-    final bBill = (b.billTypeId ?? (b.type == 'debit' ? b.whoOrBill : '')).trim().toLowerCase();
+    final aBill = (a.billTypeId ?? (a.type == 'debit' ? a.whoOrBill : ''))
+        .trim()
+        .toLowerCase();
+    final bBill = (b.billTypeId ?? (b.type == 'debit' ? b.whoOrBill : ''))
+        .trim()
+        .toLowerCase();
     if (aBill != bBill) return false;
 
-    if (((a.distributionTotal ?? 0.0) - (b.distributionTotal ?? 0.0)).abs() > 0.0001) return false;
+    if (((a.distributionTotal ?? 0.0) - (b.distributionTotal ?? 0.0)).abs() >
+        0.0001) return false;
 
     return true;
   }
 
   /// Merges remote and local FundData without losing any transactions or duplicating concurrent entries.
+  /// Respects tombstones (deletedIds, deletedParentIds) to prevent deleted transactions from being resurrected.
+  /// Also enforces group transaction supersession so edited group transactions replace obsolete remote legs.
   static FundData merge({
     required FundData remoteData,
     required FundData localData,
     required AppConfig config,
+    Set<String> deletedIds = const {},
+    Set<String> deletedParentIds = const {},
   }) {
     final remoteTxs = List<TransactionModel>.from(remoteData.transactions);
     final remoteMap = {for (var t in remoteTxs) t.id: t};
@@ -52,17 +65,35 @@ class FundDataMerger {
     final mergedList = <TransactionModel>[];
     final processedIds = <String>{};
 
+    // Track all parentIds present locally to prevent resurrecting superseded legs of edited group transactions
+    final localParentIds = localTxs
+        .map((t) => t.parentId)
+        .where((p) => p != null && p.isNotEmpty)
+        .cast<String>()
+        .toSet();
+
     // 1. Process all local transactions
     for (final localTx in localTxs) {
+      // Discard if tombstoned
+      if (deletedIds.contains(localTx.id)) continue;
+      if (localTx.parentId != null &&
+          deletedParentIds.contains(localTx.parentId)) continue;
+
       TransactionModel? matchedRemote;
       if (remoteMap.containsKey(localTx.id)) {
         matchedRemote = remoteMap[localTx.id];
       } else {
         // Find equivalent remote transaction to avoid duplicating concurrent/offline entries
         matchedRemote = remoteTxs.cast<TransactionModel?>().firstWhere(
-          (r) => r != null && !processedIds.contains(r.id) && isEquivalent(localTx, r),
-          orElse: () => null,
-        );
+              (r) =>
+                  r != null &&
+                  !processedIds.contains(r.id) &&
+                  !deletedIds.contains(r.id) &&
+                  (r.parentId == null ||
+                      !deletedParentIds.contains(r.parentId)) &&
+                  isEquivalent(localTx, r),
+              orElse: () => null,
+            );
       }
 
       if (matchedRemote != null) {
@@ -79,10 +110,22 @@ class FundDataMerger {
 
     // 2. Add remote transactions created by other members that are missing locally
     for (final remoteTx in remoteTxs) {
-      if (!processedIds.contains(remoteTx.id)) {
-        mergedList.add(remoteTx);
-        processedIds.add(remoteTx.id);
+      if (processedIds.contains(remoteTx.id)) continue;
+
+      // Discard if explicitly deleted locally (tombstoned)
+      if (deletedIds.contains(remoteTx.id)) continue;
+      if (remoteTx.parentId != null &&
+          deletedParentIds.contains(remoteTx.parentId)) continue;
+
+      // Discard if local already has transactions for this parentId (group transaction supersession)
+      if (remoteTx.parentId != null &&
+          remoteTx.parentId!.isNotEmpty &&
+          localParentIds.contains(remoteTx.parentId)) {
+        continue;
       }
+
+      mergedList.add(remoteTx);
+      processedIds.add(remoteTx.id);
     }
 
     // 3. Stable sorting: primary by date descending, preserving parent-child pairing

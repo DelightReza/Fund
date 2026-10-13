@@ -30,11 +30,40 @@ class TransactionDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<TransactionDetailScreen> createState() => _TransactionDetailScreenState();
+  State<TransactionDetailScreen> createState() =>
+      _TransactionDetailScreenState();
 }
 
 class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   bool _isDeleting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final parsedReturn = widget.returnRoute != null
+          ? ParsedRoute.parse(widget.returnRoute!)
+          : null;
+      final from = parsedReturn?.path == 'category'
+          ? 'category'
+          : (parsedReturn?.path == 'member'
+              ? 'member'
+              : (widget.returnRoute ?? 'transactions'));
+      final catId = parsedReturn?.path == 'category'
+          ? parsedReturn?.id
+          : widget.transaction.billTypeId;
+      final memberId = widget.personId ??
+          (parsedReturn?.path == 'member' ? parsedReturn?.id : null);
+      final currentTxRoute = WebRouteHelper.buildTxRoute(
+        widget.transaction.id,
+        from: from,
+        catId: catId,
+        memberId: memberId,
+      );
+      WebRouteHelper.setRoute(currentTxRoute);
+    });
+  }
 
   void _handleBack() {
     final target = widget.returnRoute ?? 'transactions';
@@ -75,11 +104,17 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
               children: [
                 Text(
                   tx.type.toUpperCase(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.red),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.red),
                 ),
                 Text(
                   FormatUtils.formatCurrency(tx.amount, config.currency),
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.red),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: Colors.red),
                 ),
               ],
             ),
@@ -121,11 +156,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   void _edit(TransactionModel tx, List<TransactionModel> siblings) async {
     TransactionModel? pairedDebit;
     if (tx.parentId != null) {
-      pairedDebit = siblings.firstWhere((t) => t.type == 'debit', orElse: () => tx);
+      pairedDebit =
+          siblings.firstWhere((t) => t.type == 'debit', orElse: () => tx);
     }
 
     final currentTxRoute = widget.returnRoute != null
-        ? WebRouteHelper.buildTxRouteFromReturnRoute(widget.transaction.id, widget.returnRoute!)
+        ? WebRouteHelper.buildTxRouteFromReturnRoute(
+            widget.transaction.id, widget.returnRoute!)
         : 'tx?id=${widget.transaction.id}';
     final editRoute = 'add_tx?from=${Uri.encodeComponent(currentTxRoute)}';
     WebRouteHelper.setRoute(editRoute);
@@ -158,12 +195,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     final data = repo.data ?? FundData();
     final isAdminVerified = storage.isAdminVerified;
 
-    final tx = widget.transaction;
+    final tx = (data.transactions
+            .where((t) =>
+                t.id == widget.transaction.id ||
+                t.id.toString() == widget.transaction.id)
+            .firstOrNull) ??
+        widget.transaction;
     final isCredit = tx.type == 'credit';
 
     List<TransactionModel> groupSiblings = [];
     if (tx.parentId != null && tx.parentId!.isNotEmpty) {
-      groupSiblings = data.transactions.where((t) => t.parentId == tx.parentId).toList();
+      groupSiblings =
+          data.transactions.where((t) => t.parentId == tx.parentId).toList();
     }
 
     final payerMember = tx.payerId != null && tx.payerId!.isNotEmpty
@@ -176,7 +219,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     final billCategory = tx.billTypeId != null && tx.billTypeId!.isNotEmpty
         ? config.billTypes.firstWhere(
             (b) => b.id == tx.billTypeId,
-            orElse: () => BillTypeConfig(id: tx.billTypeId!, name: tx.billTypeId!, icon: '🧾'),
+            orElse: () => BillTypeConfig(
+                id: tx.billTypeId!, name: tx.billTypeId!, icon: '🧾'),
           )
         : null;
 
@@ -184,7 +228,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
         ? groupSiblings.firstWhere((t) => t.type == 'debit', orElse: () => tx)
         : null;
     final activeCustomSplit = tx.customSplit ?? debitSibling?.customSplit;
-    final hasCustomSplit = activeCustomSplit != null && activeCustomSplit.isNotEmpty;
+    final hasCustomSplit =
+        activeCustomSplit != null && activeCustomSplit.isNotEmpty;
 
     final splitMembers = hasCustomSplit
         ? activeCustomSplit.keys.toList()
@@ -192,7 +237,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             debitSibling?.splitAmong ??
             config.members.where((m) => m.active).map((m) => m.id).toList());
 
-    final perPersonSplit = splitMembers.isNotEmpty ? (tx.amount / splitMembers.length) : 0.0;
+    final perPersonSplit =
+        splitMembers.isNotEmpty ? (tx.amount / splitMembers.length) : 0.0;
 
     // Focused member for balance stats (only shown when inspecting a specific member's timeline)
     final targetPersonId = widget.personId;
@@ -233,360 +279,411 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             onPressed: _handleBack,
           ),
           title: const Text('Transaction Details'),
-        actions: [
-          // Only show edit & delete actions when admin write access is verified
-          if (isAdminVerified) ...[
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => _edit(tx, groupSiblings),
-              tooltip: 'Edit Transaction',
-            ),
-            IconButton(
-              icon: _isDeleting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
-                    )
-                  : const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: _isDeleting ? null : _delete,
-              tooltip: 'Delete Transaction',
-            ),
-          ] else ...[
-            IconButton(
-              icon: const Icon(Icons.shield_outlined, color: Colors.amber),
-              tooltip: 'Unlock Admin to Edit',
-              onPressed: () => AdminPatModal.show(context),
-            ),
+          actions: [
+            // Only show edit & delete actions when admin write access is verified
+            if (isAdminVerified) ...[
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () => _edit(tx, groupSiblings),
+                tooltip: 'Edit Transaction',
+              ),
+              IconButton(
+                icon: _isDeleting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.red),
+                      )
+                    : const Icon(Icons.delete_outline, color: Colors.red),
+                onPressed: _isDeleting ? null : _delete,
+                tooltip: 'Delete Transaction',
+              ),
+            ] else ...[
+              IconButton(
+                icon: const Icon(Icons.shield_outlined, color: Colors.amber),
+                tooltip: 'Unlock Admin to Edit',
+                onPressed: () => AdminPatModal.show(context),
+              ),
+            ],
           ],
-        ],
-      ),
-      body: AuroraBackground(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Top Liquid Glass Header Card
-                  GlassContainer(
-                    borderRadius: 24,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-                    child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+        ),
+        body: AuroraBackground(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Top Liquid Glass Header Card
+                    GlassContainer(
+                      borderRadius: 24,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 22),
+                      child: Column(
                         children: [
-                          Icon(
-                            isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                            color: isCredit ? const Color(0xFF047857) : const Color(0xFFDC2626),
-                            size: 16,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                isCredit
+                                    ? Icons.arrow_downward_rounded
+                                    : Icons.arrow_upward_rounded,
+                                color: isCredit
+                                    ? const Color(0xFF047857)
+                                    : const Color(0xFFDC2626),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                isCredit
+                                    ? 'CREDIT / DEPOSIT'
+                                    : 'DEBIT / EXPENSE',
+                                style: TextStyle(
+                                  color: isCredit
+                                      ? const Color(0xFF047857)
+                                      : const Color(0xFFDC2626),
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.1,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(height: 8),
                           Text(
-                            isCredit ? 'CREDIT / DEPOSIT' : 'DEBIT / EXPENSE',
+                            FormatUtils.formatCurrency(
+                                tx.amount, config.currency),
                             style: TextStyle(
-                              color: isCredit ? const Color(0xFF047857) : const Color(0xFFDC2626),
+                              fontSize: 34,
                               fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1,
-                              fontSize: 12,
+                              color: isCredit
+                                  ? const Color(0xFF047857)
+                                  : const Color(0xFFDC2626),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            AppDateUtils.formatDisplayDate(tx.date),
+                            style: TextStyle(
+                              color: theme.textTheme.bodySmall?.color
+                                  ?.withValues(alpha: 0.7),
+                              fontSize: 13,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        FormatUtils.formatCurrency(tx.amount, config.currency),
-                        style: TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                          color: isCredit ? const Color(0xFF047857) : const Color(0xFFDC2626),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        AppDateUtils.formatDisplayDate(tx.date),
-                        style: TextStyle(
-                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Focused Person's Running Balance & Impact Card (if involved)
-                if (focusedMember != null && isPersonInvolved) ...[
-                  const SizedBox(height: 16),
-                  GlassContainer(
-                    borderRadius: 20,
-                    blur: 16,
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 14,
-                              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-                              child: Text(
-                                focusedMember.name.isNotEmpty ? focusedMember.name[0] : '?',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '${focusedMember.name}\'s Balance Statement',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: personChange >= 0
-                                    ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                                    : const Color(0xFFEF4444).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '${personChange >= 0 ? '+' : '-'}${FormatUtils.formatCurrency(personChange.abs(), config.currency)}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: personChange >= 0
-                                      ? const Color(0xFF047857)
-                                      : const Color(0xFFDC2626),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Divider(height: 1),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            Column(
-                              children: [
-                                const Text(
-                                  'Balance Before',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${personBalBefore >= 0 ? '+' : '-'}${FormatUtils.formatCurrency(personBalBefore.abs(), config.currency)}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: personBalBefore >= 0
-                                        ? const Color(0xFF047857)
-                                        : const Color(0xFFDC2626),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Icon(
-                              Icons.arrow_forward_rounded,
-                              size: 16,
-                              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                            ),
-                            Column(
-                              children: [
-                                const Text(
-                                  'Balance After',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${personBalAfter >= 0 ? '+' : '-'}${FormatUtils.formatCurrency(personBalAfter.abs(), config.currency)}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: personBalAfter >= 0
-                                        ? const Color(0xFF047857)
-                                        : const Color(0xFFDC2626),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
                     ),
-                  ),
-                ],
 
-                const SizedBox(height: 16),
-
-                // General Information Liquid Glass Card
-                GlassCard(
-                  borderRadius: 20,
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildDetailRow('Description', tx.note.isNotEmpty ? tx.note : '—'),
-                      const Divider(height: 24),
-                      _buildDetailRow('Reference Code', tx.whoOrBill.isNotEmpty ? tx.whoOrBill : '—'),
-                      if (payerMember != null) ...[
-                        const Divider(height: 24),
-                        _buildDetailRow('Paid By', '${payerMember.name} (@${tx.payerId})'),
-                      ],
-                      if (billCategory != null) ...[
-                        const Divider(height: 24),
-                        _buildDetailRow('Category', '${billCategory.icon} ${billCategory.name}'),
-                      ],
-                      const Divider(height: 24),
-                      _buildDetailRow('Transaction ID', tx.id, isMonospace: true),
-                    ],
-                  ),
-                ),
-
-                // Split Details Breakdown Liquid Glass Card
-                if (!isCredit || (tx.parentId != null && tx.parentId!.isNotEmpty)) ...[
-                  const SizedBox(height: 16),
-                  GlassCard(
-                    borderRadius: 20,
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                hasCustomSplit ? 'Custom Split Breakdown' : 'Split Breakdown',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                              ),
-                              hasCustomSplit
-                                  ? Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        'Custom / Unequal',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: theme.colorScheme.primary,
-                                        ),
-                                      ),
-                                    )
-                                  : Text(
-                                      '${FormatUtils.formatCurrency(perPersonSplit, config.currency)} / person',
+                    // Focused Person's Running Balance & Impact Card (if involved)
+                    if (focusedMember != null && isPersonInvolved) ...[
+                      const SizedBox(height: 16),
+                      GlassContainer(
+                        borderRadius: 20,
+                        blur: 16,
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: theme.colorScheme.primary
+                                      .withValues(alpha: 0.15),
+                                  child: Text(
+                                    focusedMember.name.isNotEmpty
+                                        ? focusedMember.name[0]
+                                        : '?',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${focusedMember.name}\'s Balance Statement',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: personChange >= 0
+                                        ? const Color(0xFF10B981)
+                                            .withValues(alpha: 0.15)
+                                        : const Color(0xFFEF4444)
+                                            .withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${personChange >= 0 ? '+' : '-'}${FormatUtils.formatCurrency(personChange.abs(), config.currency)}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: personChange >= 0
+                                          ? const Color(0xFF047857)
+                                          : const Color(0xFFDC2626),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Divider(height: 1),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                Column(
+                                  children: [
+                                    const Text(
+                                      'Balance Before',
+                                      style: TextStyle(
+                                          fontSize: 11, color: Colors.grey),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${personBalBefore >= 0 ? '+' : '-'}${FormatUtils.formatCurrency(personBalBefore.abs(), config.currency)}',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                    ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Participants (${splitMembers.length}):',
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                          const SizedBox(height: 8),
-                          Column(
-                            children: splitMembers.map((id) {
-                              final memberObj = config.members.firstWhere(
-                                (m) => m.id == id,
-                                orElse: () => MemberConfig(id: id, name: id),
-                              );
-                              final isTarget = id == targetPersonId;
-                              final memberShare = hasCustomSplit
-                                  ? (activeCustomSplit[id] ?? 0.0)
-                                  : perPersonSplit;
-                              final pct = tx.amount > 0 ? (memberShare / tx.amount) * 100 : 0.0;
-
-                              return Container(
-                                margin: const EdgeInsets.symmetric(vertical: 3),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isTarget
-                                      ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 12,
-                                      backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-                                      child: Text(
-                                        memberObj.name.isNotEmpty ? memberObj.name[0] : '?',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: theme.colorScheme.primary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        memberObj.name,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: isTarget ? FontWeight.bold : FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    if (hasCustomSplit)
-                                      Padding(
-                                        padding: const EdgeInsets.only(right: 8),
-                                        child: Text(
-                                          '(${pct.toStringAsFixed(1)}%)',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ),
-                                    Text(
-                                      '-${FormatUtils.formatCurrency(memberShare, config.currency)}',
-                                      style: TextStyle(
                                         fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: theme.colorScheme.onSurfaceVariant,
+                                        color: personBalBefore >= 0
+                                            ? const Color(0xFF047857)
+                                            : const Color(0xFFDC2626),
                                       ),
                                     ),
                                   ],
                                 ),
-                              );
-                            }).toList(),
-                          ),
+                                Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 16,
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                                Column(
+                                  children: [
+                                    const Text(
+                                      'Balance After',
+                                      style: TextStyle(
+                                          fontSize: 11, color: Colors.grey),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${personBalAfter >= 0 ? '+' : '-'}${FormatUtils.formatCurrency(personBalAfter.abs(), config.currency)}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: personBalAfter >= 0
+                                            ? const Color(0xFF047857)
+                                            : const Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // General Information Liquid Glass Card
+                    GlassCard(
+                      borderRadius: 20,
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDetailRow('Description',
+                              tx.note.isNotEmpty ? tx.note : '—'),
+                          const Divider(height: 24),
+                          _buildDetailRow('Reference Code',
+                              tx.whoOrBill.isNotEmpty ? tx.whoOrBill : '—'),
+                          if (payerMember != null) ...[
+                            const Divider(height: 24),
+                            _buildDetailRow('Paid By',
+                                '${payerMember.name} (@${tx.payerId})'),
+                          ],
+                          if (billCategory != null) ...[
+                            const Divider(height: 24),
+                            _buildDetailRow('Category',
+                                '${billCategory.icon} ${billCategory.name}'),
+                          ],
+                          const Divider(height: 24),
+                          _buildDetailRow('Transaction ID', tx.id,
+                              isMonospace: true),
                         ],
                       ),
                     ),
-                  ],
 
-                const SizedBox(height: 24),
-              ],
+                    // Split Details Breakdown Liquid Glass Card
+                    if (!isCredit ||
+                        (tx.parentId != null && tx.parentId!.isNotEmpty)) ...[
+                      const SizedBox(height: 16),
+                      GlassCard(
+                        borderRadius: 20,
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  hasCustomSplit
+                                      ? 'Custom Split Breakdown'
+                                      : 'Split Breakdown',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15),
+                                ),
+                                hasCustomSplit
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Custom / Unequal',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                        ),
+                                      )
+                                    : Text(
+                                        '${FormatUtils.formatCurrency(perPersonSplit, config.currency)} / person',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Participants (${splitMembers.length}):',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey),
+                            ),
+                            const SizedBox(height: 8),
+                            Column(
+                              children: splitMembers.map((id) {
+                                final memberObj = config.members.firstWhere(
+                                  (m) => m.id == id,
+                                  orElse: () => MemberConfig(id: id, name: id),
+                                );
+                                final isTarget = id == targetPersonId;
+                                final memberShare = hasCustomSplit
+                                    ? (activeCustomSplit[id] ?? 0.0)
+                                    : perPersonSplit;
+                                final pct = tx.amount > 0
+                                    ? (memberShare / tx.amount) * 100
+                                    : 0.0;
+
+                                return Container(
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isTarget
+                                        ? theme.colorScheme.primary
+                                            .withValues(alpha: 0.08)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 12,
+                                        backgroundColor: theme
+                                            .colorScheme.primary
+                                            .withValues(alpha: 0.15),
+                                        child: Text(
+                                          memberObj.name.isNotEmpty
+                                              ? memberObj.name[0]
+                                              : '?',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: theme.colorScheme.primary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          memberObj.name,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: isTarget
+                                                ? FontWeight.bold
+                                                : FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      if (hasCustomSplit)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(right: 8),
+                                          child: Text(
+                                            '(${pct.toStringAsFixed(1)}%)',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ),
+                                      Text(
+                                        '-${FormatUtils.formatCurrency(memberShare, config.currency)}',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
-    ),
-    ),
-  );
-}
+    );
+  }
 
-  Widget _buildDetailRow(String label, String value, {bool isMonospace = false}) {
+  Widget _buildDetailRow(String label, String value,
+      {bool isMonospace = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -594,7 +691,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           width: 120,
           child: Text(
             label,
-            style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ),
         Expanded(

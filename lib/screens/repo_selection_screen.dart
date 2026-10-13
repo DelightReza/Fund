@@ -68,7 +68,8 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
     String? branch;
 
     if (clean.contains('raw.githubusercontent.com')) {
-      final uri = Uri.tryParse(clean.startsWith('http') ? clean : 'https://$clean');
+      final uri =
+          Uri.tryParse(clean.startsWith('http') ? clean : 'https://$clean');
       if (uri != null) {
         final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
         if (segments.length >= 2) {
@@ -80,7 +81,8 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
         }
       }
     } else if (clean.contains('api.github.com')) {
-      final uri = Uri.tryParse(clean.startsWith('http') ? clean : 'https://$clean');
+      final uri =
+          Uri.tryParse(clean.startsWith('http') ? clean : 'https://$clean');
       if (uri != null) {
         final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
         final repoIdx = segments.indexOf('repos');
@@ -90,12 +92,14 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
         }
       }
     } else if (clean.contains('.github.io')) {
-      final uri = Uri.tryParse(clean.startsWith('http') ? clean : 'https://$clean');
+      final uri =
+          Uri.tryParse(clean.startsWith('http') ? clean : 'https://$clean');
       if (uri != null) {
         final host = uri.host;
         owner = host.split('.').first;
         final segments = uri.pathSegments
-            .where((s) => s.isNotEmpty && !s.endsWith('.json') && !s.endsWith('.html'))
+            .where((s) =>
+                s.isNotEmpty && !s.endsWith('.json') && !s.endsWith('.html'))
             .toList();
         if (segments.isNotEmpty) {
           repo = segments[0];
@@ -104,7 +108,8 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
         }
       }
     } else if (clean.contains('github.com')) {
-      final uri = Uri.tryParse(clean.startsWith('http') ? clean : 'https://$clean');
+      final uri =
+          Uri.tryParse(clean.startsWith('http') ? clean : 'https://$clean');
       if (uri != null) {
         final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
         if (segments.length >= 2) {
@@ -120,7 +125,11 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
       }
     } else if (clean.contains('/')) {
       final cleanNoHttp = clean.replaceFirst(RegExp(r'^https?://'), '');
-      final parts = cleanNoHttp.split('/').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      final parts = cleanNoHttp
+          .split('/')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
       if (parts.length >= 2) {
         owner = parts[0];
         repo = parts[1];
@@ -140,7 +149,8 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
     return null;
   }
 
-  Future<void> _attemptConnection({String? customInput, String? customToken}) async {
+  Future<void> _attemptConnection(
+      {String? customInput, String? customToken}) async {
     final input = (customInput ?? _urlController.text).trim();
     var token = (customToken ?? _tokenController.text).trim();
 
@@ -151,7 +161,8 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
 
     final parsed = _parseRepoInput(input);
     if (parsed == null) {
-      setState(() => _error = 'Invalid format. Use owner/repo or a GitHub URL.');
+      setState(
+          () => _error = 'Invalid format. Use owner/repo or a GitHub URL.');
       return;
     }
 
@@ -184,9 +195,10 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
     String? configBranch = detectedBranch;
 
     // 0. If input looks like a URL, attempt direct fetch first
-    final normalizedUrl = (input.startsWith('http://') || input.startsWith('https://'))
-        ? input
-        : (input.contains('.') ? 'https://$input' : null);
+    final normalizedUrl =
+        (input.startsWith('http://') || input.startsWith('https://'))
+            ? input
+            : (input.contains('.') ? 'https://$input' : null);
 
     if (normalizedUrl != null) {
       final directUrlsToTry = [
@@ -197,14 +209,18 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
 
       for (final dUrl in directUrlsToTry) {
         try {
-          final directResp = await http.get(Uri.parse(dUrl)).timeout(const Duration(seconds: 6));
-          if (directResp.statusCode == 200 && directResp.body.trim().isNotEmpty) {
+          final directResp = await http
+              .get(Uri.parse(dUrl))
+              .timeout(const Duration(seconds: 6));
+          if (directResp.statusCode == 200 &&
+              directResp.body.trim().isNotEmpty) {
             final body = directResp.body.trim();
             if (!body.startsWith('<!DOCTYPE') && !body.startsWith('<html')) {
               final json = jsonDecode(body) as Map<String, dynamic>;
               final parsed = AppConfig.fromJson(json);
               config = parsed.copyWith(
-                repoOwner: parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
+                repoOwner:
+                    parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
                 repoName: parsed.repoName.isNotEmpty ? parsed.repoName : repo,
               );
               break;
@@ -248,14 +264,17 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
 
       for (final cUrl in cdnUrls) {
         try {
-          final resp = await http.get(Uri.parse(cUrl)).timeout(const Duration(seconds: 6));
+          final resp = await http
+              .get(Uri.parse(cUrl))
+              .timeout(const Duration(seconds: 6));
           if (resp.statusCode == 200 && resp.body.trim().isNotEmpty) {
             final body = resp.body.trim();
             if (!body.startsWith('<!DOCTYPE') && !body.startsWith('<html')) {
               final json = jsonDecode(body) as Map<String, dynamic>;
               final parsed = AppConfig.fromJson(json);
               config = parsed.copyWith(
-                repoOwner: parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
+                repoOwner:
+                    parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
                 repoName: parsed.repoName.isNotEmpty ? parsed.repoName : repo,
                 repoBranch: 'main',
               );
@@ -277,14 +296,17 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
       ];
       for (final pUrl in pagesUrls) {
         try {
-          final resp = await http.get(Uri.parse(pUrl)).timeout(const Duration(seconds: 6));
+          final resp = await http
+              .get(Uri.parse(pUrl))
+              .timeout(const Duration(seconds: 6));
           if (resp.statusCode == 200 && resp.body.trim().isNotEmpty) {
             final body = resp.body.trim();
             if (!body.startsWith('<!DOCTYPE') && !body.startsWith('<html')) {
               final json = jsonDecode(body) as Map<String, dynamic>;
               final parsed = AppConfig.fromJson(json);
               config = parsed.copyWith(
-                repoOwner: parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
+                repoOwner:
+                    parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
                 repoName: parsed.repoName.isNotEmpty ? parsed.repoName : repo,
               );
               break;
@@ -304,19 +326,23 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
 
       for (final b in branchesToTry) {
         try {
-          final rawUrl = 'https://raw.githubusercontent.com/$owner/$repo/$b/config.json?t=${DateTime.now().millisecondsSinceEpoch}';
+          final rawUrl =
+              'https://raw.githubusercontent.com/$owner/$repo/$b/config.json?t=${DateTime.now().millisecondsSinceEpoch}';
           final headers = GitHubApiService.buildHeaders(
             token: token.isNotEmpty ? token : null,
             accept: '*/*',
           );
-          final resp = await http.get(Uri.parse(rawUrl), headers: headers).timeout(const Duration(seconds: 6));
+          final resp = await http
+              .get(Uri.parse(rawUrl), headers: headers)
+              .timeout(const Duration(seconds: 6));
           if (resp.statusCode == 200 && resp.body.trim().isNotEmpty) {
             final body = resp.body.trim();
             if (!body.startsWith('<!DOCTYPE') && !body.startsWith('<html')) {
               final json = jsonDecode(body) as Map<String, dynamic>;
               final parsed = AppConfig.fromJson(json);
               config = parsed.copyWith(
-                repoOwner: parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
+                repoOwner:
+                    parsed.repoOwner.isNotEmpty ? parsed.repoOwner : owner,
                 repoName: parsed.repoName.isNotEmpty ? parsed.repoName : repo,
                 repoBranch: b,
               );
@@ -382,25 +408,35 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
     }
 
     // If not found, diagnose specific HTTP issue for clear, helpful error message
-    String detailedError = 'Failed to load config for "$owner/$repo". Check URL or enter a GitHub Token.';
+    String detailedError =
+        'Failed to load config for "$owner/$repo". Check URL or enter a GitHub Token.';
     try {
       final checkUrl = Uri.parse('https://api.github.com/repos/$owner/$repo');
-      final checkHeaders = GitHubApiService.buildHeaders(token: token.isNotEmpty ? token : null);
-      final checkResp = await http.get(checkUrl, headers: checkHeaders).timeout(const Duration(seconds: 6));
+      final checkHeaders =
+          GitHubApiService.buildHeaders(token: token.isNotEmpty ? token : null);
+      final checkResp = await http
+          .get(checkUrl, headers: checkHeaders)
+          .timeout(const Duration(seconds: 6));
 
       if (checkResp.statusCode == 401) {
-        detailedError = 'Invalid GitHub Token (401 Bad Credentials). Please check your Personal Access Token.';
+        detailedError =
+            'Invalid GitHub Token (401 Bad Credentials). Please check your Personal Access Token.';
       } else if (checkResp.statusCode == 403) {
-        detailedError = 'GitHub API rate limit exceeded or access forbidden (403). Please provide a valid GitHub Token.';
+        detailedError =
+            'GitHub API rate limit exceeded or access forbidden (403). Please provide a valid GitHub Token.';
       } else if (checkResp.statusCode == 404) {
-        detailedError = 'Repository "$owner/$repo" not found (404). If it is private, please provide a GitHub Personal Access Token with repo scope.';
+        detailedError =
+            'Repository "$owner/$repo" not found (404). If it is private, please provide a GitHub Personal Access Token with repo scope.';
       } else if (checkResp.statusCode == 200) {
-        detailedError = 'Connected to repository "$owner/$repo", but config.json was not found. Please verify the branch or add config.json.';
+        detailedError =
+            'Connected to repository "$owner/$repo", but config.json was not found. Please verify the branch or add config.json.';
       } else {
-        detailedError = 'GitHub API error (${checkResp.statusCode}): ${checkResp.reasonPhrase ?? ''}';
+        detailedError =
+            'GitHub API error (${checkResp.statusCode}): ${checkResp.reasonPhrase ?? ''}';
       }
     } catch (e) {
-      detailedError = 'Connection error: ${e.toString().replaceAll('SocketException:', 'Network error:')}';
+      detailedError =
+          'Connection error: ${e.toString().replaceAll('SocketException:', 'Network error:')}';
     }
 
     if (mounted) {
@@ -420,10 +456,12 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Connect Fund', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Connect Fund',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            icon: Icon(
+                isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
             tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
             onPressed: () => storage.toggleTheme(context),
           ),
@@ -432,128 +470,137 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
       body: AuroraBackground(
         child: SafeArea(
           child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Blue Wallet Icon container
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Blue Wallet Icon container
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF2563EB).withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: Colors.white,
+                        size: 32,
+                      ),
                     ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.account_balance_wallet_rounded,
-                      color: Colors.white,
-                      size: 32,
+                    const SizedBox(height: 16),
+                    Text(
+                      'Your Funds',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 28,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Your Funds',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 28,
+                    const SizedBox(height: 4),
+                    Text(
+                      'Select a workspace to manage expenses',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Select a workspace to manage expenses',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
+                    const SizedBox(height: 28),
 
-                  // Saved Repositories List
-                  if (_saved.isNotEmpty) ...[
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _saved.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (ctx, index) {
-                        final ws = _saved[index];
-                        return GlassCard(
-                          margin: EdgeInsets.zero,
-                          borderRadius: 16,
-                          padding: EdgeInsets.zero,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              _attemptConnection(
-                                customInput: '${ws.owner}/${ws.repo}',
-                                customToken: ws.token,
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          ws.title ?? 'Fund Repository',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
+                    // Saved Repositories List
+                    if (_saved.isNotEmpty) ...[
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _saved.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (ctx, index) {
+                          final ws = _saved[index];
+                          return GlassCard(
+                            margin: EdgeInsets.zero,
+                            borderRadius: 16,
+                            padding: EdgeInsets.zero,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () {
+                                _attemptConnection(
+                                  customInput: '${ws.owner}/${ws.repo}',
+                                  customToken: ws.token,
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            ws.title ?? 'Fund Repository',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '${ws.owner}/${ws.repo}',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${ws.owner}/${ws.repo}',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: theme
+                                                  .textTheme.bodySmall?.color
+                                                  ?.withValues(alpha: 0.7),
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                                    color: Colors.red.shade400,
-                                    tooltip: 'Remove',
-                                    onPressed: () async {
-                                      await storage.removeWorkspace(ws.owner, ws.repo);
-                                      _loadSaved();
-                                    },
-                                  ),
-                                ],
+                                    IconButton(
+                                      icon: const Icon(
+                                          Icons.delete_outline_rounded,
+                                          size: 20),
+                                      color: Colors.red.shade400,
+                                      tooltip: 'Remove',
+                                      onPressed: () async {
+                                        await storage.removeWorkspace(
+                                            ws.owner, ws.repo);
+                                        _loadSaved();
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    const Divider(),
-                    const SizedBox(height: 20),
-                  ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 20),
+                    ],
 
-                  // Add New Fund Card
-                  GlassCard(
-                    margin: EdgeInsets.zero,
-                    borderRadius: 20,
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
+                    // Add New Fund Card
+                    GlassCard(
+                      margin: EdgeInsets.zero,
+                      borderRadius: 20,
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -594,16 +641,20 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                               obscureText: !_isTokenVisible,
                               textInputAction: TextInputAction.go,
                               decoration: InputDecoration(
-                                labelText: 'GitHub Token (Optional for public repos)',
+                                labelText:
+                                    'GitHub Token (Optional for public repos)',
                                 hintText: 'ghp_... or github_pat_...',
                                 prefixIcon: const Icon(Icons.key_rounded),
                                 suffixIcon: IconButton(
                                   icon: Icon(
-                                    _isTokenVisible ? Icons.visibility_off : Icons.visibility,
+                                    _isTokenVisible
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
                                     size: 20,
                                   ),
                                   onPressed: () {
-                                    setState(() => _isTokenVisible = !_isTokenVisible);
+                                    setState(() =>
+                                        _isTokenVisible = !_isTokenVisible);
                                   },
                                 ),
                               ),
@@ -626,21 +677,26 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                           if (_error != null) ...[
                             const SizedBox(height: 12),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
                                 color: Colors.red.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                    color: Colors.red.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.error_outline_rounded, color: Colors.red.shade400, size: 18),
+                                  Icon(Icons.error_outline_rounded,
+                                      color: Colors.red.shade400, size: 18),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       _error!,
-                                      style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                                      style: TextStyle(
+                                          color: Colors.red.shade700,
+                                          fontSize: 12),
                                     ),
                                   ),
                                 ],
@@ -652,7 +708,9 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                             width: double.infinity,
                             height: 48,
                             child: FilledButton(
-                              onPressed: _isLoading ? null : () => _attemptConnection(),
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => _attemptConnection(),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF2563EB),
                                 shape: RoundedRectangleBorder(
@@ -670,20 +728,22 @@ class _RepoSelectionScreenState extends State<RepoSelectionScreen> {
                                     )
                                   : const Text(
                                       'Connect Fund',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15),
                                     ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

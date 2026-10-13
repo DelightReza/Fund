@@ -39,7 +39,8 @@ class UserSelectionScreen extends StatelessWidget {
                   Text(
                     'This helps filter your personal shares, paid expenses, and debt settlements.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                      color: theme.textTheme.bodySmall?.color
+                          ?.withValues(alpha: 0.7),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -50,12 +51,14 @@ class UserSelectionScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
                         children: [
-                          const Text('No active members configured in config.json.'),
+                          const Text(
+                              'No active members configured in config.json.'),
                           const SizedBox(height: 16),
                           OutlinedButton(
                             onPressed: () {
                               Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(builder: (_) => const MainScreen()),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen()),
                               );
                             },
                             child: const Text('Continue as Guest'),
@@ -74,19 +77,24 @@ class UserSelectionScreen extends StatelessWidget {
                           await storage.saveUser(member.id);
                           if (context.mounted) {
                             Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(builder: (_) => const MainScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) => const MainScreen()),
                             );
                           }
                         },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
                           child: Row(
                             children: [
                               CircleAvatar(
                                 radius: 22,
-                                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                                backgroundColor: theme.colorScheme.primary
+                                    .withValues(alpha: 0.15),
                                 child: Text(
-                                  member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
+                                  member.name.isNotEmpty
+                                      ? member.name[0].toUpperCase()
+                                      : '?',
                                   style: TextStyle(
                                     color: theme.colorScheme.primary,
                                     fontWeight: FontWeight.bold,
@@ -101,13 +109,18 @@ class UserSelectionScreen extends StatelessWidget {
                                   children: [
                                     Text(
                                       member.name,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16),
                                     ),
-                                    Text('@${member.id}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                    Text('@${member.id}',
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.grey)),
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                              const Icon(Icons.arrow_forward_ios_rounded,
+                                  size: 16),
                             ],
                           ),
                         ),

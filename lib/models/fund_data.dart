@@ -88,8 +88,10 @@ class FundData {
   }
 
   Map<String, dynamic> toJson() {
-    final peopleObj = people.map((k, v) => MapEntry(k, v % 1.0 == 0.0 ? v.toInt() : v));
-    final billTypesObj = billTypes.map((k, v) => MapEntry(k, v % 1.0 == 0.0 ? v.toInt() : v));
+    final peopleObj =
+        people.map((k, v) => MapEntry(k, v % 1.0 == 0.0 ? v.toInt() : v));
+    final billTypesObj =
+        billTypes.map((k, v) => MapEntry(k, v % 1.0 == 0.0 ? v.toInt() : v));
 
     return {
       'people': peopleObj,
@@ -98,11 +100,13 @@ class FundData {
     };
   }
 
-  double get totalCredits =>
-      transactions.where((t) => t.type == 'credit').fold(0.0, (acc, t) => acc + t.amount);
+  double get totalCredits => transactions
+      .where((t) => t.type == 'credit')
+      .fold(0.0, (acc, t) => acc + t.amount);
 
-  double get totalDebits =>
-      transactions.where((t) => t.type == 'debit').fold(0.0, (acc, t) => acc + t.amount);
+  double get totalDebits => transactions
+      .where((t) => t.type == 'debit')
+      .fold(0.0, (acc, t) => acc + t.amount);
 
   double get fundBalance => totalCredits - totalDebits;
 }

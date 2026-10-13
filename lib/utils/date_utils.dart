@@ -34,7 +34,8 @@ class AppDateUtils {
   }
 
   static bool hasTime(String dateStr) {
-    return dateStr.contains('T') || (dateStr.contains(' ') && dateStr.contains(':'));
+    return dateStr.contains('T') ||
+        (dateStr.contains(' ') && dateStr.contains(':'));
   }
 
   static String getMonthKey(String dateStr) {
@@ -123,11 +124,16 @@ class AppDateUtils {
       final now = DateTime.now();
       final difference = now.difference(dt);
       final hasTimeInfo = hasTime(dateStr);
-      final timeSuffix = hasTimeInfo ? ' • ${DateFormat('h:mm a').format(dt)}' : '';
+      final timeSuffix =
+          hasTimeInfo ? ' • ${DateFormat('h:mm a').format(dt)}' : '';
 
-      if (difference.inDays == 0 && dt.day == now.day && dt.month == now.month && dt.year == now.year) {
+      if (difference.inDays == 0 &&
+          dt.day == now.day &&
+          dt.month == now.month &&
+          dt.year == now.year) {
         return 'Today$timeSuffix';
-      } else if (difference.inDays <= 1 && (now.day - dt.day == 1 || difference.inHours < 36)) {
+      } else if (difference.inDays <= 1 &&
+          (now.day - dt.day == 1 || difference.inHours < 36)) {
         return 'Yesterday$timeSuffix';
       } else if (difference.inDays < 7 && difference.inDays > 0) {
         return '${difference.inDays}d ago$timeSuffix';

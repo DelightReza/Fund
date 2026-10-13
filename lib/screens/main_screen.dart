@@ -65,8 +65,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       final storage = context.read<StorageService>();
       final isAdminSubroute = parsed.path == 'manage_config' ||
           parsed.path == 'reset_commit' ||
-          (parsed.path == 'add_tx' && (parsed.from == null || parsed.from == 'admin'));
-      if ((parsed.path == 'admin' || isAdminSubroute) && storage.isAdminVerified) {
+          (parsed.path == 'add_tx' &&
+              (parsed.from == null || parsed.from == 'admin'));
+      if ((parsed.path == 'admin' || isAdminSubroute) &&
+          storage.isAdminVerified) {
         _currentIndex = kIsWeb ? 1 : 2;
       } else if (parsed.path == 'profile' && !kIsWeb) {
         _currentIndex = 1;
@@ -75,11 +77,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (parsed.path == 'manage_config') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            Navigator.of(context).push(
+            Navigator.of(context)
+                .push(
               MaterialPageRoute(
-                builder: (_) => const ManageConfigScreen(isRestoredAfterRefresh: true),
+                builder: (_) =>
+                    const ManageConfigScreen(isRestoredAfterRefresh: true),
               ),
-            ).then((_) {
+            )
+                .then((_) {
               if (mounted) {
                 WebRouteHelper.setRoute('admin');
                 context.read<StorageService>().setLastRoute('admin');
@@ -90,11 +95,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       } else if (parsed.path == 'reset_commit') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            Navigator.of(context).push(
+            Navigator.of(context)
+                .push(
               MaterialPageRoute(
-                builder: (_) => const ResetCommitScreen(isRestoredAfterRefresh: true),
+                builder: (_) =>
+                    const ResetCommitScreen(isRestoredAfterRefresh: true),
               ),
-            ).then((_) {
+            )
+                .then((_) {
               if (mounted) {
                 WebRouteHelper.setRoute('admin');
                 context.read<StorageService>().setLastRoute('admin');
@@ -105,14 +113,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       } else if (parsed.path == 'add_tx') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            Navigator.of(context).push(
+            Navigator.of(context)
+                .push(
               MaterialPageRoute(
                 builder: (_) => AddTransactionScreen(
                   returnRoute: parsed.from ?? 'admin',
                   isRestoredAfterRefresh: true,
                 ),
               ),
-            ).then((_) {
+            )
+                .then((_) {
               if (mounted) {
                 final ret = parsed.from ?? 'admin';
                 WebRouteHelper.setRoute(ret);
@@ -191,80 +201,90 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     child: GlassContainer(
                       borderRadius: 36,
                       blur: 26,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: List.generate(destinations.length, (index) {
-                        final isSelected = _currentIndex == index;
-                        final item = destinations[index];
-                        final isDark = theme.brightness == Brightness.dark;
+                          final isSelected = _currentIndex == index;
+                          final item = destinations[index];
+                          final isDark = theme.brightness == Brightness.dark;
 
-                        return Expanded(
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _currentIndex = index;
-                              });
-                              final item = destinations[index];
-                              if (item.label == 'Admin') {
-                                WebRouteHelper.setRoute('admin');
-                                storage.setLastRoute('admin');
-                              } else if (item.label == 'Profile') {
-                                WebRouteHelper.setRoute('profile');
-                                storage.setLastRoute('profile');
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(28),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutCubic,
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? (isDark
-                                        ? Colors.white.withValues(alpha: 0.16)
-                                        : theme.colorScheme.primary.withValues(alpha: 0.14))
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(28),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    isSelected ? item.selectedIcon : item.icon,
-                                    color: isSelected
-                                        ? (isDark ? Colors.white : theme.colorScheme.primary)
-                                        : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                                    size: 22,
-                                  ),
-                                  if (isSelected) ...[
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        item.label,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: isDark ? Colors.white : theme.colorScheme.primary,
+                          return Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _currentIndex = index;
+                                });
+                                final item = destinations[index];
+                                if (item.label == 'Admin') {
+                                  WebRouteHelper.setRoute('admin');
+                                  storage.setLastRoute('admin');
+                                } else if (item.label == 'Profile') {
+                                  WebRouteHelper.setRoute('profile');
+                                  storage.setLastRoute('profile');
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(28),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 220),
+                                curve: Curves.easeOutCubic,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? (isDark
+                                          ? Colors.white.withValues(alpha: 0.16)
+                                          : theme.colorScheme.primary
+                                              .withValues(alpha: 0.14))
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(28),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isSelected
+                                          ? item.selectedIcon
+                                          : item.icon,
+                                      color: isSelected
+                                          ? (isDark
+                                              ? Colors.white
+                                              : theme.colorScheme.primary)
+                                          : theme.colorScheme.onSurfaceVariant
+                                              .withValues(alpha: 0.7),
+                                      size: 22,
+                                    ),
+                                    if (isSelected) ...[
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          item.label,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark
+                                                ? Colors.white
+                                                : theme.colorScheme.primary,
+                                          ),
                                         ),
                                       ),
-                                    ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
     );
   }
 }
@@ -280,4 +300,3 @@ class _NavDestinationItem {
     required this.label,
   });
 }
-

@@ -2,18 +2,22 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // Vibrant Modern Fintech Color Tokens
-  static const primaryIndigo = Color(0xFF4F46E5);      // Indigo 600
-  static const primaryIndigoDark = Color(0xFF6366F1);  // Indigo 500
-  static const royalBlue = Color(0xFF2563EB);          // Blue 600
-  static const emeraldGreen = Color(0xFF10B981);       // Emerald 500 (Credits / Deposits / Surplus)
-  static const emeraldDark = Color(0xFF059669);        // Emerald 600
-  static const roseCrimson = Color(0xFFF43F5E);        // Rose 500 (Debits / Expenses / Owing)
-  static const roseDark = Color(0xFFE11D48);           // Rose 600
-  static const electricViolet = Color(0xFF8B5CF6);     // Violet 500 (Transfers / Settlements)
-  static const violetDark = Color(0xFF7C3AED);         // Violet 600
-  static const amberSun = Color(0xFFF59E0B);           // Amber 500 (Warnings / Category Accent)
-  static const cyanAqua = Color(0xFF06B6D4);           // Cyan 500 (Utility / Fresh)
-  static const slateMuted = Color(0xFF64748B);         // Slate 500
+  static const primaryIndigo = Color(0xFF4F46E5); // Indigo 600
+  static const primaryIndigoDark = Color(0xFF6366F1); // Indigo 500
+  static const royalBlue = Color(0xFF2563EB); // Blue 600
+  static const emeraldGreen =
+      Color(0xFF10B981); // Emerald 500 (Credits / Deposits / Surplus)
+  static const emeraldDark = Color(0xFF059669); // Emerald 600
+  static const roseCrimson =
+      Color(0xFFF43F5E); // Rose 500 (Debits / Expenses / Owing)
+  static const roseDark = Color(0xFFE11D48); // Rose 600
+  static const electricViolet =
+      Color(0xFF8B5CF6); // Violet 500 (Transfers / Settlements)
+  static const violetDark = Color(0xFF7C3AED); // Violet 600
+  static const amberSun =
+      Color(0xFFF59E0B); // Amber 500 (Warnings / Category Accent)
+  static const cyanAqua = Color(0xFF06B6D4); // Cyan 500 (Utility / Fresh)
+  static const slateMuted = Color(0xFF64748B); // Slate 500
 
   // Gradients for Modern Cards & Badges
   static const LinearGradient heroGradient = LinearGradient(
@@ -104,28 +108,46 @@ class AppTheme {
   /// Helper to return a consistent vibrant brand color for each category ID
   static Color getCategoryColor(String categoryId) {
     final lower = categoryId.toLowerCase();
-    if (lower.contains('food') || lower.contains('eat') || lower.contains('meal') || lower.contains('cook')) {
+    if (lower.contains('food') ||
+        lower.contains('eat') ||
+        lower.contains('meal') ||
+        lower.contains('cook')) {
       return amberSun;
     }
-    if (lower.contains('water') || lower.contains('drink') || lower.contains('aqua')) {
+    if (lower.contains('water') ||
+        lower.contains('drink') ||
+        lower.contains('aqua')) {
       return cyanAqua;
     }
-    if (lower.contains('rent') || lower.contains('room') || lower.contains('house')) {
+    if (lower.contains('rent') ||
+        lower.contains('room') ||
+        lower.contains('house')) {
       return electricViolet;
     }
-    if (lower.contains('wifi') || lower.contains('net') || lower.contains('bill') || lower.contains('electric')) {
+    if (lower.contains('wifi') ||
+        lower.contains('net') ||
+        lower.contains('bill') ||
+        lower.contains('electric')) {
       return royalBlue;
     }
-    if (lower.contains('grocery') || lower.contains('market') || lower.contains('veg')) {
+    if (lower.contains('grocery') ||
+        lower.contains('market') ||
+        lower.contains('veg')) {
       return emeraldGreen;
     }
-    if (lower.contains('clean') || lower.contains('maid') || lower.contains('serv')) {
+    if (lower.contains('clean') ||
+        lower.contains('maid') ||
+        lower.contains('serv')) {
       return const Color(0xFF14B8A6); // Teal
     }
-    if (lower.contains('travel') || lower.contains('cab') || lower.contains('fuel')) {
+    if (lower.contains('travel') ||
+        lower.contains('cab') ||
+        lower.contains('fuel')) {
       return const Color(0xFFF97316); // Orange
     }
-    if (lower.contains('fun') || lower.contains('party') || lower.contains('movie')) {
+    if (lower.contains('fun') ||
+        lower.contains('party') ||
+        lower.contains('movie')) {
       return const Color(0xFFEC4899); // Pink
     }
     return primaryIndigo;
@@ -134,19 +156,27 @@ class AppTheme {
   /// Helper to return a vibrant gradient for category hero cards and avatar backgrounds
   static LinearGradient getCategoryGradient(String categoryId) {
     final lower = categoryId.toLowerCase();
-    if (lower.contains('food') || lower.contains('eat') || lower.contains('meal')) {
+    if (lower.contains('food') ||
+        lower.contains('eat') ||
+        lower.contains('meal')) {
       return amberGradient;
     }
-    if (lower.contains('water') || lower.contains('drink') || lower.contains('aqua')) {
+    if (lower.contains('water') ||
+        lower.contains('drink') ||
+        lower.contains('aqua')) {
       return cyanGradient;
     }
-    if (lower.contains('rent') || lower.contains('room') || lower.contains('house')) {
+    if (lower.contains('rent') ||
+        lower.contains('room') ||
+        lower.contains('house')) {
       return violetGradient;
     }
     if (lower.contains('grocery') || lower.contains('market')) {
       return emeraldGradient;
     }
-    if (lower.contains('wifi') || lower.contains('net') || lower.contains('bill')) {
+    if (lower.contains('wifi') ||
+        lower.contains('net') ||
+        lower.contains('bill')) {
       return royalGradient;
     }
     return const LinearGradient(

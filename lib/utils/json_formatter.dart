@@ -29,7 +29,8 @@ class JsonFormatter {
 
     // 3. Format Person objects in config to single line: { "id": "me", "name": "Me", "active": true }
     jsonStr = jsonStr.replaceAllMapped(
-      RegExp(r'\{\n\s+"id":\s*"([^"]+)",\n\s+"name":\s*"([^"]+)",\n\s+"active":\s*(true|false)\n\s+\}'),
+      RegExp(
+          r'\{\n\s+"id":\s*"([^"]+)",\n\s+"name":\s*"([^"]+)",\n\s+"active":\s*(true|false)\n\s+\}'),
       (match) {
         final id = match.group(1);
         final name = match.group(2);
@@ -40,7 +41,8 @@ class JsonFormatter {
 
     // 4. Format BillType objects in config to single line: { "id": "groceries", "name": "Groceries", "icon": "🛒" }
     jsonStr = jsonStr.replaceAllMapped(
-      RegExp(r'\{\n\s+"id":\s*"([^"]+)",\n\s+"name":\s*"([^"]+)",\n\s+"icon":\s*"([^"]+)"\n\s+\}'),
+      RegExp(
+          r'\{\n\s+"id":\s*"([^"]+)",\n\s+"name":\s*"([^"]+)",\n\s+"icon":\s*"([^"]+)"\n\s+\}'),
       (match) {
         final id = match.group(1);
         final name = match.group(2);
@@ -51,7 +53,8 @@ class JsonFormatter {
 
     // Also support any trailing active flag if reading legacy objects
     jsonStr = jsonStr.replaceAllMapped(
-      RegExp(r'\{\n\s+"id":\s*"([^"]+)",\n\s+"name":\s*"([^"]+)",\n\s+"icon":\s*"([^"]+)",\n\s+"active":\s*(true|false)\n\s+\}'),
+      RegExp(
+          r'\{\n\s+"id":\s*"([^"]+)",\n\s+"name":\s*"([^"]+)",\n\s+"icon":\s*"([^"]+)",\n\s+"active":\s*(true|false)\n\s+\}'),
       (match) {
         final id = match.group(1);
         final name = match.group(2);

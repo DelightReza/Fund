@@ -106,10 +106,12 @@ class TransactionTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (transaction.parentId != null && transaction.parentId!.isNotEmpty)
+            if (transaction.parentId != null &&
+                transaction.parentId!.isNotEmpty)
               Container(
                 margin: const EdgeInsets.only(left: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                 decoration: BoxDecoration(
                   color: AppTheme.electricViolet.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(6),
@@ -160,14 +162,16 @@ class TransactionTile extends StatelessWidget {
                     Icon(
                       Icons.schedule_rounded,
                       size: 11.5,
-                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.55),
+                      color: theme.textTheme.bodySmall?.color
+                          ?.withValues(alpha: 0.55),
                     ),
                     const SizedBox(width: 3),
                     Expanded(
                       child: Text(
                         AppDateUtils.formatRelativeDate(transaction.date),
                         style: TextStyle(
-                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.65),
+                          color: theme.textTheme.bodySmall?.color
+                              ?.withValues(alpha: 0.65),
                           fontSize: 11.5,
                         ),
                         maxLines: 1,

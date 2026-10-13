@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,11 +6,12 @@ import '../models/fund_data.dart';
 import '../repositories/fund_repository.dart';
 import '../services/storage_service.dart';
 import '../utils/debt_simplifier.dart';
-import '../utils/file_helper.dart';
 import '../utils/format_utils.dart';
 import '../utils/web_route_helper.dart';
 import '../widgets/admin_pat_modal.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/admin/admin_action_card.dart';
+import '../widgets/admin/admin_data_management_helper.dart';
 import 'add_transaction_screen.dart';
 import 'manage_config_screen.dart';
 import 'reset_commit_screen.dart';
@@ -29,14 +29,16 @@ class _AdminScreenState extends State<AdminScreen> {
   void _openAddTransaction(String initialType) {
     WebRouteHelper.setRoute('add_tx?from=admin');
     context.read<StorageService>().pushRoute('add_tx?from=admin');
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => AddTransactionScreen(
           initialType: initialType,
           returnRoute: 'admin',
         ),
       ),
-    ).then((_) {
+    )
+        .then((_) {
       if (mounted) {
         WebRouteHelper.setRoute('admin');
         context.read<StorageService>().popRoute();
@@ -65,7 +67,8 @@ class _AdminScreenState extends State<AdminScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0284C7)),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7)),
             icon: const Icon(Icons.download_rounded, size: 18),
             label: const Text('Pull Latest'),
             onPressed: () => Navigator.pop(ctx, true),
@@ -119,7 +122,8 @@ class _AdminScreenState extends State<AdminScreen> {
 
     final totalCount = repo.data?.transactions.length ?? 0;
     final commitCtrl = TextEditingController(
-      text: 'Push update: ledger with $totalCount transactions from Admin panel',
+      text:
+          'Push update: ledger with $totalCount transactions from Admin panel',
     );
 
     final proceed = await showDialog<bool>(
@@ -152,7 +156,8 @@ class _AdminScreenState extends State<AdminScreen> {
               maxLines: 2,
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding: const EdgeInsets.all(10),
               ),
             ),
@@ -164,7 +169,8 @@ class _AdminScreenState extends State<AdminScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF047857)),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF047857)),
             icon: const Icon(Icons.cloud_upload_rounded, size: 18),
             label: const Text('Push Changes'),
             onPressed: () => Navigator.pop(ctx, true),
@@ -182,7 +188,8 @@ class _AdminScreenState extends State<AdminScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: ok ? const Color(0xFF047857) : Colors.orange.shade800,
+            backgroundColor:
+                ok ? const Color(0xFF047857) : Colors.orange.shade800,
             content: Text(
               ok
                   ? '✓ Successfully pushed and committed data.json to GitHub'
@@ -223,7 +230,8 @@ class _AdminScreenState extends State<AdminScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: ok ? const Color(0xFF047857) : Colors.orange.shade800,
+            backgroundColor:
+                ok ? const Color(0xFF047857) : Colors.orange.shade800,
             content: Text(
               ok
                   ? '✓ Successfully synced with GitHub (pulled latest ledger & pushed pending changes)'
@@ -251,7 +259,8 @@ class _AdminScreenState extends State<AdminScreen> {
   void _showSyncGitHubModal(FundRepository repo) {
     final storage = context.read<StorageService>();
     final config = repo.config ?? AppConfig();
-    final hasToken = storage.currentToken != null && storage.currentToken!.isNotEmpty;
+    final hasToken =
+        storage.currentToken != null && storage.currentToken!.isNotEmpty;
     final hasPending = storage.hasPendingSyncFlag;
     final txCount = repo.data?.transactions.length ?? 0;
 
@@ -276,11 +285,13 @@ class _AdminScreenState extends State<AdminScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.sync_rounded, color: Color(0xFF0284C7), size: 24),
+                        Icon(Icons.sync_rounded,
+                            color: Color(0xFF0284C7), size: 24),
                         SizedBox(width: 8),
                         Text(
                           'GitHub Sync & Replication',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -299,19 +310,30 @@ class _AdminScreenState extends State<AdminScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
+                    border: Border.all(
+                        color: Theme.of(context)
+                            .dividerColor
+                            .withValues(alpha: 0.5)),
                   ),
                   child: Column(
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Repository:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                          const Text('Repository:',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 12)),
                           Text(
                             '${config.repoOwner}/${config.repoName}',
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -319,19 +341,28 @@ class _AdminScreenState extends State<AdminScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Token Status:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                          const Text('Token Status:',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 12)),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: hasToken ? Colors.green.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.15),
+                              color: hasToken
+                                  ? Colors.green.withValues(alpha: 0.15)
+                                  : Colors.orange.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              hasToken ? '✓ PAT Configured' : '⚠️ No PAT Connected',
+                              hasToken
+                                  ? '✓ PAT Configured'
+                                  : '⚠️ No PAT Connected',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: hasToken ? Colors.green.shade800 : Colors.orange.shade800,
+                                color: hasToken
+                                    ? Colors.green.shade800
+                                    : Colors.orange.shade800,
                               ),
                             ),
                           ),
@@ -341,8 +372,11 @@ class _AdminScreenState extends State<AdminScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Local Ledger:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                          Text('$txCount transactions', style: const TextStyle(fontSize: 12)),
+                          const Text('Local Ledger:',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 12)),
+                          Text('$txCount transactions',
+                              style: const TextStyle(fontSize: 12)),
                         ],
                       ),
                       if (hasPending) ...[
@@ -350,10 +384,17 @@ class _AdminScreenState extends State<AdminScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Pending Sync:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.orange)),
+                            const Text('Pending Sync:',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                    color: Colors.orange)),
                             Text(
                               'Offline changes unpushed',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade800),
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange.shade800),
                             ),
                           ],
                         ),
@@ -375,10 +416,13 @@ class _AdminScreenState extends State<AdminScreen> {
                     color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.download_rounded, color: Color(0xFF0284C7), size: 22),
+                  child: const Icon(Icons.download_rounded,
+                      color: Color(0xFF0284C7), size: 22),
                 ),
-                title: const Text('Pull from GitHub (Fetch Latest)', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Download latest data.json & config.json from repo, overwriting local state'),
+                title: const Text('Pull from GitHub (Fetch Latest)',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text(
+                    'Download latest data.json & config.json from repo, overwriting local state'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _handlePullFromGitHub(repo);
@@ -393,10 +437,13 @@ class _AdminScreenState extends State<AdminScreen> {
                     color: const Color(0xFF047857).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.upload_rounded, color: Color(0xFF047857), size: 22),
+                  child: const Icon(Icons.upload_rounded,
+                      color: Color(0xFF047857), size: 22),
                 ),
-                title: const Text('Push to GitHub (Commit Local Data)', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text('Upload $txCount local transactions and update data.json on GitHub'),
+                title: const Text('Push to GitHub (Commit Local Data)',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                    'Upload $txCount local transactions and update data.json on GitHub'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _handlePushToGitHub(repo);
@@ -411,10 +458,13 @@ class _AdminScreenState extends State<AdminScreen> {
                     color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.sync_rounded, color: Color(0xFF7C3AED), size: 22),
+                  child: const Icon(Icons.sync_rounded,
+                      color: Color(0xFF7C3AED), size: 22),
                 ),
-                title: const Text('Auto Sync (Push Pending & Pull)', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Push any pending offline changes and refresh latest remote updates'),
+                title: const Text('Auto Sync (Push Pending & Pull)',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text(
+                    'Push any pending offline changes and refresh latest remote updates'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _handleFullSync(repo);
@@ -429,10 +479,13 @@ class _AdminScreenState extends State<AdminScreen> {
                     color: Colors.blueGrey.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.vpn_key_outlined, color: Colors.blueGrey, size: 22),
+                  child: const Icon(Icons.vpn_key_outlined,
+                      color: Colors.blueGrey, size: 22),
                 ),
-                title: const Text('GitHub Token (PAT) Settings', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Configure or test your GitHub Personal Access Token permissions'),
+                title: const Text('GitHub Token (PAT) Settings',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text(
+                    'Configure or test your GitHub Personal Access Token permissions'),
                 onTap: () {
                   Navigator.pop(ctx);
                   AdminPatModal.show(context);
@@ -506,9 +559,13 @@ class _AdminScreenState extends State<AdminScreen> {
         actions: [
           IconButton(
             icon: Icon(
-              theme.brightness == Brightness.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              theme.brightness == Brightness.dark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded,
             ),
-            tooltip: theme.brightness == Brightness.dark ? 'Switch to Light Mode' : 'Switch to Dark/Night Mode',
+            tooltip: theme.brightness == Brightness.dark
+                ? 'Switch to Light Mode'
+                : 'Switch to Dark/Night Mode',
             onPressed: () => storage.toggleTheme(context),
           ),
           IconButton(
@@ -601,9 +658,12 @@ class _AdminScreenState extends State<AdminScreen> {
                     onClick: () {
                       WebRouteHelper.setRoute('reset_commit');
                       context.read<StorageService>().pushRoute('reset_commit');
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ResetCommitScreen()),
-                      ).then((_) {
+                      Navigator.of(context)
+                          .push(
+                        MaterialPageRoute(
+                            builder: (_) => const ResetCommitScreen()),
+                      )
+                          .then((_) {
                         if (mounted) {
                           WebRouteHelper.setRoute('admin');
                           context.read<StorageService>().popRoute();
@@ -625,9 +685,12 @@ class _AdminScreenState extends State<AdminScreen> {
                 Expanded(
                   child: AdminActionCard(
                     title: _isSyncing ? 'Syncing...' : 'Sync GitHub',
-                    icon: _isSyncing ? Icons.hourglass_top_rounded : Icons.sync_rounded,
+                    icon: _isSyncing
+                        ? Icons.hourglass_top_rounded
+                        : Icons.sync_rounded,
                     color: const Color(0xFF0284C7),
-                    onClick: _isSyncing ? null : () => _showSyncGitHubModal(repo),
+                    onClick:
+                        _isSyncing ? null : () => _showSyncGitHubModal(repo),
                   ),
                 ),
               ],
@@ -640,14 +703,18 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 12),
               GlassCard(
                 borderRadius: 18,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   children: settlements.map((s) {
                     final fromName = config.members
-                        .firstWhere((m) => m.id == s.from, orElse: () => MemberConfig(id: s.from, name: s.from))
+                        .firstWhere((m) => m.id == s.from,
+                            orElse: () =>
+                                MemberConfig(id: s.from, name: s.from))
                         .name;
                     final toName = config.members
-                        .firstWhere((m) => m.id == s.to, orElse: () => MemberConfig(id: s.to, name: s.to))
+                        .firstWhere((m) => m.id == s.to,
+                            orElse: () => MemberConfig(id: s.to, name: s.to))
                         .name;
 
                     return Padding(
@@ -660,18 +727,23 @@ class _AdminScreenState extends State<AdminScreen> {
                                 Flexible(
                                   child: Text(
                                     fromName,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 const Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 6),
-                                  child: Icon(Icons.arrow_forward, size: 14, color: Colors.grey),
+                                  child: Icon(Icons.arrow_forward,
+                                      size: 14, color: Colors.grey),
                                 ),
                                 Flexible(
                                   child: Text(
                                     toName,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -680,7 +752,8 @@ class _AdminScreenState extends State<AdminScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            FormatUtils.formatCurrency(s.amount, config.currency),
+                            FormatUtils.formatCurrency(
+                                s.amount, config.currency),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
@@ -706,9 +779,11 @@ class _AdminScreenState extends State<AdminScreen> {
               onTap: () {
                 WebRouteHelper.setRoute('manage_config');
                 context.read<StorageService>().pushRoute('manage_config');
-                Navigator.of(context).push(
+                Navigator.of(context)
+                    .push(
                   MaterialPageRoute(builder: (_) => const ManageConfigScreen()),
-                ).then((_) {
+                )
+                    .then((_) {
                   if (mounted) {
                     WebRouteHelper.setRoute('admin');
                     context.read<StorageService>().popRoute();
@@ -723,11 +798,13 @@ class _AdminScreenState extends State<AdminScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                        color:
+                            theme.colorScheme.primary.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: Icon(Icons.settings, color: theme.colorScheme.primary, size: 22),
+                      child: Icon(Icons.settings,
+                          color: theme.colorScheme.primary, size: 22),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -736,14 +813,16 @@ class _AdminScreenState extends State<AdminScreen> {
                         children: [
                           const Text(
                             'Manage Config',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'People, categories, currency & repository sync',
                             style: TextStyle(
                               fontSize: 12,
-                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                              color: theme.textTheme.bodySmall?.color
+                                  ?.withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -774,7 +853,8 @@ class _AdminScreenState extends State<AdminScreen> {
                         child: const Text('Cancel'),
                       ),
                       FilledButton(
-                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                        style:
+                            FilledButton.styleFrom(backgroundColor: Colors.red),
                         onPressed: () => Navigator.pop(ctx, true),
                         child: const Text('Clear Cache'),
                       ),
@@ -783,7 +863,8 @@ class _AdminScreenState extends State<AdminScreen> {
                 );
 
                 if (confirmed == true && context.mounted) {
-                  await storage.clearCacheOnly();
+                  await storage.clearCacheOnly(
+                      owner: config.repoOwner, repo: config.repoName);
                   await repo.refreshAll();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -804,7 +885,8 @@ class _AdminScreenState extends State<AdminScreen> {
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: const Icon(Icons.delete_sweep_rounded, color: Colors.red, size: 22),
+                      child: const Icon(Icons.delete_sweep_rounded,
+                          color: Colors.red, size: 22),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -813,14 +895,16 @@ class _AdminScreenState extends State<AdminScreen> {
                         children: [
                           const Text(
                             'Clear Local Cache',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Delete cached offline files and re-sync',
                             style: TextStyle(
                               fontSize: 12,
-                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                              color: theme.textTheme.bodySmall?.color
+                                  ?.withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -851,504 +935,11 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   void _showManageDataModal(FundRepository repo) {
-    showModalBottomSheet(
+    AdminDataManagementHelper.showManageDataModal(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Center(
-                child: Text(
-                  'Manage Data (Export & Import)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Export Section
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(
-                  'DOWNLOAD & EXPORT DATA',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.8),
-                ),
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.12), shape: BoxShape.circle),
-                  child: const Icon(Icons.download_rounded, color: Colors.blue, size: 20),
-                ),
-                title: const Text('Download data.json'),
-                subtitle: const Text('Save ledger and transaction records to your device'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.copy_rounded, size: 18),
-                  tooltip: 'Copy JSON text',
-                  onPressed: () {
-                    final json = repo.exportToJsonFormatted();
-                    _copyToClipboard(json, 'data.json');
-                  },
-                ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final json = repo.exportToJsonFormatted();
-                  final res = await saveAndDownloadFile(
-                    fileName: 'data.json',
-                    content: json,
-                    mimeType: 'application/json',
-                  );
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(res.message),
-                        action: SnackBarAction(
-                          label: 'View',
-                          onPressed: () => _showRawJsonModal('data.json', json),
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.12), shape: BoxShape.circle),
-                  child: const Icon(Icons.file_download_outlined, color: Colors.purple, size: 20),
-                ),
-                title: const Text('Download config.json'),
-                subtitle: const Text('Save workspace settings and members to your device'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.copy_rounded, size: 18),
-                  tooltip: 'Copy JSON text',
-                  onPressed: () {
-                    final json = repo.exportConfigJsonFormatted();
-                    _copyToClipboard(json, 'config.json');
-                  },
-                ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final json = repo.exportConfigJsonFormatted();
-                  final res = await saveAndDownloadFile(
-                    fileName: 'config.json',
-                    content: json,
-                    mimeType: 'application/json',
-                  );
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(res.message),
-                        action: SnackBarAction(
-                          label: 'View',
-                          onPressed: () => _showRawJsonModal('config.json', json),
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.12), shape: BoxShape.circle),
-                  child: const Icon(Icons.table_chart_outlined, color: Colors.green, size: 20),
-                ),
-                title: const Text('Download CSV Ledger'),
-                subtitle: const Text('Save transactions as spreadsheet-ready CSV'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.copy_rounded, size: 18),
-                  tooltip: 'Copy CSV',
-                  onPressed: () {
-                    final csv = repo.exportToCsv();
-                    _copyToClipboard(csv, 'CSV Export');
-                  },
-                ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final csv = repo.exportToCsv();
-                  final dateStr = DateTime.now().toIso8601String().substring(0, 10);
-                  final res = await saveAndDownloadFile(
-                    fileName: 'fund_transactions_$dateStr.csv',
-                    content: csv,
-                    mimeType: 'text/csv',
-                  );
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(res.message),
-                        action: SnackBarAction(
-                          label: 'Copy',
-                          onPressed: () => _copyToClipboard(csv, 'CSV Export'),
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-
-              const Divider(height: 24, indent: 16, endIndent: 16),
-
-              // Import Section
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(
-                  'UPLOAD & IMPORT DATA',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.8),
-                ),
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.12), shape: BoxShape.circle),
-                  child: const Icon(Icons.drive_folder_upload_rounded, color: Colors.teal, size: 20),
-                ),
-                title: const Text('Upload & Import JSON File'),
-                subtitle: const Text('Pick any .json file from your device to auto-detect & import'),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final content = await pickAndReadFile(allowedExtensions: ['json']);
-                  if (content != null && content.isNotEmpty) {
-                    bool isConfig = false;
-                    try {
-                      final decoded = jsonDecode(content);
-                      if (decoded is Map<String, dynamic> && decoded.containsKey('siteTitle')) {
-                        isConfig = true;
-                      }
-                    } catch (_) {}
-                    if (mounted) {
-                      _showImportJsonDialog(isConfig: isConfig, repo: repo, initialJson: content);
-                    }
-                  } else {
-                    if (mounted) {
-                      _showImportJsonDialog(isConfig: false, repo: repo);
-                    }
-                  }
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFFD97706).withValues(alpha: 0.12), shape: BoxShape.circle),
-                  child: const Icon(Icons.upload_file_rounded, color: Color(0xFFD97706), size: 20),
-                ),
-                title: const Text('Import data.json (Paste or Upload)'),
-                subtitle: const Text('Import transactions & merge with 3-way concurrent sync'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showImportJsonDialog(isConfig: false, repo: repo);
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.indigo.withValues(alpha: 0.12), shape: BoxShape.circle),
-                  child: const Icon(Icons.settings_backup_restore_rounded, color: Colors.indigo, size: 20),
-                ),
-                title: const Text('Import config.json (Paste or Upload)'),
-                subtitle: const Text('Import workspace configuration and member list'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showImportJsonDialog(isConfig: true, repo: repo);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showImportJsonDialog({required bool isConfig, required FundRepository repo, String? initialJson}) {
-    final textCtrl = TextEditingController(text: initialJson ?? '');
-    String? validationMessage;
-    bool isValid = false;
-    dynamic parsedObject;
-
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          void validate(String val) {
-            final trimmed = val.trim();
-            if (trimmed.isEmpty) {
-              setDialogState(() {
-                validationMessage = null;
-                isValid = false;
-                parsedObject = null;
-              });
-              return;
-            }
-
-            try {
-              final decoded = jsonDecode(trimmed);
-              if (isConfig) {
-                if (decoded is Map<String, dynamic>) {
-                  final cfg = AppConfig.fromJson(decoded);
-                  setDialogState(() {
-                    isValid = true;
-                    parsedObject = cfg;
-                    validationMessage =
-                        '✓ Valid config: "${cfg.siteTitle}", ${cfg.members.length} members, ${cfg.billTypes.length} bill categories';
-                  });
-                } else {
-                  setDialogState(() {
-                    isValid = false;
-                    parsedObject = null;
-                    validationMessage = '⚠️ JSON must be a valid configuration object';
-                  });
-                }
-              } else {
-                if (decoded is Map<String, dynamic> && decoded.containsKey('transactions')) {
-                  final data = FundData.fromJson(decoded);
-                  setDialogState(() {
-                    isValid = true;
-                    parsedObject = data;
-                    validationMessage =
-                        '✓ Valid ledger: ${data.transactions.length} transactions, fund balance ₹${(data.totalCredits - data.totalDebits).toStringAsFixed(2)}';
-                  });
-                } else {
-                  setDialogState(() {
-                    isValid = false;
-                    parsedObject = null;
-                    validationMessage = '⚠️ JSON must contain a "transactions" array';
-                  });
-                }
-              }
-            } catch (e) {
-              setDialogState(() {
-                isValid = false;
-                parsedObject = null;
-                validationMessage = '⚠️ JSON Parsing Error: ${e.toString().split('\n').first}';
-              });
-            }
-          }
-
-          // Initial validation if initialJson was provided
-          if (initialJson != null && initialJson.isNotEmpty && validationMessage == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => validate(initialJson));
-          }
-
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Row(
-              children: [
-                Icon(
-                  isConfig ? Icons.settings_suggest_outlined : Icons.upload_file_rounded,
-                  color: isConfig ? Colors.indigo : const Color(0xFFD97706),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    isConfig ? 'Import config.json' : 'Import data.json',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isConfig
-                          ? 'Upload a file or paste raw JSON for config.json to update workspace settings and members.'
-                          : 'Upload a file or paste raw JSON for data.json to import ledger and transactions with 3-way automated merge.',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: textCtrl,
-                      maxLines: 8,
-                      onChanged: validate,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                      decoration: InputDecoration(
-                        hintText: '{\n  ...\n}',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.all(10),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton.icon(
-                          icon: const Icon(Icons.folder_open_rounded, size: 16),
-                          label: const Text('Upload File'),
-                          onPressed: () async {
-                            final content = await pickAndReadFile(allowedExtensions: ['json']);
-                            if (content != null && content.isNotEmpty) {
-                              textCtrl.text = content;
-                              validate(content);
-                            }
-                          },
-                        ),
-                        TextButton.icon(
-                          icon: const Icon(Icons.paste, size: 16),
-                          label: const Text('Paste'),
-                          onPressed: () async {
-                            final data = await Clipboard.getData(Clipboard.kTextPlain);
-                            if (data?.text != null) {
-                              textCtrl.text = data!.text!;
-                              validate(data.text!);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    if (validationMessage != null) ...[
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isValid ? Colors.green.withValues(alpha: 0.12) : Colors.red.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          validationMessage!,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isValid ? Colors.green.shade800 : Colors.red.shade800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogCtx).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: isValid && parsedObject != null
-                  ? () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (c) => AlertDialog(
-                          title: const Text('Confirm Import'),
-                          content: Text(
-                            isConfig
-                                ? 'This will update your workspace configuration and sync to GitHub. Proceed?'
-                                : 'This will import the transaction ledger and sync with automated 3-way merge. Proceed?',
-                          ),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-                            FilledButton(
-                              style: FilledButton.styleFrom(backgroundColor: Colors.orange.shade800),
-                              onPressed: () => Navigator.pop(c, true),
-                              child: const Text('Proceed Import'),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (confirm == true && context.mounted) {
-                        Navigator.of(dialogCtx).pop();
-                        if (isConfig) {
-                          final ok = await repo.updateConfig(parsedObject as AppConfig);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  ok ? 'config.json imported and updated' : 'Saved locally (sync pending)',
-                                ),
-                              ),
-                            );
-                          }
-                        } else {
-                          final ok = await repo.importFundData(parsedObject as FundData);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  ok ? 'data.json imported and synchronized' : 'Saved locally (sync pending)',
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      }
-                    }
-                  : null,
-                child: const Text('Import & Save'),
-              ),
-            ],
-          );
-        },
-      ),
+      repo: repo,
+      onCopy: _copyToClipboard,
+      onShowRawJson: _showRawJsonModal,
     );
   }
 }
-
-class AdminActionCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onClick;
-
-  const AdminActionCard({
-    super.key,
-    required this.title,
-    required this.icon,
-    required this.color,
-    this.onClick,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return GlassContainer(
-      borderRadius: 18,
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-      onTap: onClick,
-      child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: isDark ? 0.22 : 0.14),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-  }

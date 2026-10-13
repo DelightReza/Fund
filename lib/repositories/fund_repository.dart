@@ -39,7 +39,8 @@ class FundRepository extends ChangeNotifier {
 
   String _normalizedText(String value) => value.trim().toLowerCase();
 
-  bool _doubleEquals(double a, double b) => (a - b).abs() <= _duplicateAmountTolerance;
+  bool _doubleEquals(double a, double b) =>
+      (a - b).abs() <= _duplicateAmountTolerance;
 
   List<String> _normalizedList(List<String>? values) {
     final list = (values ?? const <String>[])
@@ -74,17 +75,23 @@ class FundRepository extends ChangeNotifier {
     if (timeDiff > _duplicateTimeWindow) return false;
 
     if (_normalizedText(a.note) != _normalizedText(b.note)) return false;
-    if (_normalizedText(a.whoOrBill) != _normalizedText(b.whoOrBill)) return false;
+    if (_normalizedText(a.whoOrBill) != _normalizedText(b.whoOrBill))
+      return false;
 
-    final aPayer = _normalizedText(a.payerId ?? (a.type == 'credit' ? a.whoOrBill : ''));
-    final bPayer = _normalizedText(b.payerId ?? (b.type == 'credit' ? b.whoOrBill : ''));
+    final aPayer =
+        _normalizedText(a.payerId ?? (a.type == 'credit' ? a.whoOrBill : ''));
+    final bPayer =
+        _normalizedText(b.payerId ?? (b.type == 'credit' ? b.whoOrBill : ''));
     if (aPayer != bPayer) return false;
 
-    final aBill = _normalizedText(a.billTypeId ?? (a.type == 'debit' ? a.whoOrBill : ''));
-    final bBill = _normalizedText(b.billTypeId ?? (b.type == 'debit' ? b.whoOrBill : ''));
+    final aBill =
+        _normalizedText(a.billTypeId ?? (a.type == 'debit' ? a.whoOrBill : ''));
+    final bBill =
+        _normalizedText(b.billTypeId ?? (b.type == 'debit' ? b.whoOrBill : ''));
     if (aBill != bBill) return false;
 
-    if (!_doubleEquals(a.distributionTotal ?? 0.0, b.distributionTotal ?? 0.0)) return false;
+    if (!_doubleEquals(a.distributionTotal ?? 0.0, b.distributionTotal ?? 0.0))
+      return false;
 
     final aSplit = _normalizedList(a.splitAmong);
     final bSplit = _normalizedList(b.splitAmong);
@@ -119,7 +126,8 @@ class FundRepository extends ChangeNotifier {
     return true;
   }
 
-  bool _containsEquivalentTransaction(List<TransactionModel> existing, TransactionModel candidate) {
+  bool _containsEquivalentTransaction(
+      List<TransactionModel> existing, TransactionModel candidate) {
     return existing.any((tx) => _isEquivalentTransaction(tx, candidate));
   }
 
@@ -164,7 +172,9 @@ class FundRepository extends ChangeNotifier {
       final repo = curConfig?.repoName;
 
       final token = await storage.getToken(owner: owner, repo: repo);
-      if (token != null && token.isNotEmpty && storage.hasPendingSyncFlagFor(owner: owner, repo: repo)) {
+      if (token != null &&
+          token.isNotEmpty &&
+          storage.hasPendingSyncFlagFor(owner: owner, repo: repo)) {
         await syncPending(token);
       }
       await fetchConfig();
@@ -179,7 +189,9 @@ class FundRepository extends ChangeNotifier {
 
   Future<AppConfig?> fetchConfig() async {
     final curConfig = _config ?? await storage.getConfig();
-    if (curConfig == null || curConfig.repoOwner.isEmpty || curConfig.repoName.isEmpty) {
+    if (curConfig == null ||
+        curConfig.repoOwner.isEmpty ||
+        curConfig.repoName.isEmpty) {
       return null;
     }
 
@@ -217,8 +229,10 @@ class FundRepository extends ChangeNotifier {
 
   Future<FundData?> fetchData() async {
     final curConfig = _config ?? await storage.getConfig();
-    if (curConfig == null || curConfig.repoOwner.isEmpty || curConfig.repoName.isEmpty) {
-      _data = await storage.getDataCache();
+    if (curConfig == null ||
+        curConfig.repoOwner.isEmpty ||
+        curConfig.repoName.isEmpty) {
+      _data = null;
       notifyListeners();
       return _data;
     }
@@ -240,6 +254,17 @@ class FundRepository extends ChangeNotifier {
         final decoded = utf8.decode(base64.decode(file.content));
         final json = jsonDecode(decoded) as Map<String, dynamic>;
         final fetched = FundData.fromJson(json);
+        final activeDeletedTxIds =
+            storage.getDeletedTxIds(owner: owner, repo: repo);
+        final activeDeletedParentIds =
+            storage.getDeletedParentIds(owner: owner, repo: repo);
+        if (activeDeletedTxIds.isNotEmpty ||
+            activeDeletedParentIds.isNotEmpty) {
+          fetched.transactions.removeWhere((t) =>
+              activeDeletedTxIds.contains(t.id) ||
+              (t.parentId != null &&
+                  activeDeletedParentIds.contains(t.parentId)));
+        }
         fetched.updateSummaries(curConfig);
         _data = fetched;
         await storage.saveDataCache(fetched, owner: owner, repo: repo);
@@ -272,19 +297,29 @@ class FundRepository extends ChangeNotifier {
 
     final parentId = 'tx_exp_${DateTime.now().millisecondsSinceEpoch}';
     final payerName = curConfig.members
-        .firstWhere((m) => m.id == payerId, orElse: () => MemberConfig(id: payerId, name: payerId))
+        .firstWhere((m) => m.id == payerId,
+            orElse: () => MemberConfig(id: payerId, name: payerId))
         .name;
     final billName = curConfig.billTypes
         .firstWhere((b) => b.id == billTypeId,
-            orElse: () => BillTypeConfig(id: billTypeId, name: billTypeId, icon: '🧾'))
+            orElse: () =>
+                BillTypeConfig(id: billTypeId, name: billTypeId, icon: '🧾'))
         .name;
     final ref = note.trim().isNotEmpty ? note.trim() : billName;
 
-    final activeMembers = curConfig.members.where((m) => m.active).map((m) => m.id).toList();
+    final activeMembers =
+        curConfig.members.where((m) => m.active).map((m) => m.id).toList();
     final splitAmong = (customSplit != null && customSplit.isNotEmpty)
-        ? customSplit.keys.where((k) => !exemptions.contains(k) && (customSplit[k] ?? 0.0) > 0.0).toList()
+        ? customSplit.keys
+            .where(
+                (k) => !exemptions.contains(k) && (customSplit[k] ?? 0.0) > 0.0)
+            .toList()
         : (splitPercentages != null && splitPercentages.isNotEmpty
-            ? splitPercentages.keys.where((k) => !exemptions.contains(k) && (splitPercentages[k] ?? 0.0) > 0.0).toList()
+            ? splitPercentages.keys
+                .where((k) =>
+                    !exemptions.contains(k) &&
+                    (splitPercentages[k] ?? 0.0) > 0.0)
+                .toList()
             : activeMembers.where((id) => !exemptions.contains(id)).toList());
 
     final creditTx = TransactionModel(
@@ -313,23 +348,42 @@ class FundRepository extends ChangeNotifier {
       splitPercentages: splitPercentages,
     );
 
-    final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
-    final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
-    if (_containsEquivalentPair(currentData.transactions, first: creditTx, second: debitTx)) {
-      _error = 'Duplicate expense detected. An identical expense was recorded within the last hour.';
+    final token = await storage.getToken(
+        owner: curConfig.repoOwner, repo: curConfig.repoName);
+    final currentData = _data?.copyWith() ??
+        storage.getDataCacheFor(
+            owner: curConfig.repoOwner, repo: curConfig.repoName) ??
+        FundData();
+    if (_containsEquivalentPair(currentData.transactions,
+        first: creditTx, second: debitTx)) {
+      _error =
+          'Duplicate expense detected. An identical expense was recorded within the last hour.';
       return false;
     }
     currentData.transactions.insert(0, creditTx);
     currentData.transactions.insert(0, debitTx);
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
-    final noteExtra = (note.trim().isNotEmpty && note.trim() != billName) ? ' ($note)' : '';
+    final amtStr =
+        '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
+    final billConfig = curConfig.billTypes.firstWhere(
+      (b) => b.id == billTypeId,
+      orElse: () => BillTypeConfig(id: billTypeId, name: billName, icon: ''),
+    );
+    final billDisplay = billConfig.icon.trim().isNotEmpty
+        ? '${billConfig.icon.trim()} ${billConfig.name}'
+        : billConfig.name;
+    final noteExtra = (note.trim().isNotEmpty && note.trim() != billConfig.name)
+        ? ' ($note)'
+        : '';
     final activeCount = curConfig.members.where((m) => m.active).length;
     final splitStr = (customSplit != null && customSplit.isNotEmpty)
         ? 'Custom split (${customSplit.length} members)'
-        : (splitAmong.length == activeCount ? 'Split equally' : 'Split among ${splitAmong.length}');
-    final msg = 'Expense: $payerName paid $amtStr for $billName$noteExtra - $splitStr';
+        : (splitAmong.length == activeCount
+            ? 'Split equally'
+            : 'Split among ${splitAmong.length}');
+    final msg =
+        'Expense: $payerName paid $amtStr for $billDisplay$noteExtra - $splitStr';
 
     _data = currentData;
     notifyListeners();
@@ -352,19 +406,29 @@ class FundRepository extends ChangeNotifier {
     if (curConfig == null) return false;
 
     final payerName = curConfig.members
-        .firstWhere((m) => m.id == payerId, orElse: () => MemberConfig(id: payerId, name: payerId))
+        .firstWhere((m) => m.id == payerId,
+            orElse: () => MemberConfig(id: payerId, name: payerId))
         .name;
     final billName = curConfig.billTypes
         .firstWhere((b) => b.id == billTypeId,
-            orElse: () => BillTypeConfig(id: billTypeId, name: billTypeId, icon: '🧾'))
+            orElse: () =>
+                BillTypeConfig(id: billTypeId, name: billTypeId, icon: '🧾'))
         .name;
     final ref = note.trim().isNotEmpty ? note.trim() : billName;
 
-    final activeMembers = curConfig.members.where((m) => m.active).map((m) => m.id).toList();
+    final activeMembers =
+        curConfig.members.where((m) => m.active).map((m) => m.id).toList();
     final splitAmong = (customSplit != null && customSplit.isNotEmpty)
-        ? customSplit.keys.where((k) => !exemptions.contains(k) && (customSplit[k] ?? 0.0) > 0.0).toList()
+        ? customSplit.keys
+            .where(
+                (k) => !exemptions.contains(k) && (customSplit[k] ?? 0.0) > 0.0)
+            .toList()
         : (splitPercentages != null && splitPercentages.isNotEmpty
-            ? splitPercentages.keys.where((k) => !exemptions.contains(k) && (splitPercentages[k] ?? 0.0) > 0.0).toList()
+            ? splitPercentages.keys
+                .where((k) =>
+                    !exemptions.contains(k) &&
+                    (splitPercentages[k] ?? 0.0) > 0.0)
+                .toList()
             : activeMembers.where((id) => !exemptions.contains(id)).toList());
 
     final creditTx = TransactionModel(
@@ -393,16 +457,31 @@ class FundRepository extends ChangeNotifier {
       splitPercentages: splitPercentages,
     );
 
-    final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
-    final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    final token = await storage.getToken(
+        owner: curConfig.repoOwner, repo: curConfig.repoName);
+    final currentData = _data?.copyWith() ??
+        storage.getDataCacheFor(
+            owner: curConfig.repoOwner, repo: curConfig.repoName) ??
+        FundData();
     currentData.transactions.removeWhere((t) => t.parentId == parentId);
     currentData.transactions.insert(0, creditTx);
     currentData.transactions.insert(0, debitTx);
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
-    final noteExtra = (note.trim().isNotEmpty && note.trim() != billName) ? ' ($note)' : '';
-    final msg = 'Edit Expense: $payerName paid $amtStr for $billName$noteExtra';
+    final amtStr =
+        '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
+    final billConfig = curConfig.billTypes.firstWhere(
+      (b) => b.id == billTypeId,
+      orElse: () => BillTypeConfig(id: billTypeId, name: billName, icon: ''),
+    );
+    final billDisplay = billConfig.icon.trim().isNotEmpty
+        ? '${billConfig.icon.trim()} ${billConfig.name}'
+        : billConfig.name;
+    final noteExtra = (note.trim().isNotEmpty && note.trim() != billConfig.name)
+        ? ' ($note)'
+        : '';
+    final msg =
+        'Edit Expense: $payerName paid $amtStr for $billDisplay$noteExtra';
 
     _data = currentData;
     notifyListeners();
@@ -448,24 +527,39 @@ class FundRepository extends ChangeNotifier {
       splitPercentages: splitPercentages,
     );
 
-    final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
-    final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    final token = await storage.getToken(
+        owner: curConfig.repoOwner, repo: curConfig.repoName);
+    final currentData = _data?.copyWith() ??
+        storage.getDataCacheFor(
+            owner: curConfig.repoOwner, repo: curConfig.repoName) ??
+        FundData();
     if (_containsEquivalentTransaction(currentData.transactions, tx)) {
-      _error = 'Duplicate transaction detected. An identical transaction was recorded within the last hour.';
+      _error =
+          'Duplicate transaction detected. An identical transaction was recorded within the last hour.';
       return false;
     }
     currentData.transactions.insert(0, tx);
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
+    final amtStr =
+        '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
     final noteStr = note.trim().isNotEmpty ? ' ($note)' : '';
     String msg;
     if (type == 'credit') {
-      final payer = curConfig.members.firstWhere((m) => m.id == payerId, orElse: () => MemberConfig(id: payerId ?? '', name: payerId ?? '')).name;
+      final payer = curConfig.members
+          .firstWhere((m) => m.id == payerId,
+              orElse: () =>
+                  MemberConfig(id: payerId ?? '', name: payerId ?? ''))
+          .name;
       msg = 'Deposit: $payer added $amtStr$noteStr';
     } else if (type == 'debit') {
-      final bill = curConfig.billTypes.firstWhere((b) => b.id == billTypeId, orElse: () => BillTypeConfig(id: billTypeId ?? '', name: billTypeId ?? '')).name;
-      msg = 'Debit: Spent $amtStr on $bill$noteStr';
+      final bill = curConfig.billTypes.firstWhere((b) => b.id == billTypeId,
+          orElse: () => BillTypeConfig(
+              id: billTypeId ?? '', name: billTypeId ?? '', icon: ''));
+      final billDisplay = bill.icon.trim().isNotEmpty
+          ? '${bill.icon.trim()} ${bill.name}'
+          : bill.name;
+      msg = 'Debit: Spent $amtStr on $billDisplay$noteStr';
     } else {
       msg = 'Transaction: Added $type of $amtStr$noteStr';
     }
@@ -486,7 +580,8 @@ class FundRepository extends ChangeNotifier {
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
 
-    final activeMembers = curConfig.members.where((m) => m.active).map((m) => m.id).toList();
+    final activeMembers =
+        curConfig.members.where((m) => m.active).map((m) => m.id).toList();
     final distributionMembers = participantIds.isNotEmpty
         ? participantIds.where((id) => activeMembers.contains(id)).toList()
         : activeMembers;
@@ -510,14 +605,22 @@ class FundRepository extends ChangeNotifier {
       );
     }).toList();
 
-    final amtStr = totalAmount % 1.0 == 0.0 ? totalAmount.toInt().toString() : totalAmount.toStringAsFixed(2);
+    final amtStr = totalAmount % 1.0 == 0.0
+        ? totalAmount.toInt().toString()
+        : totalAmount.toStringAsFixed(2);
     final noteStr = note.isNotEmpty ? ' for $note' : '';
-    final msg = 'Distribution: Distributed ${curConfig.currency} $amtStr among ${distributionMembers.length} members$noteStr';
+    final msg =
+        'Distribution: Distributed ${curConfig.currency} $amtStr among ${distributionMembers.length} members$noteStr';
 
-    final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
-    final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    final token = await storage.getToken(
+        owner: curConfig.repoOwner, repo: curConfig.repoName);
+    final currentData = _data?.copyWith() ??
+        storage.getDataCacheFor(
+            owner: curConfig.repoOwner, repo: curConfig.repoName) ??
+        FundData();
     if (_containsEquivalentSet(currentData.transactions, newTxs)) {
-      _error = 'Duplicate distribution detected. An identical distribution was recorded within the last hour.';
+      _error =
+          'Duplicate distribution detected. An identical distribution was recorded within the last hour.';
       return false;
     }
     for (final tx in newTxs) {
@@ -544,10 +647,12 @@ class FundRepository extends ChangeNotifier {
 
     final parentId = 'tx_set_${DateTime.now().millisecondsSinceEpoch}';
     final payerName = curConfig.members
-        .firstWhere((m) => m.id == payerId, orElse: () => MemberConfig(id: payerId, name: payerId))
+        .firstWhere((m) => m.id == payerId,
+            orElse: () => MemberConfig(id: payerId, name: payerId))
         .name;
     final receiverName = curConfig.members
-        .firstWhere((m) => m.id == receiverId, orElse: () => MemberConfig(id: receiverId, name: receiverId))
+        .firstWhere((m) => m.id == receiverId,
+            orElse: () => MemberConfig(id: receiverId, name: receiverId))
         .name;
 
     final payerTx = TransactionModel(
@@ -572,14 +677,23 @@ class FundRepository extends ChangeNotifier {
       parentId: parentId,
     );
 
-    final amtStr = amount % 1.0 == 0.0 ? amount.toInt().toString() : amount.toStringAsFixed(2);
+    final amtStr = amount % 1.0 == 0.0
+        ? amount.toInt().toString()
+        : amount.toStringAsFixed(2);
     final noteStr = note.trim().isNotEmpty ? ' ($note)' : '';
-    final msg = 'Settlement: $payerName paid ${curConfig.currency} $amtStr to $receiverName$noteStr';
+    final msg =
+        'Settlement: $payerName paid ${curConfig.currency} $amtStr to $receiverName$noteStr';
 
-    final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
-    final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
-    if (_containsEquivalentPair(currentData.transactions, first: payerTx, second: receiverTx)) {
-      _error = 'Duplicate settlement detected. An identical settlement was recorded within the last hour.';
+    final token = await storage.getToken(
+        owner: curConfig.repoOwner, repo: curConfig.repoName);
+    final currentData = _data?.copyWith() ??
+        storage.getDataCacheFor(
+            owner: curConfig.repoOwner, repo: curConfig.repoName) ??
+        FundData();
+    if (_containsEquivalentPair(currentData.transactions,
+        first: payerTx, second: receiverTx)) {
+      _error =
+          'Duplicate settlement detected. An identical settlement was recorded within the last hour.';
       return false;
     }
     currentData.transactions.insert(0, payerTx);
@@ -605,10 +719,12 @@ class FundRepository extends ChangeNotifier {
 
     final parentId = 'tx_trf_${DateTime.now().millisecondsSinceEpoch}';
     final senderName = curConfig.members
-        .firstWhere((m) => m.id == senderId, orElse: () => MemberConfig(id: senderId, name: senderId))
+        .firstWhere((m) => m.id == senderId,
+            orElse: () => MemberConfig(id: senderId, name: senderId))
         .name;
     final recipientName = curConfig.members
-        .firstWhere((m) => m.id == recipientId, orElse: () => MemberConfig(id: recipientId, name: recipientId))
+        .firstWhere((m) => m.id == recipientId,
+            orElse: () => MemberConfig(id: recipientId, name: recipientId))
         .name;
 
     final senderTx = TransactionModel(
@@ -633,14 +749,23 @@ class FundRepository extends ChangeNotifier {
       parentId: parentId,
     );
 
-    final amtStr = amount % 1.0 == 0.0 ? amount.toInt().toString() : amount.toStringAsFixed(2);
+    final amtStr = amount % 1.0 == 0.0
+        ? amount.toInt().toString()
+        : amount.toStringAsFixed(2);
     final noteStr = note.trim().isNotEmpty ? ' ($note)' : '';
-    final msg = 'Transfer: $senderName transferred ${curConfig.currency} $amtStr to $recipientName$noteStr';
+    final msg =
+        'Transfer: $senderName transferred ${curConfig.currency} $amtStr to $recipientName$noteStr';
 
-    final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
-    final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
-    if (_containsEquivalentPair(currentData.transactions, first: senderTx, second: recipientTx)) {
-      _error = 'Duplicate transfer detected. An identical transfer was recorded within the last hour.';
+    final token = await storage.getToken(
+        owner: curConfig.repoOwner, repo: curConfig.repoName);
+    final currentData = _data?.copyWith() ??
+        storage.getDataCacheFor(
+            owner: curConfig.repoOwner, repo: curConfig.repoName) ??
+        FundData();
+    if (_containsEquivalentPair(currentData.transactions,
+        first: senderTx, second: recipientTx)) {
+      _error =
+          'Duplicate transfer detected. An identical transfer was recorded within the last hour.';
       return false;
     }
     currentData.transactions.insert(0, senderTx);
@@ -689,8 +814,12 @@ class FundRepository extends ChangeNotifier {
       splitPercentages: splitPercentages,
     );
 
-    final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
-    final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    final token = await storage.getToken(
+        owner: curConfig.repoOwner, repo: curConfig.repoName);
+    final currentData = _data?.copyWith() ??
+        storage.getDataCacheFor(
+            owner: curConfig.repoOwner, repo: curConfig.repoName) ??
+        FundData();
     final index = currentData.transactions.indexWhere((t) => t.id == txId);
     if (index != -1) {
       currentData.transactions[index] = updatedTx;
@@ -699,15 +828,25 @@ class FundRepository extends ChangeNotifier {
     }
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
+    final amtStr =
+        '${curConfig.currency} ${amount % 1.0 == 0.0 ? amount.toInt() : amount.toStringAsFixed(2)}';
     final noteStr = note.trim().isNotEmpty ? ' ($note)' : '';
     String msg;
     if (type == 'credit') {
-      final payer = curConfig.members.firstWhere((m) => m.id == payerId, orElse: () => MemberConfig(id: payerId ?? '', name: payerId ?? '')).name;
+      final payer = curConfig.members
+          .firstWhere((m) => m.id == payerId,
+              orElse: () =>
+                  MemberConfig(id: payerId ?? '', name: payerId ?? ''))
+          .name;
       msg = 'Edit Deposit: Updated $payer deposit of $amtStr$noteStr';
     } else if (type == 'debit') {
-      final bill = curConfig.billTypes.firstWhere((b) => b.id == billTypeId, orElse: () => BillTypeConfig(id: billTypeId ?? '', name: billTypeId ?? '')).name;
-      msg = 'Edit Debit: Updated debit of $amtStr for $bill$noteStr';
+      final bill = curConfig.billTypes.firstWhere((b) => b.id == billTypeId,
+          orElse: () => BillTypeConfig(
+              id: billTypeId ?? '', name: billTypeId ?? '', icon: ''));
+      final billDisplay = bill.icon.trim().isNotEmpty
+          ? '${bill.icon.trim()} ${bill.name}'
+          : bill.name;
+      msg = 'Edit Debit: Updated debit of $amtStr for $billDisplay$noteStr';
     } else {
       msg = 'Edit Transaction: Updated $type of $amtStr$noteStr';
     }
@@ -722,17 +861,42 @@ class FundRepository extends ChangeNotifier {
     final curConfig = _config ?? await storage.getConfig();
     if (curConfig == null) return false;
 
-    final currentData = _data?.copyWith() ?? (await storage.getDataCache()) ?? FundData();
+    final owner = curConfig.repoOwner;
+    final repo = curConfig.repoName;
+    final currentData = _data?.copyWith() ??
+        storage.getDataCacheFor(owner: owner, repo: repo) ??
+        FundData();
+
+    final deletedTxIds = <String>{};
+    final deletedParentIds = <String>{};
 
     if (tx.parentId != null && tx.parentId!.isNotEmpty) {
+      final siblings = currentData.transactions
+          .where((t) => t.parentId == tx.parentId)
+          .toList();
+      for (final s in siblings) {
+        deletedTxIds.add(s.id);
+      }
+      deletedParentIds.add(tx.parentId!);
       currentData.transactions.removeWhere((t) => t.parentId == tx.parentId);
     } else {
+      deletedTxIds.add(tx.id);
       currentData.transactions.removeWhere((t) => t.id == tx.id);
+    }
+
+    // Persist tombstones to ensure background sync or 3-way merge never resurrects deleted transactions
+    for (final id in deletedTxIds) {
+      await storage.addDeletedTombstone(txId: id, owner: owner, repo: repo);
+    }
+    for (final pId in deletedParentIds) {
+      await storage.addDeletedTombstone(
+          parentId: pId, owner: owner, repo: repo);
     }
 
     currentData.updateSummaries(curConfig);
 
-    final amtStr = '${curConfig.currency} ${tx.amount.abs() % 1.0 == 0.0 ? tx.amount.abs().toInt() : tx.amount.abs().toStringAsFixed(2)}';
+    final amtStr =
+        '${curConfig.currency} ${tx.amount.abs() % 1.0 == 0.0 ? tx.amount.abs().toInt() : tx.amount.abs().toStringAsFixed(2)}';
     String detail;
     if (tx.parentId != null && tx.parentId!.contains('_dist_')) {
       detail = 'Distribution (${tx.note})';
@@ -741,11 +905,19 @@ class FundRepository extends ChangeNotifier {
     } else if (tx.parentId != null && tx.parentId!.contains('_trf_')) {
       detail = 'Transfer (${tx.note})';
     } else if (tx.type == 'credit') {
-      final name = curConfig.members.firstWhere((m) => m.id == tx.payerId, orElse: () => MemberConfig(id: tx.whoOrBill, name: tx.whoOrBill)).name;
+      final name = curConfig.members
+          .firstWhere((m) => m.id == tx.payerId,
+              orElse: () => MemberConfig(id: tx.whoOrBill, name: tx.whoOrBill))
+          .name;
       detail = '$name ($amtStr - ${tx.note})';
     } else if (tx.type == 'debit') {
-      final bill = curConfig.billTypes.firstWhere((b) => b.id == tx.billTypeId, orElse: () => BillTypeConfig(id: tx.whoOrBill, name: tx.whoOrBill)).name;
-      detail = '$bill ($amtStr - ${tx.note})';
+      final bill = curConfig.billTypes.firstWhere((b) => b.id == tx.billTypeId,
+          orElse: () =>
+              BillTypeConfig(id: tx.whoOrBill, name: tx.whoOrBill, icon: ''));
+      final billDisplay = bill.icon.trim().isNotEmpty
+          ? '${bill.icon.trim()} ${bill.name}'
+          : bill.name;
+      detail = '$billDisplay ($amtStr - ${tx.note})';
     } else {
       detail = '${tx.note} ($amtStr)';
     }
@@ -754,7 +926,8 @@ class FundRepository extends ChangeNotifier {
     _data = currentData;
     notifyListeners();
 
-    final token = await storage.getToken(owner: curConfig.repoOwner, repo: curConfig.repoName);
+    final token = await storage.getToken(
+        owner: curConfig.repoOwner, repo: curConfig.repoName);
     return await _saveAndPushData(currentData, curConfig, msg, token);
   }
 
@@ -782,7 +955,12 @@ class FundRepository extends ChangeNotifier {
           branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
         );
 
-        // Automated 3-Way Merge: If remote data exists, merge remote state with local changes
+        final activeDeletedTxIds =
+            storage.getDeletedTxIds(owner: owner, repo: repo);
+        final activeDeletedParentIds =
+            storage.getDeletedParentIds(owner: owner, repo: repo);
+
+        // Automated 3-Way Merge: If remote data exists, merge remote state with local changes respecting tombstones
         if (file != null && file.content.isNotEmpty) {
           try {
             final decoded = utf8.decode(base64.decode(file.content));
@@ -791,6 +969,8 @@ class FundRepository extends ChangeNotifier {
               remoteData: remoteData,
               localData: dataToPush,
               config: curConfig,
+              deletedIds: activeDeletedTxIds,
+              deletedParentIds: activeDeletedParentIds,
             );
           } catch (_) {}
         } else {
@@ -815,6 +995,13 @@ class FundRepository extends ChangeNotifier {
           _data = dataToPush;
           await storage.saveDataCache(dataToPush, owner: owner, repo: repo);
           await storage.setPendingSync(false, null, owner, repo);
+          // Clean up tombstones that are confirmed removed
+          await storage.removeDeletedTombstones(
+            txIds: activeDeletedTxIds,
+            parentIds: activeDeletedParentIds,
+            owner: owner,
+            repo: repo,
+          );
           notifyListeners();
           return true;
         }
@@ -833,13 +1020,23 @@ class FundRepository extends ChangeNotifier {
     return true;
   }
 
-  Future<bool> updateConfig(AppConfig newConfig, {String? commitMessage}) async {
-    final owner = newConfig.repoOwner.isNotEmpty ? newConfig.repoOwner : (_config?.repoOwner ?? '');
-    final repo = newConfig.repoName.isNotEmpty ? newConfig.repoName : (_config?.repoName ?? '');
-    final branch = newConfig.repoBranch.isNotEmpty ? newConfig.repoBranch : (_config?.repoBranch ?? '');
-    final dataFileName = newConfig.dataFileName.isNotEmpty ? newConfig.dataFileName : (_config?.dataFileName ?? '');
+  Future<bool> updateConfig(AppConfig newConfig,
+      {String? commitMessage}) async {
+    final owner = newConfig.repoOwner.isNotEmpty
+        ? newConfig.repoOwner
+        : (_config?.repoOwner ?? '');
+    final repo = newConfig.repoName.isNotEmpty
+        ? newConfig.repoName
+        : (_config?.repoName ?? '');
+    final branch = newConfig.repoBranch.isNotEmpty
+        ? newConfig.repoBranch
+        : (_config?.repoBranch ?? '');
+    final dataFileName = newConfig.dataFileName.isNotEmpty
+        ? newConfig.dataFileName
+        : (_config?.dataFileName ?? '');
     final token = await storage.getToken(owner: owner, repo: repo);
-    final msg = commitMessage ?? _generateConfigCommitMessage(_config, newConfig);
+    final msg =
+        commitMessage ?? _generateConfigCommitMessage(_config, newConfig);
 
     AppConfig configToSave = newConfig.copyWith(
       repoOwner: owner,
@@ -868,9 +1065,16 @@ class FundRepository extends ChangeNotifier {
           if (remoteOwner != null && remoteOwner.isNotEmpty) {
             configToSave = configToSave.copyWith(
               repoOwner: remoteOwner,
-              repoName: (remoteRepo != null && remoteRepo.isNotEmpty) ? remoteRepo : configToSave.repoName,
-              repoBranch: (remoteBranch != null && remoteBranch.isNotEmpty) ? remoteBranch : configToSave.repoBranch,
-              dataFileName: (remoteDataFileName != null && remoteDataFileName.isNotEmpty) ? remoteDataFileName : configToSave.dataFileName,
+              repoName: (remoteRepo != null && remoteRepo.isNotEmpty)
+                  ? remoteRepo
+                  : configToSave.repoName,
+              repoBranch: (remoteBranch != null && remoteBranch.isNotEmpty)
+                  ? remoteBranch
+                  : configToSave.repoBranch,
+              dataFileName:
+                  (remoteDataFileName != null && remoteDataFileName.isNotEmpty)
+                      ? remoteDataFileName
+                      : configToSave.dataFileName,
             );
           }
         } catch (_) {}
@@ -914,7 +1118,8 @@ class FundRepository extends ChangeNotifier {
     final owner = curConfig?.repoOwner;
     final repo = curConfig?.repoName;
     final localData = storage.getDataCacheFor(owner: owner, repo: repo);
-    if (curConfig == null || localData == null || owner == null || repo == null) return false;
+    if (curConfig == null || localData == null || owner == null || repo == null)
+      return false;
 
     int attempts = 0;
     const int maxAttempts = 3;
@@ -930,6 +1135,11 @@ class FundRepository extends ChangeNotifier {
         branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
       );
 
+      final activeDeletedTxIds =
+          storage.getDeletedTxIds(owner: owner, repo: repo);
+      final activeDeletedParentIds =
+          storage.getDeletedParentIds(owner: owner, repo: repo);
+
       if (file != null && file.content.isNotEmpty) {
         try {
           final decoded = utf8.decode(base64.decode(file.content));
@@ -938,6 +1148,8 @@ class FundRepository extends ChangeNotifier {
             remoteData: remoteData,
             localData: dataToSync,
             config: curConfig,
+            deletedIds: activeDeletedTxIds,
+            deletedParentIds: activeDeletedParentIds,
           );
         } catch (_) {}
       } else {
@@ -952,7 +1164,7 @@ class FundRepository extends ChangeNotifier {
         repo: repo,
         branch: curConfig.repoBranch.isNotEmpty ? curConfig.repoBranch : null,
         path: curConfig.dataFileName,
-        message: 'Sync offline transactions with automated 3-way merge',
+        message: 'Sync: Merge offline changes with remote ledger (3-way merge)',
         base64Content: encoded,
         sha: file?.sha,
       );
@@ -961,6 +1173,12 @@ class FundRepository extends ChangeNotifier {
         _data = dataToSync;
         await storage.saveDataCache(dataToSync, owner: owner, repo: repo);
         await storage.setPendingSync(false, null, owner, repo);
+        await storage.removeDeletedTombstones(
+          txIds: activeDeletedTxIds,
+          parentIds: activeDeletedParentIds,
+          owner: owner,
+          repo: repo,
+        );
         notifyListeners();
         return true;
       }
@@ -998,11 +1216,15 @@ class FundRepository extends ChangeNotifier {
   /// Pushes local data (and ledger) to GitHub repository with automated 3-way merge
   Future<bool> pushToGitHub({String? commitMessage}) async {
     final curConfig = _config ?? await storage.getConfig() ?? AppConfig();
-    final currentData = _data ?? storage.getDataCacheFor(owner: curConfig.repoOwner, repo: curConfig.repoName);
+    final currentData = _data ??
+        storage.getDataCacheFor(
+            owner: curConfig.repoOwner, repo: curConfig.repoName);
     final owner = curConfig.repoOwner;
     final repo = curConfig.repoName;
     final token = await storage.getToken(owner: owner, repo: repo);
-    final msg = commitMessage ?? 'Push: update ledger with ${currentData?.transactions.length ?? 0} transactions';
+    final txCount = currentData?.transactions.length ?? 0;
+    final msg = commitMessage ??
+        'Sync: Push $txCount offline transactions to remote ledger';
 
     if (currentData == null || owner.isEmpty || repo.isEmpty) return false;
 
@@ -1038,15 +1260,18 @@ class FundRepository extends ChangeNotifier {
 
   String exportToCsv() {
     final d = _data;
-    if (d == null || d.transactions.isEmpty) return 'Date,Type,Amount,Category/Who,Note,SplitAmong,Exemptions\n';
+    if (d == null || d.transactions.isEmpty)
+      return 'Date,Type,Amount,Category/Who,Note,SplitAmong,Exemptions\n';
 
     final buffer = StringBuffer();
-    buffer.writeln('ID,Date,Type,Amount,CategoryOrWho,Note,ParentID,SplitAmong,Exemptions');
+    buffer.writeln(
+        'ID,Date,Type,Amount,CategoryOrWho,Note,ParentID,SplitAmong,Exemptions');
     for (final tx in d.transactions) {
       final split = (tx.splitAmong ?? []).join(';');
       final ex = (tx.exemptions ?? []).join(';');
       final escapedNote = '"${tx.note.replaceAll('"', '""')}"';
-      buffer.writeln('${tx.id},${tx.date},${tx.type},${tx.amount},${tx.whoOrBill},$escapedNote,${tx.parentId ?? ""},$split,$ex');
+      buffer.writeln(
+          '${tx.id},${tx.date},${tx.type},${tx.amount},${tx.whoOrBill},$escapedNote,${tx.parentId ?? ""},$split,$ex');
     }
     return buffer.toString();
   }
@@ -1063,19 +1288,25 @@ class FundRepository extends ChangeNotifier {
     return JsonFormatter.formatAppConfig(c);
   }
 
-  Future<bool> importFundData(FundData importedData, {String? commitMessage}) async {
+  Future<bool> importFundData(FundData importedData,
+      {String? commitMessage}) async {
     final curConfig = _config ?? await storage.getConfig() ?? AppConfig();
     final owner = curConfig.repoOwner;
     final repo = curConfig.repoName;
     final token = await storage.getToken(owner: owner, repo: repo);
-    final msg = commitMessage ?? 'Import data: updated transactions and ledger';
+    final txCount = importedData.transactions.length;
+    final msg =
+        commitMessage ?? 'Import: Load ledger with $txCount transactions';
 
     importedData.updateSummaries(curConfig);
     _data = importedData;
     await storage.saveDataCache(importedData, owner: owner, repo: repo);
     notifyListeners();
 
-    if (token != null && token.isNotEmpty && owner.isNotEmpty && repo.isNotEmpty) {
+    if (token != null &&
+        token.isNotEmpty &&
+        owner.isNotEmpty &&
+        repo.isNotEmpty) {
       final file = await api.getFileDetails(
         token: token,
         owner: owner,
@@ -1105,63 +1336,186 @@ class FundRepository extends ChangeNotifier {
     return true;
   }
 
-  String _generateConfigCommitMessage(AppConfig? oldConfig, AppConfig newConfig) {
+  String _generateConfigCommitMessage(
+      AppConfig? oldConfig, AppConfig newConfig) {
     if (oldConfig == null) {
-      return 'Config: Initialized configuration settings';
+      return 'Config: Initialize configuration settings';
     }
 
-    final changes = <String>[];
+    final addedMembers = <String>[];
+    final removedMembers = <String>[];
+    final updatedMembers = <String>[];
 
-    // Check members
-    final oldMemberIds = oldConfig.members.map((m) => m.id).toSet();
-    final newMemberIds = newConfig.members.map((m) => m.id).toSet();
+    final oldMemberMap = {for (final m in oldConfig.members) m.id: m};
+    final newMemberMap = {for (final m in newConfig.members) m.id: m};
 
-    final addedMembers = newConfig.members.where((m) => !oldMemberIds.contains(m.id)).toList();
-    final removedMembers = oldConfig.members.where((m) => !newMemberIds.contains(m.id)).toList();
-
-    if (addedMembers.length == 1) {
-      changes.add('added member "${addedMembers.first.name}"');
-    } else if (addedMembers.length > 1) {
-      changes.add('added ${addedMembers.length} members');
+    // 1. Added members
+    for (final m in newConfig.members) {
+      if (!oldMemberMap.containsKey(m.id)) {
+        addedMembers.add('Add member "${m.name}" (@${m.id})');
+      }
     }
 
-    if (removedMembers.length == 1) {
-      changes.add('removed member "${removedMembers.first.name}"');
-    } else if (removedMembers.length > 1) {
-      changes.add('removed ${removedMembers.length} members');
+    // 2. Removed members
+    for (final m in oldConfig.members) {
+      if (!newMemberMap.containsKey(m.id)) {
+        removedMembers.add('Remove member "${m.name}" (@${m.id})');
+      }
+    }
+
+    // 3. Updated/renamed members
+    for (final newM in newConfig.members) {
+      final oldM = oldMemberMap[newM.id];
+      if (oldM != null) {
+        final nameChanged = oldM.name.trim() != newM.name.trim();
+        final activeChanged = oldM.active != newM.active;
+
+        if (nameChanged && activeChanged) {
+          final status = newM.active ? 'active' : 'inactive';
+          updatedMembers.add(
+              'Rename member "${oldM.name}" to "${newM.name}" and set $status (@${newM.id})');
+        } else if (nameChanged) {
+          updatedMembers.add(
+              'Rename member "${oldM.name}" to "${newM.name}" (@${newM.id})');
+        } else if (activeChanged) {
+          if (newM.active) {
+            updatedMembers.add('Activate member "${newM.name}" (@${newM.id})');
+          } else {
+            updatedMembers
+                .add('Deactivate member "${newM.name}" (@${newM.id})');
+          }
+        }
+      }
     }
 
     // Check categories (billTypes)
-    final oldBillIds = oldConfig.billTypes.map((b) => b.id).toSet();
-    final newBillIds = newConfig.billTypes.map((b) => b.id).toSet();
+    final addedBills = <String>[];
+    final removedBills = <String>[];
+    final updatedBills = <String>[];
 
-    final addedBills = newConfig.billTypes.where((b) => !oldBillIds.contains(b.id)).toList();
-    final removedBills = oldConfig.billTypes.where((b) => !newBillIds.contains(b.id)).toList();
+    final oldBillMap = {for (final b in oldConfig.billTypes) b.id: b};
+    final newBillMap = {for (final b in newConfig.billTypes) b.id: b};
 
-    if (addedBills.length == 1) {
-      changes.add('added category "${addedBills.first.icon} ${addedBills.first.name}"');
-    } else if (addedBills.length > 1) {
-      changes.add('added ${addedBills.length} categories');
+    // 1. Added categories
+    for (final b in newConfig.billTypes) {
+      if (!oldBillMap.containsKey(b.id)) {
+        final iconStr = b.icon.trim().isNotEmpty ? '${b.icon.trim()} ' : '';
+        addedBills.add('Add category "$iconStr${b.name.trim()}" (@${b.id})');
+      }
     }
 
-    if (removedBills.length == 1) {
-      changes.add('removed category "${removedBills.first.icon} ${removedBills.first.name}"');
-    } else if (removedBills.length > 1) {
-      changes.add('removed ${removedBills.length} categories');
+    // 2. Removed categories
+    for (final b in oldConfig.billTypes) {
+      if (!newBillMap.containsKey(b.id)) {
+        final iconStr = b.icon.trim().isNotEmpty ? '${b.icon.trim()} ' : '';
+        removedBills
+            .add('Remove category "$iconStr${b.name.trim()}" (@${b.id})');
+      }
+    }
+
+    // 3. Updated categories
+    for (final newB in newConfig.billTypes) {
+      final oldB = oldBillMap[newB.id];
+      if (oldB != null) {
+        final nameChanged = oldB.name.trim() != newB.name.trim();
+        final iconChanged = oldB.icon.trim() != newB.icon.trim();
+
+        if (nameChanged && iconChanged) {
+          final oldDisplay = oldB.icon.trim().isNotEmpty
+              ? '${oldB.icon.trim()} ${oldB.name.trim()}'
+              : oldB.name.trim();
+          final newDisplay = newB.icon.trim().isNotEmpty
+              ? '${newB.icon.trim()} ${newB.name.trim()}'
+              : newB.name.trim();
+          updatedBills.add(
+              'Update category "$oldDisplay" to "$newDisplay" (@${newB.id})');
+        } else if (nameChanged) {
+          final iconStr =
+              newB.icon.trim().isNotEmpty ? '${newB.icon.trim()} ' : '';
+          updatedBills.add(
+              'Rename category "$iconStr${oldB.name.trim()}" to "${newB.name.trim()}" (@${newB.id})');
+        } else if (iconChanged) {
+          updatedBills.add(
+              'Update icon for category "${newB.name.trim()}" from ${oldB.icon.trim()} to ${newB.icon.trim()} (@${newB.id})');
+        }
+      }
     }
 
     // Check general settings
-    if (oldConfig.currency != newConfig.currency) {
-      changes.add('currency (${newConfig.currency})');
+    final generalChanges = <String>[];
+    if (oldConfig.currency.trim() != newConfig.currency.trim() &&
+        newConfig.currency.trim().isNotEmpty) {
+      generalChanges.add(
+          'Change currency from "${oldConfig.currency.trim()}" to "${newConfig.currency.trim()}"');
     }
-    if (oldConfig.siteTitle != newConfig.siteTitle) {
-      changes.add('title "${newConfig.siteTitle}"');
+    if (oldConfig.siteTitle.trim() != newConfig.siteTitle.trim() &&
+        newConfig.siteTitle.trim().isNotEmpty) {
+      generalChanges.add('Change title to "${newConfig.siteTitle.trim()}"');
+    }
+    if (oldConfig.siteSubtitle.trim() != newConfig.siteSubtitle.trim() &&
+        newConfig.siteSubtitle.trim().isNotEmpty) {
+      generalChanges
+          .add('Change subtitle to "${newConfig.siteSubtitle.trim()}"');
+    }
+    if (oldConfig.dataFileName.trim() != newConfig.dataFileName.trim() &&
+        newConfig.dataFileName.trim().isNotEmpty) {
+      generalChanges
+          .add('Change data file to "${newConfig.dataFileName.trim()}"');
+    }
+    if (oldConfig.repoBranch.trim() != newConfig.repoBranch.trim() &&
+        newConfig.repoBranch.trim().isNotEmpty) {
+      generalChanges.add('Change branch to "${newConfig.repoBranch.trim()}"');
     }
 
-    if (changes.isNotEmpty) {
-      return 'Config: ${changes.join(', ')}';
+    final allChanges = [
+      ...addedMembers,
+      ...updatedMembers,
+      ...removedMembers,
+      ...addedBills,
+      ...updatedBills,
+      ...removedBills,
+      ...generalChanges,
+    ];
+
+    if (allChanges.isEmpty) {
+      final oldMemberOrder = oldConfig.members.map((m) => m.id).join(',');
+      final newMemberOrder = newConfig.members.map((m) => m.id).join(',');
+      if (oldMemberOrder != newMemberOrder) {
+        return 'Config: Reorder members';
+      }
+      final oldBillOrder = oldConfig.billTypes.map((b) => b.id).join(',');
+      final newBillOrder = newConfig.billTypes.map((b) => b.id).join(',');
+      if (oldBillOrder != newBillOrder) {
+        return 'Config: Reorder categories';
+      }
+      return 'Config: Update configuration';
     }
 
-    return 'Config: Updated configuration (${newConfig.members.length} members, ${newConfig.billTypes.length} categories)';
+    if (allChanges.length == 1) {
+      return 'Config: ${allChanges.first}';
+    }
+
+    // Multi-line commit with summary subject and bulleted body
+    final hasMemberChanges = addedMembers.isNotEmpty ||
+        updatedMembers.isNotEmpty ||
+        removedMembers.isNotEmpty;
+    final hasBillChanges = addedBills.isNotEmpty ||
+        updatedBills.isNotEmpty ||
+        removedBills.isNotEmpty;
+    final hasGeneralChanges = generalChanges.isNotEmpty;
+
+    String subject;
+    if (hasMemberChanges && !hasBillChanges && !hasGeneralChanges) {
+      subject = 'Config: Update members (${allChanges.length} changes)';
+    } else if (!hasMemberChanges && hasBillChanges && !hasGeneralChanges) {
+      subject = 'Config: Update categories (${allChanges.length} changes)';
+    } else if (!hasMemberChanges && !hasBillChanges && hasGeneralChanges) {
+      subject = 'Config: Update settings (${allChanges.length} changes)';
+    } else {
+      subject = 'Config: Update configuration (${allChanges.length} changes)';
+    }
+
+    final body = allChanges.map((c) => '- $c').join('\n');
+    return '$subject\n\n$body';
   }
 }

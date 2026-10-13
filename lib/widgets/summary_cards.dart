@@ -57,7 +57,8 @@ class FundBalanceSummaryCard extends StatelessWidget {
                   Text(
                     'Total Fund Balance',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.95),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.95),
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.3,
                     ),
@@ -65,13 +66,18 @@ class FundBalanceSummaryCard extends StatelessWidget {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: (isPositive ? AppTheme.emeraldGreen : AppTheme.roseCrimson)
+                  color: (isPositive
+                          ? AppTheme.emeraldGreen
+                          : AppTheme.roseCrimson)
                       .withValues(alpha: isDark ? 0.20 : 0.14),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: (isPositive ? AppTheme.emeraldGreen : AppTheme.roseCrimson)
+                    color: (isPositive
+                            ? AppTheme.emeraldGreen
+                            : AppTheme.roseCrimson)
                         .withValues(alpha: 0.4),
                     width: 0.8,
                   ),
@@ -84,10 +90,14 @@ class FundBalanceSummaryCard extends StatelessWidget {
                       height: 6,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isPositive ? AppTheme.emeraldGreen : AppTheme.roseCrimson,
+                        color: isPositive
+                            ? AppTheme.emeraldGreen
+                            : AppTheme.roseCrimson,
                         boxShadow: [
                           BoxShadow(
-                            color: (isPositive ? AppTheme.emeraldGreen : AppTheme.roseCrimson)
+                            color: (isPositive
+                                    ? AppTheme.emeraldGreen
+                                    : AppTheme.roseCrimson)
                                 .withValues(alpha: 0.6),
                             blurRadius: 4,
                             spreadRadius: 1,
@@ -99,7 +109,9 @@ class FundBalanceSummaryCard extends StatelessWidget {
                     Text(
                       isPositive ? 'Surplus Reserve' : 'Deficit Alert',
                       style: TextStyle(
-                        color: isPositive ? AppTheme.emeraldDark : AppTheme.roseDark,
+                        color: isPositive
+                            ? AppTheme.emeraldDark
+                            : AppTheme.roseDark,
                         fontSize: 11.5,
                         fontWeight: FontWeight.bold,
                       ),
@@ -115,7 +127,9 @@ class FundBalanceSummaryCard extends StatelessWidget {
             style: theme.textTheme.headlineMedium?.copyWith(
               color: isPositive
                   ? (isDark ? const Color(0xFF34D399) : const Color(0xFF047857))
-                  : (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626)),
+                  : (isDark
+                      ? const Color(0xFFF87171)
+                      : const Color(0xFFDC2626)),
               fontWeight: FontWeight.w900,
               fontSize: 34,
               letterSpacing: -0.6,
@@ -143,7 +157,9 @@ class FundBalanceSummaryCard extends StatelessWidget {
                     label: 'Total Deposits (+)',
                     amount: totalCredits,
                     currency: currency,
-                    color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                    color: isDark
+                        ? const Color(0xFF34D399)
+                        : const Color(0xFF059669),
                     icon: Icons.arrow_downward_rounded,
                     isDark: isDark,
                   ),
@@ -160,7 +176,9 @@ class FundBalanceSummaryCard extends StatelessWidget {
                     label: 'Total Spent (-)',
                     amount: totalDebits,
                     currency: currency,
-                    color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
+                    color: isDark
+                        ? const Color(0xFFFB7185)
+                        : const Color(0xFFE11D48),
                     icon: Icons.arrow_upward_rounded,
                     isDark: isDark,
                   ),
@@ -286,7 +304,9 @@ class MemberSummaryCard extends StatelessWidget {
                     BoxShadow(
                       color: (isPositive
                               ? AppTheme.emeraldGreen
-                              : (isNegative ? AppTheme.roseCrimson : AppTheme.electricViolet))
+                              : (isNegative
+                                  ? AppTheme.roseCrimson
+                                  : AppTheme.electricViolet))
                           .withValues(alpha: 0.35),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
@@ -320,14 +340,16 @@ class MemberSummaryCard extends StatelessWidget {
                       '@${member.id}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: badgeBg,
                   borderRadius: BorderRadius.circular(12),
@@ -366,7 +388,8 @@ class MemberSummaryCard extends StatelessWidget {
                 Icon(
                   Icons.chevron_right_rounded,
                   size: 20,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  color:
+                      theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
               ],
             ],
@@ -375,7 +398,8 @@ class MemberSummaryCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+              color: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.45),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: theme.dividerColor.withValues(alpha: 0.15),
@@ -390,14 +414,17 @@ class MemberSummaryCard extends StatelessWidget {
                       'Total Deposited',
                       style: TextStyle(
                         fontSize: 11,
-                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.8),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      FormatUtils.formatCurrency(summary.totalPaid, config.currency),
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      FormatUtils.formatCurrency(
+                          summary.totalPaid, config.currency),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                   ],
                 ),
@@ -412,14 +439,17 @@ class MemberSummaryCard extends StatelessWidget {
                       'Share Consumed',
                       style: TextStyle(
                         fontSize: 11,
-                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.8),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      FormatUtils.formatCurrency(summary.totalConsumed, config.currency),
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      FormatUtils.formatCurrency(
+                          summary.totalConsumed, config.currency),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                   ],
                 ),
@@ -481,7 +511,8 @@ class BillTypeSummaryCard extends StatelessWidget {
                   ),
                 ),
                 alignment: Alignment.center,
-                child: Text(billType.icon, style: const TextStyle(fontSize: 22)),
+                child:
+                    Text(billType.icon, style: const TextStyle(fontSize: 22)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -490,14 +521,16 @@ class BillTypeSummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       billType.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15.5),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${(percentage * 100).toStringAsFixed(1)}% of total spent${transactionCount > 0 ? " • $transactionCount txs" : ""}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.75),
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.75),
                       ),
                     ),
                   ],
@@ -505,14 +538,16 @@ class BillTypeSummaryCard extends StatelessWidget {
               ),
               Text(
                 FormatUtils.formatCurrency(totalAmount, currency),
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
               ),
               if (onTap != null) ...[
                 const SizedBox(width: 6),
                 Icon(
                   Icons.chevron_right_rounded,
                   size: 20,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  color:
+                      theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
               ],
             ],
@@ -522,7 +557,8 @@ class BillTypeSummaryCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: percentage.clamp(0.0, 1.0),
-              backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              backgroundColor: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.5),
               valueColor: AlwaysStoppedAnimation(categoryColor),
               minHeight: 7,
             ),
@@ -595,7 +631,8 @@ class MonthSummaryCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
                       color: isSurplus
                           ? AppTheme.emeraldGreen.withValues(alpha: 0.20)
@@ -611,9 +648,13 @@ class MonthSummaryCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isSurplus ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                          isSurplus
+                              ? Icons.trending_up_rounded
+                              : Icons.trending_down_rounded,
                           size: 13,
-                          color: isSurplus ? AppTheme.emeraldDark : AppTheme.roseDark,
+                          color: isSurplus
+                              ? AppTheme.emeraldDark
+                              : AppTheme.roseDark,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -621,7 +662,9 @@ class MonthSummaryCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: isSurplus ? AppTheme.emeraldDark : AppTheme.roseDark,
+                            color: isSurplus
+                                ? AppTheme.emeraldDark
+                                : AppTheme.roseDark,
                           ),
                         ),
                       ],
@@ -632,7 +675,8 @@ class MonthSummaryCard extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.close_rounded, size: 18),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      constraints:
+                          const BoxConstraints(minWidth: 28, minHeight: 28),
                       tooltip: 'Clear Month Filter',
                       onPressed: onClear,
                     ),
@@ -658,7 +702,10 @@ class MonthSummaryCard extends StatelessWidget {
                   children: [
                     const Text(
                       'Deposits (Credit)',
-                      style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -671,12 +718,18 @@ class MonthSummaryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                Container(height: 24, width: 1, color: theme.dividerColor.withValues(alpha: 0.3)),
+                Container(
+                    height: 24,
+                    width: 1,
+                    color: theme.dividerColor.withValues(alpha: 0.3)),
                 Column(
                   children: [
                     const Text(
                       'Expenses (Debit)',
-                      style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -689,12 +742,18 @@ class MonthSummaryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                Container(height: 24, width: 1, color: theme.dividerColor.withValues(alpha: 0.3)),
+                Container(
+                    height: 24,
+                    width: 1,
+                    color: theme.dividerColor.withValues(alpha: 0.3)),
                 Column(
                   children: [
                     const Text(
                       'Net Cash Flow',
-                      style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -702,7 +761,9 @@ class MonthSummaryCard extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: isSurplus ? AppTheme.emeraldDark : AppTheme.roseDark,
+                        color: isSurplus
+                            ? AppTheme.emeraldDark
+                            : AppTheme.roseDark,
                       ),
                     ),
                   ],

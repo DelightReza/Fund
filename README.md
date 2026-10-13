@@ -1,18 +1,18 @@
-# 💎 Fund & Expense Tracker
+# 💎 Fund — Group Expense Tracker & Shared Ledger
 
-A production-grade, cross-platform **Group Fund, Shared Expense & Debt Simplification** application built with **Flutter**, designed specifically for **Web** and **Android**.
+A production-grade, cross-platform **Group Fund, Shared Expense & Debt Simplification** application built with **Flutter**, designed specifically for **Web (PWA / GitHub Pages)** and **Android**.
 
-The application features a **100% Liquid Glass (Frosted Glassmorphism)** design system and operates on a **zero-database, serverless architecture** powered directly by the **GitHub REST API & GitHub Pages CDN**. Your group's configuration (`config.json`) and financial ledger (`data.json`) are stored with full version history in your own GitHub repository.
+The application features a **100% Liquid Glass (Frosted Glassmorphism)** design system and operates on a **zero-database, serverless architecture** powered directly by the **GitHub REST API & GitHub Pages CDN**. Your group's configuration (`config.json`) and financial ledger (`data.json`) are stored with full version history and auditability in your GitHub repository.
 
 ---
 
 ## ✨ Features & Capabilities
 
-### 🎨 100% Liquid Glass Aesthetic
+### 🎨 Liquid Glass Design System
 * **Multi-Color Ambient Aurora**: Dynamic fluid gradient meshes that smoothly transition across dark and light palettes.
-* **Frosted Glass Surfaces**: Deep backdrop blur (`sigma: 16–24`), specular border highlights, and subtle translucency across all cards, dialogs, forms, and bottom navigation.
+* **Frosted Glass Surfaces**: Deep backdrop blur (`sigma: 16–24`), specular border highlights, and translucency across all cards, dialogs, forms, and navigation.
 * **Floating Glass Island Navigation**: Compact, floating navigation capsule on mobile with responsive navigation rail support on wide screens.
-* **Vibrant Fintech Palette**: Deep Emerald Green (`#047857`) for deposits, Electric Crimson (`#DC2626`) for expenses, Violet (`#7C3AED`) for settlements, and Indigo (`#312E81`) for total fund liquidity.
+* **Vibrant Fintech Palette**: Deep Emerald Green (`#10B981`) for deposits/surplus, Electric Crimson (`#F43F5E`) for debits/expenses, Violet (`#8B5CF6`) for settlements/transfers, and Indigo (`#4F46E5`) for total fund liquidity.
 
 ### 💳 Transaction Management & Split Engine
 * **Transaction Types**:
@@ -25,23 +25,23 @@ The application features a **100% Liquid Glass (Frosted Glassmorphism)** design 
 * **Equal & Custom Unequal Splits**:
   * Equal division across all participants with automatic 1-cent rounding adjustment.
   * Custom decimal amounts with real-time percentage allocation badges and validation.
-* **Smart Repeat / Copy**: One-tap duplication of previous expenses with pre-filled category, split participants, and amounts.
+* **Intelligent Duplicate Prevention**: Built-in 1-hour anti-collision safeguard that automatically detects and blocks duplicate transactions (matching amount, category, payer, and participants within a 60-minute window).
 * **Visual Confirmation Dialogs**: Interactive pre-submission review showing payer, recipients, category, custom breakdown, and notes with specular frosted modals.
 
 ### 📊 Financial Ledger, Analytics & Debt Simplifier
 * **Real-Time Fund Health**: Instant calculations of Total Fund Balance, Incurred Debits, Member Credits, and Month-over-Month surplus/deficit.
-* **Member Ledger**: Real-time net balance calculations (Paid − Consumed = Net Balance) for every member.
+* **Member Ledger**: Real-time net balance calculations (Paid − Consumed = Net Balance) for every member with visual indicators.
 * **Debt Simplification Graph**: Automatically computes the minimum number of transactions required to settle all debts across group members using an optimal greedy settlement algorithm.
 * **Category Breakdown**: Aggregated expense totals with percentage progress indicators per category.
 * **Monthly Filters**: Instant monthly filtering chips and category analytics.
 
-### 🛡️ GitHub-Powered Serverless Backend & Offline-First Sync
-* **Zero Database Overhead**: Your GitHub repository (`DelightReza/Fund`) acts as the permanent, auditable backend.
-* **3-Way Conflict Resolution**: Detects remote commit SHA changes, fetches the latest remote state, preserves local pending changes, and re-applies non-conflicting transactions before committing.
+### 🔄 GitHub-Powered Serverless Backend & Offline Sync
+* **Zero Database Overhead**: Your GitHub repository acts as the permanent, auditable backend.
+* **3-Way Conflict Resolution**: Detects remote commit changes, fetches latest remote state, preserves local pending changes, and re-applies non-conflicting transactions before committing.
 * **Offline-First Persistence**: Cached locally via `shared_preferences`. If offline, transactions are queued and marked with a pending badge, automatically synchronizing as soon as connectivity is restored.
 * **Commit History & Rollback**:
   * Inspect recent commits with author, message, and short SHA.
-  * One-tap `Reset HEAD~1` quick undo or targeted hard reset to any previous commit via the GitHub Git Trees/Refs API.
+  * One-tap `Reset HEAD~1` quick undo or targeted hard reset to any previous commit via the GitHub API.
 
 ### 🔐 Security & Access Control
 * **Public & Private Repository Support**: Seamless read-only browsing for public funds; write actions (adding transactions, modifying config, rolling back commits) are gated behind an authenticated GitHub Personal Access Token (PAT) with `repo` scope.
@@ -58,7 +58,8 @@ The application features a **100% Liquid Glass (Frosted Glassmorphism)** design 
 | **State Management** | [Provider](https://pub.dev/packages/provider) | Decoupled MVVM pattern with `ChangeNotifier` |
 | **Data Layer** | [GitHub REST API v3](https://docs.github.com/rest) | Direct commit, branch ref, blob, and tree synchronization |
 | **Local Cache** | [shared_preferences](https://pub.dev/packages/shared_preferences) | Offline-first ledger and configuration storage |
-| **CI / CD** | [GitHub Actions](https://github.com/features/actions) | Automated GitHub Pages artifact build and deployment |
+| **Routing** | Custom `AppRouter` + `WebRouteHelper` | SPA deep linking, clean base URLs, and 404-free GitHub Pages support |
+| **CI / CD** | [GitHub Actions](https://github.com/features/actions) | Automated GitHub Pages web deployment and Android release pipelines |
 
 ---
 
@@ -92,11 +93,6 @@ The application features a **100% Liquid Glass (Frosted Glassmorphism)** design 
      flutter run -d android
      ```
 
-4. **Verify Code Quality:**
-   ```bash
-   flutter analyze
-   ```
-
 ---
 
 ## 🌐 Production Web Deployment (GitHub Pages)
@@ -104,25 +100,27 @@ The application features a **100% Liquid Glass (Frosted Glassmorphism)** design 
 The project includes an automated GitHub Actions deployment workflow at `.github/workflows/deploy-web.yml`.
 
 ### Deployment Architecture
-- Built with `--base-href /Fund/` to support repository subpaths.
-- Automatically copies `config.json` and `data.json` into the root of `build/web/`.
+- Built with `--base-href /${{ github.event.repository.name }}/` to support repository subpaths.
+- Automatically copies `config.json` and `data.json` into `build/web/`.
 - Deploys `404.html` (SPA routing fallback) to preserve deep links and bookmark routes.
-- Uses the official `actions/upload-pages-artifact@v3` and `actions/deploy-pages@v4`.
+- Uses official `actions/upload-pages-artifact@v3` and `actions/deploy-pages@v4`.
 
 ### Enabling GitHub Pages in Your Repository
-1. Navigate to your repository on GitHub: `https://github.com/DelightReza/Fund`
+1. Navigate to your repository on GitHub.
 2. Go to **Settings** > **Pages**.
 3. Under **Build and deployment** > **Source**, select **GitHub Actions**.
-4. Any push to the `main` branch will automatically trigger the workflow and publish your site to:
+4. Pushing to the `main` branch will automatically build and publish your site:
    ```
-   https://delightreza.github.io/Fund/
+   https://<username>.github.io/<repository-name>/
    ```
 
 ---
 
 ## 📱 Production Android Build
 
-To compile release APKs or Android App Bundles (AAB) for Google Play or direct installation:
+The project includes a GitHub Actions workflow at `.github/workflows/deploy-app.yml` to build signed release APKs on demand (`workflow_dispatch`).
+
+To compile manually via the Flutter CLI:
 
 1. **Generate Release APK:**
    ```bash
@@ -144,18 +142,19 @@ To compile release APKs or Android App Bundles (AAB) for Google Play or direct i
 .
 ├── .github/
 │   └── workflows/
+│       ├── deploy-app.yml             # Android release APK build workflow
 │       └── deploy-web.yml             # Automated GitHub Pages CI/CD workflow
 ├── lib/
-│   ├── main.dart                      # App entry point, Provider configuration, AppRouter
+│   ├── main.dart                      # App entry point, Provider configuration, bootstrap
 │   ├── models/
 │   │   ├── app_config.dart            # AppConfig, MemberConfig, BillTypeConfig models
-│   │   ├── fund_data.dart             # FundData, BalanceEngine, settlements calculation
+│   │   ├── fund_data.dart             # FundData, balance summaries, transactions list
 │   │   ├── github_models.dart         # GitHubCommit, GitHubRef, Tree models
 │   │   └── transaction.dart           # TransactionModel (splits, exemptions, parents)
 │   ├── repositories/
 │   │   └── fund_repository.dart       # Workspace state, cache invalidation, 3-way merge sync
 │   ├── screens/
-│   │   ├── add_transaction_screen.dart# Transaction creation, custom splits, repeat action
+│   │   ├── add_transaction_screen.dart# Transaction creation and custom split breakdown
 │   │   ├── admin_screen.dart          # Admin control panel, sync modals, quick action grid
 │   │   ├── category_expenses_screen.dart # Filtered expenses by category with month chips
 │   │   ├── home_screen.dart           # Dashboard, Ledger, People, and Category tabs
@@ -176,8 +175,20 @@ To compile release APKs or Android App Bundles (AAB) for Google Play or direct i
 │   │   ├── date_utils.dart            # Date formatting and timeline helpers
 │   │   ├── debt_simplifier.dart       # Greedy debt simplification engine
 │   │   ├── format_utils.dart          # Currency formatting and percentage helpers
+│   │   ├── fund_merger.dart           # 3-way conflict resolution engine
+│   │   ├── json_formatter.dart        # Styled JSON encoder matching website formatting
+│   │   ├── web_prefetch_helper.dart   # Early memory prefetch bridge
 │   │   └── web_route_helper.dart      # Web URL synchronization & query param handling
 │   └── widgets/
+│       ├── admin/
+│       │   ├── admin_action_card.dart         # Frosted glass admin quick action cards
+│       │   └── admin_data_management_helper.dart # File upload, JSON parser, and 3-way merge import modal
+│       ├── home/
+│       │   └── transaction_filter_sheets.dart # Frosted bottom filter sheets (type, month, member, bill)
+│       ├── transaction/
+│       │   ├── custom_split_allocation_section.dart # Custom unequal split input grid with real-time badges
+│       │   ├── transaction_date_time_picker.dart    # Cupertino/Material date & time picker trigger
+│       │   └── transaction_form_selectors.dart      # Frosted participant selectors and bill category chips
 │       ├── admin_pat_modal.dart       # Frosted glass GitHub PAT authentication modal
 │       ├── confirmation_dialog.dart   # Transaction pre-flight review & animated success dialogs
 │       ├── glass_container.dart       # Core Liquid Glass engine (AuroraBackground, GlassCard)
@@ -194,7 +205,7 @@ To compile release APKs or Android App Bundles (AAB) for Google Play or direct i
 ## 🔒 Security Best Practices
 
 1. **Token Principle of Least Privilege**: When generating a GitHub Personal Access Token (PAT) for Admin actions, select only the **`repo`** (or Fine-grained: **`Contents: Read & Write`**) scope. Never grant administrative or billing permissions.
-2. **Never Commit Tokens**: Tokens entered in the app are stored exclusively in the browser's or device's local private storage. They are never sent to external third parties or committed to git.
+2. **Never Commit Tokens**: Tokens entered in the app are stored exclusively in the browser's or device's local private storage. They are never sent to external third parties or committed to Git.
 3. **Audit Trail**: Every update to `data.json` or `config.json` creates a standard Git commit with a detailed commit message, providing an immutable audit log of who made which change and when.
 
 ---

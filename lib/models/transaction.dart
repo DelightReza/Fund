@@ -3,10 +3,12 @@ class TransactionModel {
   final String type; // 'credit' | 'debit'
   final String? payerId;
   final String? billTypeId;
-  final List<String>? splitAmong; // Clean member IDs e.g. ['aabid', 'gulam', 'raza']
+  final List<String>?
+      splitAmong; // Clean member IDs e.g. ['aabid', 'gulam', 'raza']
   final List<String>? exemptions;
   final Map<String, double>? customSplit; // memberId -> exact share amount
-  final Map<String, double>? splitPercentages; // memberId -> percentage (e.g. 50.0, 30.0, 20.0)
+  final Map<String, double>?
+      splitPercentages; // memberId -> percentage (e.g. 50.0, 30.0, 20.0)
   final String whoOrBill;
   final String note;
   final double amount;
@@ -30,11 +32,14 @@ class TransactionModel {
     this.parentId,
     this.distributionTotal,
   })  : splitAmong = _extractCleanMembers(splitAmong, exemptions),
-        customSplit = _extractCustomSplit(amount, splitAmong, customSplit, splitPercentages, exemptions),
-        splitPercentages = _extractPercentages(amount, splitAmong, customSplit, splitPercentages, exemptions);
+        customSplit = _extractCustomSplit(
+            amount, splitAmong, customSplit, splitPercentages, exemptions),
+        splitPercentages = _extractPercentages(
+            amount, splitAmong, customSplit, splitPercentages, exemptions);
 
   /// Helper to extract clean member IDs from splitAmong list (filtering out exemptions)
-  static List<String>? _extractCleanMembers(List<String>? splitAmong, [List<String>? exemptions]) {
+  static List<String>? _extractCleanMembers(List<String>? splitAmong,
+      [List<String>? exemptions]) {
     if (splitAmong == null) return null;
     final exemptSet = exemptions?.toSet() ?? const <String>{};
     final list = splitAmong
@@ -58,7 +63,9 @@ class TransactionModel {
         ..removeWhere((k, v) => exemptSet.contains(k) || v <= 0.0);
       if (filtered.isNotEmpty) return filtered;
     }
-    if (existingCustomSplit != null && existingCustomSplit.isNotEmpty && amount > 0) {
+    if (existingCustomSplit != null &&
+        existingCustomSplit.isNotEmpty &&
+        amount > 0) {
       final filteredCustom = Map<String, double>.from(existingCustomSplit)
         ..removeWhere((k, v) => exemptSet.contains(k) || v <= 0.0);
       final pcts = calculatePercentagesFromCustomSplit(
@@ -73,7 +80,9 @@ class TransactionModel {
       final pcts = <String, double>{};
       for (final item in splitAmong) {
         final parsed = parseSplitItem(item);
-        if (parsed.id.isNotEmpty && !exemptSet.contains(parsed.id) && parsed.percentage != null) {
+        if (parsed.id.isNotEmpty &&
+            !exemptSet.contains(parsed.id) &&
+            parsed.percentage != null) {
           if (parsed.percentage! > 0) {
             pcts[parsed.id] = parsed.percentage!;
           }
@@ -117,7 +126,8 @@ class TransactionModel {
       }
       if (map.isNotEmpty) return map;
       if (pcts.isNotEmpty && amount > 0) {
-        final members = _extractCleanMembers(splitAmong, exemptions) ?? pcts.keys.toList();
+        final members =
+            _extractCleanMembers(splitAmong, exemptions) ?? pcts.keys.toList();
         return calculateCustomSplitFromPercentages(
           totalAmount: amount,
           percentages: pcts,
@@ -125,10 +135,13 @@ class TransactionModel {
         );
       }
     }
-    if (existingPercentages != null && existingPercentages.isNotEmpty && amount > 0) {
+    if (existingPercentages != null &&
+        existingPercentages.isNotEmpty &&
+        amount > 0) {
       final filteredPcts = Map<String, double>.from(existingPercentages)
         ..removeWhere((k, v) => exemptSet.contains(k) || v <= 0.0);
-      final members = _extractCleanMembers(splitAmong, exemptions) ?? filteredPcts.keys.toList();
+      final members = _extractCleanMembers(splitAmong, exemptions) ??
+          filteredPcts.keys.toList();
       if (filteredPcts.isNotEmpty && members.isNotEmpty) {
         return calculateCustomSplitFromPercentages(
           totalAmount: amount,
@@ -142,14 +155,21 @@ class TransactionModel {
 
   /// Returns true if this transaction has an unequal custom amount or percentage split
   bool get hasCustomSplit =>
-      (customSplit != null && customSplit!.isNotEmpty && !isSplitEqual(customSplit!)) ||
-      (splitPercentages != null && splitPercentages!.isNotEmpty && !isSplitEqual(splitPercentages!));
+      (customSplit != null &&
+          customSplit!.isNotEmpty &&
+          !isSplitEqual(customSplit!)) ||
+      (splitPercentages != null &&
+          splitPercentages!.isNotEmpty &&
+          !isSplitEqual(splitPercentages!));
 
   /// Returns clean member IDs involved in this split (excluding exemptions and 0-allocations)
   List<String> get cleanSplitMembers {
     List<String> list = const [];
     if (splitAmong != null && splitAmong!.isNotEmpty) {
-      list = splitAmong!.map((e) => parseSplitItem(e).id).where((id) => id.isNotEmpty).toList();
+      list = splitAmong!
+          .map((e) => parseSplitItem(e).id)
+          .where((id) => id.isNotEmpty)
+          .toList();
     } else if (customSplit != null && customSplit!.isNotEmpty) {
       list = customSplit!.keys.toList();
     } else if (splitPercentages != null && splitPercentages!.isNotEmpty) {
@@ -210,7 +230,8 @@ class TransactionModel {
   /// - {"id": "aabid", "amount": 60} -> id: "aabid", amount: 60.0
   /// - {"id": "aabid", "percentage": 50} -> id: "aabid", percentage: 50.0
   /// - {"aabid": 60} -> id: "aabid", amount: 60.0
-  static ({String id, double? amount, double? percentage}) parseSplitItem(dynamic item) {
+  static ({String id, double? amount, double? percentage}) parseSplitItem(
+      dynamic item) {
     if (item == null) return (id: '', amount: null, percentage: null);
     if (item is Map) {
       if (item.containsKey('id')) {
@@ -225,7 +246,9 @@ class TransactionModel {
       }
     }
     final s = item.toString().trim();
-    final match = RegExp(r'^([a-zA-Z0-9_\-]+)(?:[\s:]+(\d+(?:\.\d+)?)\s*(%?))?$').firstMatch(s);
+    final match =
+        RegExp(r'^([a-zA-Z0-9_\-]+)(?:[\s:]+(\d+(?:\.\d+)?)\s*(%?))?$')
+            .firstMatch(s);
     if (match != null) {
       final id = match.group(1)!;
       final numStr = match.group(2);
@@ -268,7 +291,8 @@ class TransactionModel {
       final mId = effectiveMembers[i];
       final pct = percentages[mId] ?? 0.0;
       if (i == effectiveMembers.length - 1) {
-        final remainder = ((totalAmount - allocatedSoFar) * 100).round() / 100.0;
+        final remainder =
+            ((totalAmount - allocatedSoFar) * 100).round() / 100.0;
         result[mId] = remainder >= 0 ? remainder : 0.0;
       } else {
         final share = ((totalAmount * (pct / scale)) * 100).round() / 100.0;
@@ -353,7 +377,9 @@ class TransactionModel {
     if (rawSplitAmong is List) {
       for (int i = 0; i < rawSplitAmong.length; i++) {
         final item = rawSplitAmong[i];
-        if (item is String && i + 1 < rawSplitAmong.length && rawSplitAmong[i + 1] is num) {
+        if (item is String &&
+            i + 1 < rawSplitAmong.length &&
+            rawSplitAmong[i + 1] is num) {
           final id = item.trim();
           final val = (rawSplitAmong[i + 1] as num).toDouble();
           if (!exemptSet.contains(id) && val > 0) {
@@ -386,7 +412,8 @@ class TransactionModel {
       parsedCustomSplit = (parsedCustomSplit != null)
           ? {...parsedCustomSplit, ...parsedAmounts}
           : parsedAmounts;
-    } else if (parsedPercentages.isNotEmpty && (parsedCustomSplit == null || parsedCustomSplit.isEmpty)) {
+    } else if (parsedPercentages.isNotEmpty &&
+        (parsedCustomSplit == null || parsedCustomSplit.isEmpty)) {
       if (parsedAmount > 0) {
         parsedCustomSplit = calculateCustomSplitFromPercentages(
           totalAmount: parsedAmount,
@@ -397,7 +424,8 @@ class TransactionModel {
     }
 
     if (parsedCustomSplit != null && parsedCustomSplit.isNotEmpty) {
-      parsedCustomSplit.removeWhere((k, v) => exemptSet.contains(k) || v <= 0.0);
+      parsedCustomSplit
+          .removeWhere((k, v) => exemptSet.contains(k) || v <= 0.0);
       if (parsedPercentages.isEmpty && parsedAmount > 0) {
         parsedPercentages.addAll(
           calculatePercentagesFromCustomSplit(
@@ -417,7 +445,9 @@ class TransactionModel {
           (json['type'] == 'debit' ? json['whoOrBill']?.toString() : null),
       splitAmong: cleanMembers.isNotEmpty ? cleanMembers : null,
       exemptions: exemptionsList,
-      customSplit: parsedCustomSplit != null && parsedCustomSplit.isNotEmpty ? parsedCustomSplit : null,
+      customSplit: parsedCustomSplit != null && parsedCustomSplit.isNotEmpty
+          ? parsedCustomSplit
+          : null,
       splitPercentages: parsedPercentages.isNotEmpty ? parsedPercentages : null,
       whoOrBill: json['whoOrBill']?.toString() ?? '',
       note: json['note']?.toString() ?? '',

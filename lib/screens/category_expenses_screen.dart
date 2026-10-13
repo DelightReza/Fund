@@ -49,6 +49,12 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
     final data = repo.data ?? FundData();
     final categoryColor = theme.colorScheme.primary;
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        WebRouteHelper.setRoute('category?id=${widget.billTypeId}');
+      }
+    });
+
     final billCategory = config.billTypes.firstWhere(
       (b) => b.id == widget.billTypeId,
       orElse: () => BillTypeConfig(
@@ -87,8 +93,11 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
       (sum, tx) => sum + tx.amount,
     );
 
-    final pctOfTotal = totalFundDebits > 0 ? (totalSpent / totalFundDebits) * 100 : 0.0;
-    final avgTx = allCategoryTransactions.isNotEmpty ? (totalSpent / allCategoryTransactions.length) : 0.0;
+    final pctOfTotal =
+        totalFundDebits > 0 ? (totalSpent / totalFundDebits) * 100 : 0.0;
+    final avgTx = allCategoryTransactions.isNotEmpty
+        ? (totalSpent / allCategoryTransactions.length)
+        : 0.0;
 
     // Monthly breakdown
     final monthlyMap = <String, double>{};
@@ -98,21 +107,27 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
       monthlyMap[m] = (monthlyMap[m] ?? 0.0) + tx.amount;
       monthlyCount[m] = (monthlyCount[m] ?? 0) + 1;
     }
-    final sortedMonths = monthlyMap.keys.toList()..sort((a, b) => b.compareTo(a));
+    final sortedMonths = monthlyMap.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     // Filter transactions by selected month if active
     final displayedTransactions = _selectedMonth == null
         ? allCategoryTransactions
-        : allCategoryTransactions.where((tx) => AppDateUtils.getMonthKey(tx.date) == _selectedMonth).toList();
+        : allCategoryTransactions
+            .where((tx) => AppDateUtils.getMonthKey(tx.date) == _selectedMonth)
+            .toList();
 
     // Calculate member share consumed in this category
     final allMemberIds = config.members.map((m) => m.id).toList();
-    final memberShareMap = <String, double>{for (final m in config.members) m.id: 0.0};
+    final memberShareMap = <String, double>{
+      for (final m in config.members) m.id: 0.0
+    };
 
     for (final tx in allCategoryTransactions) {
       if (tx.customSplit != null && tx.customSplit!.isNotEmpty) {
         for (final entry in tx.customSplit!.entries) {
-          memberShareMap[entry.key] = (memberShareMap[entry.key] ?? 0.0) + entry.value;
+          memberShareMap[entry.key] =
+              (memberShareMap[entry.key] ?? 0.0) + entry.value;
         }
       } else {
         List<String> paying;
@@ -120,7 +135,8 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
           paying = tx.splitAmong!;
         } else {
           final exemptions = tx.exemptions ?? [];
-          paying = allMemberIds.where((id) => !exemptions.contains(id)).toList();
+          paying =
+              allMemberIds.where((id) => !exemptions.contains(id)).toList();
         }
 
         if (paying.isNotEmpty) {
@@ -149,485 +165,552 @@ class _CategoryExpensesScreenState extends State<CategoryExpensesScreen> {
             onPressed: _handleBack,
           ),
           title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(billCategory.icon, style: const TextStyle(fontSize: 20)),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                billCategory.name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: AuroraBackground(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          children: [
-            // Hero Category Pure iOS Frosted Glass Banner Card
-            GlassContainer(
-              borderRadius: 24,
-              padding: const EdgeInsets.all(22),
-              child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: categoryColor.withValues(alpha: isDark ? 0.22 : 0.14),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(billCategory.icon, style: const TextStyle(fontSize: 36)),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  billCategory.name,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  '${pctOfTotal.toStringAsFixed(1)}% of total fund expenditure',
-                  style: TextStyle(
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  FormatUtils.formatCurrency(totalSpent, config.currency),
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
-                    color: categoryColor,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Column(
-                        children: [
-                          Text(
-                            'Transactions',
-                            style: TextStyle(
-                              color: isDark ? Colors.white.withValues(alpha: 0.75) : Colors.black.withValues(alpha: 0.60),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            '${allCategoryTransactions.length}',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(height: 26, width: 1, color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.10)),
-                      Column(
-                        children: [
-                          Text(
-                            'Average Size',
-                            style: TextStyle(
-                              color: isDark ? Colors.white.withValues(alpha: 0.75) : Colors.black.withValues(alpha: 0.60),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            FormatUtils.formatCurrency(avgTx, config.currency),
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(height: 26, width: 1, color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.10)),
-                      Column(
-                        children: [
-                          Text(
-                            'This Month',
-                            style: TextStyle(
-                              color: isDark ? Colors.white.withValues(alpha: 0.75) : Colors.black.withValues(alpha: 0.60),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            FormatUtils.formatCurrency(thisMonthSpent, config.currency),
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // Member Share Breakdown Liquid Glass Card
-          if (totalSpent > 0) ...[
-            GlassCard(
-              borderRadius: 20,
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Member Split Breakdown',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
-                        Text(
-                          '${config.members.length} members',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ...config.members.map((member) {
-                      final share = memberShareMap[member.id] ?? 0.0;
-                      final memberPct = totalSpent > 0 ? (share / totalSpent) : 0.0;
-
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 12,
-                                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
-                                  child: Text(
-                                    member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
-                                    style: TextStyle(
-                                      color: theme.colorScheme.primary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    member.name,
-                                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-                                  ),
-                                ),
-                                Text(
-                                  FormatUtils.formatCurrency(share, config.currency),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: memberPct,
-                                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                                valueColor: AlwaysStoppedAnimation(AppTheme.getCategoryColor(billCategory.id)),
-                                minHeight: 6,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 18),
-          ],
-
-          // Monthly Breakdown Filter Chips (if more than 1 month)
-          if (sortedMonths.length > 1) ...[
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  ChoiceChip(
-                    label: Text('All Months (${allCategoryTransactions.length})'),
-                    selected: _selectedMonth == null,
-                    onSelected: (selected) {
-                      setState(() => _selectedMonth = null);
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  ...sortedMonths.map((m) {
-                    final monthTotal = monthlyMap[m] ?? 0.0;
-                    final count = monthlyCount[m] ?? 0;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text('$m ($count) • ${FormatUtils.formatCurrency(monthTotal, config.currency)}'),
-                        selected: _selectedMonth == m,
-                        onSelected: (selected) {
-                          setState(() => _selectedMonth = selected ? m : null);
-                        },
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
-
-          // Transactions List Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Expenses List (${displayedTransactions.length})',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              Text(
-                'Tap receipt for full details',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              Text(billCategory.icon, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  billCategory.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-
-          if (displayedTransactions.isEmpty) ...[
-            GlassContainer(
-              borderRadius: 20,
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.receipt_long_outlined,
-                    size: 48,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No expenses recorded in this category yet.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                      fontSize: 14,
+        ),
+        body: AuroraBackground(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            children: [
+              // Hero Category Pure iOS Frosted Glass Banner Card
+              GlassContainer(
+                borderRadius: 24,
+                padding: const EdgeInsets.all(22),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: categoryColor.withValues(
+                            alpha: isDark ? 0.22 : 0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(billCategory.icon,
+                          style: const TextStyle(fontSize: 36)),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: () {
-                      final fromRoute = 'category?id=${widget.billTypeId}';
-                      final targetRoute = 'add_tx?from=$fromRoute';
-                      WebRouteHelper.setRoute(targetRoute);
-                      context.read<StorageService>().pushRoute(targetRoute);
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => AddTransactionScreen(
-                            initialMode: 0,
-                            initialBillTypeId: widget.billTypeId,
-                            returnRoute: fromRoute,
-                          ),
-                        ),
-                      ).then((_) {
-                        if (mounted) {
-                          WebRouteHelper.setRoute(fromRoute);
-                          context.read<StorageService>().popRoute();
-                        }
-                      });
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text('Add ${billCategory.name} Expense'),
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            ...displayedTransactions.map((tx) {
-              // Find who paid (paired credit if member paid, or from fund)
-              String payerLabel = 'Fund';
-              if (tx.payerId != null && tx.payerId!.isNotEmpty) {
-                final payer = config.members.firstWhere(
-                  (m) => m.id == tx.payerId,
-                  orElse: () => MemberConfig(id: tx.payerId!, name: tx.payerId!),
-                );
-                payerLabel = 'Paid by ${payer.name}';
-              } else if (tx.parentId != null && tx.parentId!.isNotEmpty) {
-                final pairedCredit = data.transactions.firstWhere(
-                  (t) => t.parentId == tx.parentId && t.type == 'credit',
-                  orElse: () => tx,
-                );
-                if (pairedCredit.payerId != null && pairedCredit.payerId!.isNotEmpty) {
-                  final payer = config.members.firstWhere(
-                    (m) => m.id == pairedCredit.payerId,
-                    orElse: () => MemberConfig(id: pairedCredit.payerId!, name: pairedCredit.payerId!),
-                  );
-                  payerLabel = 'Paid by ${payer.name}';
-                }
-              }
-
-              final splitCount = tx.splitAmong?.length ??
-                  (config.members.length - (tx.exemptions?.length ?? 0));
-
-              return GlassCard(
-                margin: const EdgeInsets.symmetric(vertical: 4.5),
-                borderRadius: 18,
-                padding: EdgeInsets.zero,
-                onTap: () {
-                  final txRoute = WebRouteHelper.buildTxRoute(
-                    tx.id,
-                    from: 'category',
-                    catId: widget.billTypeId,
-                  );
-                  WebRouteHelper.setRoute(txRoute);
-                  context.read<StorageService>().pushRoute(txRoute);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => TransactionDetailScreen(
-                        transaction: tx,
-                        returnRoute: 'category?id=${widget.billTypeId}',
+                    const SizedBox(height: 10),
+                    Text(
+                      billCategory.name,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
-                  ).then((_) {
-                    if (mounted) {
-                      WebRouteHelper.setRoute('category?id=${widget.billTypeId}');
-                      context.read<StorageService>().popRoute();
-                    }
-                  });
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: const Color(0xFFDC2626).withValues(alpha: 0.12),
-                        child: const Icon(
-                          Icons.arrow_upward_rounded,
-                          color: Color(0xFFDC2626),
-                          size: 20,
+                    Text(
+                      '${pctOfTotal.toStringAsFixed(1)}% of total fund expenditure',
+                      style: TextStyle(
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.8),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      FormatUtils.formatCurrency(totalSpent, config.currency),
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.bold,
+                        color: categoryColor,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : Colors.black.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.black.withValues(alpha: 0.08),
+                          width: 0.8,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              tx.note.isNotEmpty ? tx.note : billCategory.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14.5,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                Text(
-                                  AppDateUtils.formatDisplayDate(tx.date),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.65),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    payerLabel,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          Text(
-                            '-${FormatUtils.formatCurrency(tx.amount, config.currency)}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14.5,
-                              color: Color(0xFFDC2626),
-                            ),
+                          Column(
+                            children: [
+                              Text(
+                                'Transactions',
+                                style: TextStyle(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.75)
+                                      : Colors.black.withValues(alpha: 0.60),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${allCategoryTransactions.length}',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            tx.customSplit != null && tx.customSplit!.isNotEmpty
-                                ? 'Custom split (${tx.customSplit!.length})'
-                                : 'Split with $splitCount',
+                          Container(
+                              height: 26,
+                              width: 1,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.15)
+                                  : Colors.black.withValues(alpha: 0.10)),
+                          Column(
+                            children: [
+                              Text(
+                                'Average Size',
+                                style: TextStyle(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.75)
+                                      : Colors.black.withValues(alpha: 0.60),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                FormatUtils.formatCurrency(
+                                    avgTx, config.currency),
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                              height: 26,
+                              width: 1,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.15)
+                                  : Colors.black.withValues(alpha: 0.10)),
+                          Column(
+                            children: [
+                              Text(
+                                'This Month',
+                                style: TextStyle(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.75)
+                                      : Colors.black.withValues(alpha: 0.60),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                FormatUtils.formatCurrency(
+                                    thisMonthSpent, config.currency),
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Member Share Breakdown Liquid Glass Card
+              if (totalSpent > 0) ...[
+                GlassCard(
+                  borderRadius: 20,
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Member Split Breakdown',
                             style: TextStyle(
-                              fontSize: 11,
-                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                                fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                          Text(
+                            '${config.members.length} members',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.7),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(height: 12),
+                      ...config.members.map((member) {
+                        final share = memberShareMap[member.id] ?? 0.0;
+                        final memberPct =
+                            totalSpent > 0 ? (share / totalSpent) : 0.0;
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: theme.colorScheme.primary
+                                        .withValues(alpha: 0.12),
+                                    child: Text(
+                                      member.name.isNotEmpty
+                                          ? member.name[0].toUpperCase()
+                                          : '?',
+                                      style: TextStyle(
+                                        color: theme.colorScheme.primary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      member.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 13),
+                                    ),
+                                  ),
+                                  Text(
+                                    FormatUtils.formatCurrency(
+                                        share, config.currency),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: memberPct,
+                                  backgroundColor:
+                                      theme.colorScheme.surfaceContainerHighest,
+                                  valueColor: AlwaysStoppedAnimation(
+                                      AppTheme.getCategoryColor(
+                                          billCategory.id)),
+                                  minHeight: 6,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ],
+
+              // Monthly Breakdown Filter Chips (if more than 1 month)
+              if (sortedMonths.length > 1) ...[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ChoiceChip(
+                        label: Text(
+                            'All Months (${allCategoryTransactions.length})'),
+                        selected: _selectedMonth == null,
+                        onSelected: (selected) {
+                          setState(() => _selectedMonth = null);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ...sortedMonths.map((m) {
+                        final monthTotal = monthlyMap[m] ?? 0.0;
+                        final count = monthlyCount[m] ?? 0;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(
+                                '$m ($count) • ${FormatUtils.formatCurrency(monthTotal, config.currency)}'),
+                            selected: _selectedMonth == m,
+                            onSelected: (selected) {
+                              setState(
+                                  () => _selectedMonth = selected ? m : null);
+                            },
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+
+              // Transactions List Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Expenses List (${displayedTransactions.length})',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  Text(
+                    'Tap receipt for full details',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              if (displayedTransactions.isEmpty) ...[
+                GlassContainer(
+                  borderRadius: 20,
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    children: [
                       Icon(
-                        Icons.chevron_right_rounded,
-                        size: 18,
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                        Icons.receipt_long_outlined,
+                        size: 48,
+                        color: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No expenses recorded in this category yet.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.8),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () {
+                          final fromRoute = 'category?id=${widget.billTypeId}';
+                          final targetRoute = 'add_tx?from=$fromRoute';
+                          WebRouteHelper.setRoute(targetRoute);
+                          context.read<StorageService>().pushRoute(targetRoute);
+                          Navigator.of(context)
+                              .push(
+                            MaterialPageRoute(
+                              builder: (_) => AddTransactionScreen(
+                                initialMode: 0,
+                                initialBillTypeId: widget.billTypeId,
+                                returnRoute: fromRoute,
+                              ),
+                            ),
+                          )
+                              .then((_) {
+                            if (mounted) {
+                              WebRouteHelper.setRoute(fromRoute);
+                              context.read<StorageService>().popRoute();
+                            }
+                          });
+                        },
+                        icon: const Icon(Icons.add, size: 18),
+                        label: Text('Add ${billCategory.name} Expense'),
                       ),
                     ],
                   ),
                 ),
-              );
-            }),
-          ],
-          const SizedBox(height: 24),
-        ],
+              ] else ...[
+                ...displayedTransactions.map((tx) {
+                  // Find who paid (paired credit if member paid, or from fund)
+                  String payerLabel = 'Fund';
+                  if (tx.payerId != null && tx.payerId!.isNotEmpty) {
+                    final payer = config.members.firstWhere(
+                      (m) => m.id == tx.payerId,
+                      orElse: () =>
+                          MemberConfig(id: tx.payerId!, name: tx.payerId!),
+                    );
+                    payerLabel = 'Paid by ${payer.name}';
+                  } else if (tx.parentId != null && tx.parentId!.isNotEmpty) {
+                    final pairedCredit = data.transactions.firstWhere(
+                      (t) => t.parentId == tx.parentId && t.type == 'credit',
+                      orElse: () => tx,
+                    );
+                    if (pairedCredit.payerId != null &&
+                        pairedCredit.payerId!.isNotEmpty) {
+                      final payer = config.members.firstWhere(
+                        (m) => m.id == pairedCredit.payerId,
+                        orElse: () => MemberConfig(
+                            id: pairedCredit.payerId!,
+                            name: pairedCredit.payerId!),
+                      );
+                      payerLabel = 'Paid by ${payer.name}';
+                    }
+                  }
+
+                  final splitCount = tx.splitAmong?.length ??
+                      (config.members.length - (tx.exemptions?.length ?? 0));
+
+                  return GlassCard(
+                    margin: const EdgeInsets.symmetric(vertical: 4.5),
+                    borderRadius: 18,
+                    padding: EdgeInsets.zero,
+                    onTap: () {
+                      final txRoute = WebRouteHelper.buildTxRoute(
+                        tx.id,
+                        from: 'category',
+                        catId: widget.billTypeId,
+                      );
+                      WebRouteHelper.setRoute(txRoute);
+                      context.read<StorageService>().pushRoute(txRoute);
+                      Navigator.of(context)
+                          .push(
+                        MaterialPageRoute(
+                          builder: (_) => TransactionDetailScreen(
+                            transaction: tx,
+                            returnRoute: 'category?id=${widget.billTypeId}',
+                          ),
+                        ),
+                      )
+                          .then((_) {
+                        if (mounted) {
+                          WebRouteHelper.setRoute(
+                              'category?id=${widget.billTypeId}');
+                          context.read<StorageService>().popRoute();
+                        }
+                      });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor:
+                                const Color(0xFFDC2626).withValues(alpha: 0.12),
+                            child: const Icon(
+                              Icons.arrow_upward_rounded,
+                              color: Color(0xFFDC2626),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tx.note.isNotEmpty
+                                      ? tx.note
+                                      : billCategory.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Text(
+                                      AppDateUtils.formatDisplayDate(tx.date),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: theme.textTheme.bodySmall?.color
+                                            ?.withValues(alpha: 0.65),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme
+                                            .surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        payerLabel,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '-${FormatUtils.formatCurrency(tx.amount, config.currency)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14.5,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                tx.customSplit != null &&
+                                        tx.customSplit!.isNotEmpty
+                                    ? 'Custom split (${tx.customSplit!.length})'
+                                    : 'Split with $splitCount',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.textTheme.bodySmall?.color
+                                      ?.withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
       ),
-    ),
-    ),
     );
   }
 }

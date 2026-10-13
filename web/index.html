@@ -4,11 +4,13 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#10B981">
   <meta name="description" content="Fund - Group Expense Tracker powered by GitHub">
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Fund">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
@@ -17,6 +19,75 @@
 
   <title>Fund - Group Expense Tracker</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js', { scope: './' })
+          .then(function(registration) {
+            console.log('Fund PWA Service Worker registered with scope:', registration.scope);
+          })
+          .catch(function(error) {
+            console.warn('Fund PWA Service Worker registration failed:', error);
+          });
+      });
+    }
+  </script>
+
+  <!-- Parallel Early Prefetch of config and data before Flutter boots -->
+  <script>
+    window.__PREFETCH_START__ = Date.now();
+    window.__PREFETCHED_CONFIG_RAW__ = null;
+    window.__PREFETCHED_DATA_RAW__ = null;
+
+    (function() {
+      try {
+        // Clean up any lingering unnamespaced global keys from previous versions
+        try {
+          localStorage.removeItem('fund_early_config');
+          localStorage.removeItem('fund_early_data');
+        } catch(e) {}
+
+        // Fetch relative config.json of THIS deployment directly with cache-busting
+        var configUrl = 'config.json?t=' + Date.now();
+        fetch(configUrl, { cache: 'no-cache' })
+          .then(function(res) { return res.ok ? res.text() : null; })
+          .then(function(text) {
+            if (text && !text.startsWith('<!DOCTYPE') && !text.startsWith('<html')) {
+              window.__PREFETCHED_CONFIG_RAW__ = text;
+
+              // Use configured dataFileName if present
+              var dataFileName = 'data.json';
+              try {
+                var parsed = JSON.parse(text);
+                if (parsed.dataFileName) dataFileName = parsed.dataFileName;
+              } catch(e) {}
+              fetchDataFile(dataFileName);
+            } else {
+              fetchDataFile('data.json');
+            }
+          })
+          .catch(function() {
+            fetchDataFile('data.json');
+          });
+
+        function fetchDataFile(fileName) {
+          var dataUrl = fileName + '?t=' + Date.now();
+          fetch(dataUrl, { cache: 'no-cache' })
+            .then(function(res) { return res.ok ? res.text() : null; })
+            .then(function(text) {
+              if (text && !text.startsWith('<!DOCTYPE') && !text.startsWith('<html')) {
+                window.__PREFETCHED_DATA_RAW__ = text;
+              }
+            })
+            .catch(function(){});
+        }
+      } catch (e) {
+        console.warn('Early prefetch warning:', e);
+      }
+    })();
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

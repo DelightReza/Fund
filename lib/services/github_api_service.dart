@@ -86,13 +86,16 @@ class GitHubApiService {
       final url = Uri.parse('$baseUrl/repos/$owner/$repo');
       final headers = buildHeaders(token: token);
 
-      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 8));
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         if (json is Map) {
           final permissions = json['permissions'];
           if (permissions is Map) {
-            final push = permissions['push'] == true || permissions['admin'] == true;
+            final push =
+                permissions['push'] == true || permissions['admin'] == true;
             return push;
           }
           return true;
@@ -107,7 +110,8 @@ class GitHubApiService {
   /// Fetches relative file directly on Web deployment
   Future<String?> fetchRelativeFile(String path) async {
     try {
-      final uri = Uri.base.resolve('$path?t=${DateTime.now().millisecondsSinceEpoch}');
+      final uri =
+          Uri.base.resolve('$path?t=${DateTime.now().millisecondsSinceEpoch}');
       final response = await http.get(uri).timeout(const Duration(seconds: 5));
       if (response.statusCode == 200 && response.body.trim().isNotEmpty) {
         // Ensure response is not an HTML 404 fallback page
@@ -142,7 +146,9 @@ class GitHubApiService {
     final headers = buildHeaders(token: sanitizedToken);
 
     try {
-      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 8));
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         if (json is Map && json['content'] != null) {
@@ -166,10 +172,14 @@ class GitHubApiService {
 
     for (final b in branchesToTry) {
       try {
-        final rawUrl = 'https://raw.githubusercontent.com/$owner/$repo/$b/$path?t=${DateTime.now().millisecondsSinceEpoch}';
+        final rawUrl =
+            'https://raw.githubusercontent.com/$owner/$repo/$b/$path?t=${DateTime.now().millisecondsSinceEpoch}';
         final rawHeaders = buildHeaders(token: sanitizedToken, accept: '*/*');
-        final rawResponse = await http.get(Uri.parse(rawUrl), headers: rawHeaders).timeout(const Duration(seconds: 6));
-        if (rawResponse.statusCode == 200 && rawResponse.body.trim().isNotEmpty) {
+        final rawResponse = await http
+            .get(Uri.parse(rawUrl), headers: rawHeaders)
+            .timeout(const Duration(seconds: 6));
+        if (rawResponse.statusCode == 200 &&
+            rawResponse.body.trim().isNotEmpty) {
           final body = rawResponse.body.trim();
           if (!body.startsWith('<!DOCTYPE') && !body.startsWith('<html')) {
             final encoded = base64.encode(utf8.encode(body));
@@ -182,9 +192,13 @@ class GitHubApiService {
     // 3. Fast CDN mirror for public repositories (no rate limit / robust CORS)
     for (final b in branchesToTry) {
       try {
-        final cdnUrl = 'https://cdn.jsdelivr.net/gh/$owner/$repo@$b/$path?t=${DateTime.now().millisecondsSinceEpoch}';
-        final cdnResponse = await http.get(Uri.parse(cdnUrl)).timeout(const Duration(seconds: 6));
-        if (cdnResponse.statusCode == 200 && cdnResponse.body.trim().isNotEmpty) {
+        final cdnUrl =
+            'https://cdn.jsdelivr.net/gh/$owner/$repo@$b/$path?t=${DateTime.now().millisecondsSinceEpoch}';
+        final cdnResponse = await http
+            .get(Uri.parse(cdnUrl))
+            .timeout(const Duration(seconds: 6));
+        if (cdnResponse.statusCode == 200 &&
+            cdnResponse.body.trim().isNotEmpty) {
           final body = cdnResponse.body.trim();
           if (!body.startsWith('<!DOCTYPE') && !body.startsWith('<html')) {
             final encoded = base64.encode(utf8.encode(body));
@@ -201,7 +215,8 @@ class GitHubApiService {
         'https://$owner.github.io/${repo.toLowerCase()}/$path?t=${DateTime.now().millisecondsSinceEpoch}',
       ];
       for (final pUrl in pagesUrls) {
-        final pagesResp = await http.get(Uri.parse(pUrl)).timeout(const Duration(seconds: 6));
+        final pagesResp =
+            await http.get(Uri.parse(pUrl)).timeout(const Duration(seconds: 6));
         if (pagesResp.statusCode == 200 && pagesResp.body.trim().isNotEmpty) {
           final body = pagesResp.body.trim();
           if (!body.startsWith('<!DOCTYPE') && !body.startsWith('<html')) {
@@ -307,18 +322,21 @@ class GitHubApiService {
     required String targetSha,
   }) async {
     final cleanBranch = branch.trim().isEmpty ? 'main' : branch.trim();
-    final url = Uri.parse('$baseUrl/repos/$owner/$repo/git/refs/heads/$cleanBranch');
+    final url =
+        Uri.parse('$baseUrl/repos/$owner/$repo/git/refs/heads/$cleanBranch');
     final headers = buildHeaders(token: token);
 
     try {
-      final response = await http.patch(
-        url,
-        headers: headers,
-        body: jsonEncode({
-          'sha': targetSha.trim(),
-          'force': true,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .patch(
+            url,
+            headers: headers,
+            body: jsonEncode({
+              'sha': targetSha.trim(),
+              'force': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         return GitHubUpdateResult(
@@ -370,7 +388,9 @@ class GitHubApiService {
     final headers = buildHeaders(token: token);
 
     try {
-      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final list = jsonDecode(response.body) as List<dynamic>;
         return list
@@ -390,9 +410,13 @@ class GitHubApiService {
   }) async {
     try {
       // 1. Try raw usercontent with token support
-      final rawUrl = 'https://raw.githubusercontent.com/$owner/$repo/$sha/$path';
+      final rawUrl =
+          'https://raw.githubusercontent.com/$owner/$repo/$sha/$path';
       final content = await fetchRaw(rawUrl, token: token);
-      if (content != null && content.trim().isNotEmpty && !content.startsWith('<!DOCTYPE') && !content.startsWith('<html')) {
+      if (content != null &&
+          content.trim().isNotEmpty &&
+          !content.startsWith('<!DOCTYPE') &&
+          !content.startsWith('<html')) {
         return content;
       }
 
@@ -414,7 +438,9 @@ class GitHubApiService {
   Future<String?> fetchRaw(String url, {String? token}) async {
     try {
       final headers = buildHeaders(token: token, accept: '*/*');
-      final response = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 8));
+      final response = await http
+          .get(Uri.parse(url), headers: headers)
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) return response.body;
     } catch (_) {}
     return null;

@@ -15,6 +15,7 @@ import '../widgets/admin_pat_modal.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/summary_cards.dart';
 import '../widgets/transaction_tile.dart';
+import '../widgets/home/transaction_filter_sheets.dart';
 import 'category_expenses_screen.dart';
 import 'profile_screen.dart';
 import 'repo_selection_screen.dart';
@@ -68,9 +69,13 @@ class _HomeScreenState extends State<HomeScreen>
     final prevRoute = storage.getPreviousRoute();
 
     int initialTab = 0;
-    if (parsed.path == 'people' || parsed.path == 'member' || parsed.path == 'profile') {
+    if (parsed.path == 'people' ||
+        parsed.path == 'member' ||
+        parsed.path == 'profile') {
       initialTab = 1;
-    } else if (parsed.path == 'expenses' || parsed.path == 'bills' || parsed.path == 'category') {
+    } else if (parsed.path == 'expenses' ||
+        parsed.path == 'bills' ||
+        parsed.path == 'category') {
       initialTab = 2;
     } else if (parsed.path == 'tx' || parsed.path == 'transaction') {
       final from = parsed.from;
@@ -82,16 +87,18 @@ class _HomeScreenState extends State<HomeScreen>
         final p = ParsedRoute.parse(prevRoute);
         if (p.path == 'category' || p.path == 'expenses' || p.path == 'bills') {
           initialTab = 2;
-        } else if (p.path == 'member' || p.path == 'people' || p.path == 'profile') {
+        } else if (p.path == 'member' ||
+            p.path == 'people' ||
+            p.path == 'profile') {
           initialTab = 1;
         }
       } else {
         final repo = context.read<FundRepository>();
         final txList = repo.data?.transactions ?? [];
         final tx = txList.cast<TransactionModel?>().firstWhere(
-          (t) => t?.id == parsed.id || t?.id.toString() == parsed.id,
-          orElse: () => null,
-        );
+              (t) => t?.id == parsed.id || t?.id.toString() == parsed.id,
+              orElse: () => null,
+            );
         if (tx != null) {
           if (tx.billTypeId != null && tx.billTypeId!.isNotEmpty) {
             initialTab = 2;
@@ -103,7 +110,8 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     _lastHandledTab = initialTab;
-    _tabController = TabController(length: 3, vsync: this, initialIndex: initialTab);
+    _tabController =
+        TabController(length: 3, vsync: this, initialIndex: initialTab);
     _tabController.addListener(_handleTabSelection);
 
     // If initial route points to a sub-screen, restore it once the first frame renders
@@ -152,11 +160,18 @@ class _HomeScreenState extends State<HomeScreen>
 
     final repo = context.read<FundRepository>();
     final txList = repo.data?.transactions ?? [];
-    final tx = txList.cast<TransactionModel?>().firstWhere(
-      (t) => t?.id == id || t?.id.toString() == id,
-      orElse: () => null,
-    );
-    if (tx == null) return;
+    final TransactionModel tx = txList.cast<TransactionModel?>().firstWhere(
+              (t) => t?.id == id || t?.id.toString() == id,
+              orElse: () => null,
+            ) ??
+        TransactionModel(
+          id: id,
+          type: 'debit',
+          whoOrBill: '',
+          amount: 0.0,
+          date: '',
+          note: 'Loading transaction...',
+        );
 
     final storage = context.read<StorageService>();
     final prevRoute = storage.getPreviousRoute();
@@ -213,9 +228,7 @@ class _HomeScreenState extends State<HomeScreen>
       tx.id,
       from: catId != null
           ? 'category'
-          : (memberId != null
-              ? 'member'
-              : (parentRoute ?? 'transactions')),
+          : (memberId != null ? 'member' : (parentRoute ?? 'transactions')),
       catId: catId,
       memberId: memberId,
     );
@@ -224,7 +237,8 @@ class _HomeScreenState extends State<HomeScreen>
     storage.pushRoute(txRoute);
 
     // Push TransactionDetailScreen directly on top of HomeScreen (active tab is already set to People or Expenses)
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => TransactionDetailScreen(
           transaction: tx,
@@ -233,7 +247,8 @@ class _HomeScreenState extends State<HomeScreen>
           isRestoredAfterRefresh: true,
         ),
       ),
-    ).then((_) {
+    )
+        .then((_) {
       if (mounted) {
         final returnTo = parentRoute ?? 'transactions';
         WebRouteHelper.setRoute(returnTo);
@@ -248,11 +263,13 @@ class _HomeScreenState extends State<HomeScreen>
     final route = 'category?id=$id';
     WebRouteHelper.setRoute(route);
     storage.pushRoute(route);
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => CategoryExpensesScreen(billTypeId: id),
       ),
-    ).then((_) {
+    )
+        .then((_) {
       if (mounted) {
         WebRouteHelper.setRoute('expenses');
         storage.popRoute();
@@ -266,11 +283,13 @@ class _HomeScreenState extends State<HomeScreen>
     final route = 'member?id=$id';
     WebRouteHelper.setRoute(route);
     storage.pushRoute(route);
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => ProfileScreen(memberId: id),
       ),
-    ).then((_) {
+    )
+        .then((_) {
       if (mounted) {
         WebRouteHelper.setRoute('people');
         storage.popRoute();
@@ -292,7 +311,10 @@ class _HomeScreenState extends State<HomeScreen>
     if (state == AppLifecycleState.resumed) {
       final storage = context.read<StorageService>();
       final token = storage.currentToken;
-      if (storage.hasPendingSyncFlag && token != null && token.isNotEmpty && !_isSyncingPending) {
+      if (storage.hasPendingSyncFlag &&
+          token != null &&
+          token.isNotEmpty &&
+          !_isSyncingPending) {
         _triggerAutoSync();
       }
       if (storage.getLastRoute() == null) {
@@ -322,14 +344,16 @@ class _HomeScreenState extends State<HomeScreen>
       if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Offline transactions synchronized with GitHub successfully.'),
+            content: Text(
+                'Offline transactions synchronized with GitHub successfully.'),
             backgroundColor: Color(0xFF10B981),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sync failed: ${repo.error ?? "Please check connection or GitHub PAT."}'),
+            content: Text(
+                'Sync failed: ${repo.error ?? "Please check connection or GitHub PAT."}'),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -359,63 +383,129 @@ class _HomeScreenState extends State<HomeScreen>
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Switch Repository',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-              ),
-              const SizedBox(height: 12),
-              if (workspaces.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('No other workspaces saved.', style: TextStyle(color: Colors.grey)),
-                )
-              else
-                ...workspaces.map(
-                  (ws) {
-                    final isSelected = ws.owner.toLowerCase() == (currentOwner ?? '').toLowerCase() &&
-                        ws.repo.toLowerCase() == (currentRepo ?? '').toLowerCase();
+      builder: (ctx) {
+        final maxHeight = MediaQuery.of(ctx).size.height * 0.75;
+        final theme = Theme.of(ctx);
 
-                    return ListTile(
-                      leading: const Icon(Icons.folder_shared_outlined),
-                      title: Text('${ws.owner}/${ws.repo}',
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.dividerColor.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Switch Repository',
                           style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          )),
-                      subtitle: Text(ws.title ?? 'Fund Repository'),
-                      trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        if (!isSelected) {
-                          context.read<FundRepository>().switchWorkspace(ws.owner, ws.repo);
-                        }
-                      },
+                              fontWeight: FontWeight.bold, fontSize: 17),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: workspaces.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Text('No other workspaces saved.',
+                              style: TextStyle(color: Colors.grey)),
+                        )
+                      : Scrollbar(
+                          thumbVisibility: true,
+                          child: ListView(
+                            shrinkWrap: true,
+                            physics: const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            children: workspaces.map((ws) {
+                              final isSelected = ws.owner.toLowerCase() ==
+                                      (currentOwner ?? '').toLowerCase() &&
+                                  ws.repo.toLowerCase() ==
+                                      (currentRepo ?? '').toLowerCase();
+
+                              return ListTile(
+                                leading:
+                                    const Icon(Icons.folder_shared_outlined),
+                                title: Text(
+                                  '${ws.owner}/${ws.repo}',
+                                  style: TextStyle(
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                                subtitle: Text(ws.title ?? 'Fund Repository'),
+                                selected: isSelected,
+                                selectedTileColor: theme.colorScheme.primary
+                                    .withValues(alpha: 0.08),
+                                trailing: isSelected
+                                    ? Icon(Icons.check_rounded,
+                                        color: theme.colorScheme.primary)
+                                    : null,
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  if (!isSelected) {
+                                    context
+                                        .read<FundRepository>()
+                                        .switchWorkspace(ws.owner, ws.repo);
+                                  }
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(Icons.add_circle_outline,
+                      color: theme.colorScheme.primary),
+                  title: Text(
+                    'Add or Connect Another Repository',
+                    style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const RepoSelectionScreen()),
                     );
                   },
                 ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.add_circle_outline, color: Colors.blue),
-                title: const Text('Add or Connect Another Repository'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const RepoSelectionScreen()),
-                  );
-                },
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -448,7 +538,8 @@ class _HomeScreenState extends State<HomeScreen>
         availableMonths.add(tx.date.substring(0, 7));
       }
     }
-    final sortedMonths = availableMonths.toList()..sort((a, b) => b.compareTo(a));
+    final sortedMonths = availableMonths.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
       appBar: AppBar(
@@ -459,14 +550,16 @@ class _HomeScreenState extends State<HomeScreen>
                 children: [
                   Text(
                     config.siteTitle,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   if (config.siteSubtitle.isNotEmpty)
                     Text(
                       config.siteSubtitle,
                       style: TextStyle(
                         fontSize: 11,
-                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.7),
                       ),
                     ),
                 ],
@@ -475,7 +568,8 @@ class _HomeScreenState extends State<HomeScreen>
                 onTap: () => _showRepoSwitcherBottomSheet(context),
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -485,14 +579,16 @@ class _HomeScreenState extends State<HomeScreen>
                         children: [
                           Text(
                             config.siteTitle,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 18),
                           ),
                           if (config.siteSubtitle.isNotEmpty)
                             Text(
                               config.siteSubtitle,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                                color: theme.textTheme.bodySmall?.color
+                                    ?.withValues(alpha: 0.7),
                               ),
                             ),
                         ],
@@ -506,18 +602,26 @@ class _HomeScreenState extends State<HomeScreen>
         actions: [
           IconButton(
             icon: Icon(
-              theme.brightness == Brightness.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              theme.brightness == Brightness.dark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded,
             ),
-            tooltip: theme.brightness == Brightness.dark ? 'Switch to Light Mode' : 'Switch to Dark/Night Mode',
+            tooltip: theme.brightness == Brightness.dark
+                ? 'Switch to Light Mode'
+                : 'Switch to Dark/Night Mode',
             onPressed: () => storage.toggleTheme(context),
           ),
           // Admin (🛡️) authorization / lock button in header
           IconButton(
             icon: Icon(
               Icons.shield_rounded,
-              color: isAdminVerified ? const Color(0xFF10B981) : Colors.amber.shade700,
+              color: isAdminVerified
+                  ? const Color(0xFF10B981)
+                  : Colors.amber.shade700,
             ),
-            tooltip: isAdminVerified ? 'Admin Authorized (PAT Verified)' : 'Admin Login (Enter PAT)',
+            tooltip: isAdminVerified
+                ? 'Admin Authorized (PAT Verified)'
+                : 'Admin Login (Enter PAT)',
             onPressed: () => AdminPatModal.show(context),
           ),
           IconButton(
@@ -545,7 +649,10 @@ class _HomeScreenState extends State<HomeScreen>
                 dividerColor: Colors.transparent,
                 indicator: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.primaryIndigo, AppTheme.primaryIndigoDark],
+                    colors: [
+                      AppTheme.primaryIndigo,
+                      AppTheme.primaryIndigoDark
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -559,9 +666,12 @@ class _HomeScreenState extends State<HomeScreen>
                   ],
                 ),
                 labelColor: Colors.white,
-                unselectedLabelColor: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
-                labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                unselectedLabelColor:
+                    theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                labelStyle:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                unselectedLabelStyle:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 tabs: const [
                   Tab(
                     child: Row(
@@ -606,31 +716,39 @@ class _HomeScreenState extends State<HomeScreen>
               Container(
                 width: double.infinity,
                 color: Colors.amber.shade700,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.cloud_off_rounded, color: Colors.white, size: 18),
+                    const Icon(Icons.cloud_off_rounded,
+                        color: Colors.white, size: 18),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
                         'Offline changes pending sync to GitHub.',
-                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                     TextButton(
                       style: TextButton.styleFrom(
                         foregroundColor: Colors.white,
                         backgroundColor: Colors.black26,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
                       ),
                       onPressed: _isSyncingPending ? null : _triggerManualSync,
                       child: _isSyncingPending
                           ? const SizedBox(
                               width: 14,
                               height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Sync Now', style: TextStyle(fontSize: 12)),
+                          : const Text('Sync Now',
+                              style: TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),
@@ -639,7 +757,8 @@ class _HomeScreenState extends State<HomeScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildTransactionsTab(data, config, fundBalance, totalCredits, totalDebits, sortedMonths),
+                  _buildTransactionsTab(data, config, fundBalance, totalCredits,
+                      totalDebits, sortedMonths),
                   _buildPeopleTab(summaries, settlements, config),
                   _buildBillsTab(data, billTotals, totalDebits, config),
                 ],
@@ -663,12 +782,15 @@ class _HomeScreenState extends State<HomeScreen>
     final query = _searchController.text.toLowerCase().trim();
 
     final filtered = data.transactions.where((tx) {
-      if (_selectedFilterType != 'all' && tx.type != _selectedFilterType) return false;
-      if (_selectedMonthFilter != null && !tx.date.startsWith(_selectedMonthFilter!)) return false;
+      if (_selectedFilterType != 'all' && tx.type != _selectedFilterType)
+        return false;
+      if (_selectedMonthFilter != null &&
+          !tx.date.startsWith(_selectedMonthFilter!)) return false;
       if (_selectedMemberFilter != null &&
           tx.payerId != _selectedMemberFilter &&
           tx.whoOrBill != _selectedMemberFilter &&
-          (tx.splitAmong == null || !tx.splitAmong!.contains(_selectedMemberFilter))) {
+          (tx.splitAmong == null ||
+              !tx.splitAmong!.contains(_selectedMemberFilter))) {
         return false;
       }
       if (_selectedBillFilter != null &&
@@ -683,7 +805,8 @@ class _HomeScreenState extends State<HomeScreen>
         );
         final bill = config.billTypes.firstWhere(
           (b) => b.id == tx.billTypeId || b.id == tx.whoOrBill,
-          orElse: () => BillTypeConfig(id: tx.whoOrBill, name: tx.whoOrBill, icon: ''),
+          orElse: () =>
+              BillTypeConfig(id: tx.whoOrBill, name: tx.whoOrBill, icon: ''),
         );
         final matchesNote = tx.note.toLowerCase().contains(query);
         final matchesWho = tx.whoOrBill.toLowerCase().contains(query);
@@ -749,12 +872,14 @@ class _HomeScreenState extends State<HomeScreen>
                 filtered.length > _transactionLimit
                     ? 'Transactions (${visibleTransactions.length} of ${filtered.length})'
                     : 'Transactions (${filtered.length})',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               TextButton.icon(
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
                 onPressed: () {
                   setState(() {
@@ -765,7 +890,9 @@ class _HomeScreenState extends State<HomeScreen>
                   isLabelVisible: _hasActiveFilters,
                   label: Text('$_activeFilterCount'),
                   child: Icon(
-                    _showFilters ? Icons.filter_list_off_rounded : Icons.filter_list_rounded,
+                    _showFilters
+                        ? Icons.filter_list_off_rounded
+                        : Icons.filter_list_rounded,
                     size: 18,
                     color: _hasActiveFilters ? theme.colorScheme.primary : null,
                   ),
@@ -773,7 +900,8 @@ class _HomeScreenState extends State<HomeScreen>
                 label: Text(
                   _showFilters ? 'Hide Filters' : 'Search & Filter',
                   style: TextStyle(
-                    fontWeight: _hasActiveFilters ? FontWeight.bold : FontWeight.w600,
+                    fontWeight:
+                        _hasActiveFilters ? FontWeight.bold : FontWeight.w600,
                     color: _hasActiveFilters ? theme.colorScheme.primary : null,
                   ),
                 ),
@@ -808,10 +936,16 @@ class _HomeScreenState extends State<HomeScreen>
             Center(
               child: Column(
                 children: [
-                  Icon(Icons.inbox_rounded, size: 50, color: Colors.grey.withValues(alpha: 0.4)),
+                  Icon(Icons.inbox_rounded,
+                      size: 50, color: Colors.grey.withValues(alpha: 0.4)),
                   const SizedBox(height: 10),
-                  const Text('No transactions match the criteria', style: TextStyle(color: Colors.grey)),
-                  if (query.isNotEmpty || _selectedFilterType != 'all' || _selectedMonthFilter != null || _selectedMemberFilter != null || _selectedBillFilter != null) ...[
+                  const Text('No transactions match the criteria',
+                      style: TextStyle(color: Colors.grey)),
+                  if (query.isNotEmpty ||
+                      _selectedFilterType != 'all' ||
+                      _selectedMonthFilter != null ||
+                      _selectedMemberFilter != null ||
+                      _selectedBillFilter != null) ...[
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () {
@@ -842,14 +976,16 @@ class _HomeScreenState extends State<HomeScreen>
                   );
                   WebRouteHelper.setRoute(txRoute);
                   context.read<StorageService>().pushRoute(txRoute);
-                  Navigator.of(context).push(
+                  Navigator.of(context)
+                      .push(
                     MaterialPageRoute(
                       builder: (_) => TransactionDetailScreen(
                         transaction: tx,
                         returnRoute: 'transactions',
                       ),
                     ),
-                  ).then((_) {
+                  )
+                      .then((_) {
                     if (mounted) {
                       WebRouteHelper.setRoute('transactions');
                       context.read<StorageService>().popRoute();
@@ -864,7 +1000,8 @@ class _HomeScreenState extends State<HomeScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: theme.dividerColor.withValues(alpha: 0.12),
@@ -877,7 +1014,8 @@ class _HomeScreenState extends State<HomeScreen>
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.8),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -888,8 +1026,10 @@ class _HomeScreenState extends State<HomeScreen>
                       children: [
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 10),
                           ),
                           icon: const Icon(Icons.expand_more_rounded, size: 18),
                           label: Text(
@@ -905,8 +1045,10 @@ class _HomeScreenState extends State<HomeScreen>
                         if (filtered.length - visibleTransactions.length > 20)
                           OutlinedButton(
                             style: OutlinedButton.styleFrom(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
                             ),
                             child: const Text('Show All'),
                             onPressed: () {
@@ -937,7 +1079,8 @@ class _HomeScreenState extends State<HomeScreen>
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                        color: theme.textTheme.bodySmall?.color
+                            ?.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
@@ -978,7 +1121,8 @@ class _HomeScreenState extends State<HomeScreen>
                       },
                     )
                   : null,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
@@ -1018,10 +1162,14 @@ class _HomeScreenState extends State<HomeScreen>
                           ? 'Deposits / Credits'
                           : 'Expenses / Debits',
                   style: TextStyle(
-                    fontWeight: _selectedFilterType != 'all' ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: _selectedFilterType != 'all'
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                     color: _selectedFilterType == 'credit'
                         ? AppTheme.emeraldDark
-                        : (_selectedFilterType == 'debit' ? AppTheme.roseDark : null),
+                        : (_selectedFilterType == 'debit'
+                            ? AppTheme.roseDark
+                            : null),
                   ),
                 ),
                 selected: _selectedFilterType != 'all',
@@ -1043,8 +1191,12 @@ class _HomeScreenState extends State<HomeScreen>
                       ? 'All Months'
                       : AppDateUtils.formatMonthName(_selectedMonthFilter!),
                   style: TextStyle(
-                    fontWeight: _selectedMonthFilter != null ? FontWeight.w700 : FontWeight.w500,
-                    color: _selectedMonthFilter != null ? AppTheme.primaryIndigo : null,
+                    fontWeight: _selectedMonthFilter != null
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: _selectedMonthFilter != null
+                        ? AppTheme.primaryIndigo
+                        : null,
                   ),
                 ),
                 selected: _selectedMonthFilter != null,
@@ -1064,10 +1216,19 @@ class _HomeScreenState extends State<HomeScreen>
                 label: Text(
                   _selectedMemberFilter == null
                       ? 'All Members'
-                      : (config.members.firstWhere((m) => m.id == _selectedMemberFilter, orElse: () => MemberConfig(id: _selectedMemberFilter!, name: _selectedMemberFilter!)).name),
+                      : (config.members
+                          .firstWhere((m) => m.id == _selectedMemberFilter,
+                              orElse: () => MemberConfig(
+                                  id: _selectedMemberFilter!,
+                                  name: _selectedMemberFilter!))
+                          .name),
                   style: TextStyle(
-                    fontWeight: _selectedMemberFilter != null ? FontWeight.w700 : FontWeight.w500,
-                    color: _selectedMemberFilter != null ? AppTheme.violetDark : null,
+                    fontWeight: _selectedMemberFilter != null
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: _selectedMemberFilter != null
+                        ? AppTheme.violetDark
+                        : null,
                   ),
                 ),
                 selected: _selectedMemberFilter != null,
@@ -1087,10 +1248,20 @@ class _HomeScreenState extends State<HomeScreen>
                 label: Text(
                   _selectedBillFilter == null
                       ? 'All Categories'
-                      : (config.billTypes.firstWhere((b) => b.id == _selectedBillFilter, orElse: () => BillTypeConfig(id: _selectedBillFilter!, name: _selectedBillFilter!, icon: '')).name),
+                      : (config.billTypes
+                          .firstWhere((b) => b.id == _selectedBillFilter,
+                              orElse: () => BillTypeConfig(
+                                  id: _selectedBillFilter!,
+                                  name: _selectedBillFilter!,
+                                  icon: ''))
+                          .name),
                   style: TextStyle(
-                    fontWeight: _selectedBillFilter != null ? FontWeight.w700 : FontWeight.w500,
-                    color: _selectedBillFilter != null ? const Color(0xFFB45309) : null,
+                    fontWeight: _selectedBillFilter != null
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: _selectedBillFilter != null
+                        ? const Color(0xFFB45309)
+                        : null,
                   ),
                 ),
                 selected: _selectedBillFilter != null,
@@ -1105,7 +1276,8 @@ class _HomeScreenState extends State<HomeScreen>
                 const SizedBox(width: 8),
                 ActionChip(
                   avatar: const Icon(Icons.close_rounded, size: 14),
-                  label: const Text('Clear All', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: const Text('Clear All',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   onPressed: () {
                     setState(() {
                       _searchController.clear();
@@ -1144,7 +1316,8 @@ class _HomeScreenState extends State<HomeScreen>
           if (_selectedFilterType != 'all') ...[
             Chip(
               avatar: const Icon(Icons.filter_alt_outlined, size: 14),
-              label: Text(_selectedFilterType == 'credit' ? 'Deposits' : 'Expenses'),
+              label: Text(
+                  _selectedFilterType == 'credit' ? 'Deposits' : 'Expenses'),
               onDeleted: () {
                 setState(() {
                   _selectedFilterType = 'all';
@@ -1174,7 +1347,9 @@ class _HomeScreenState extends State<HomeScreen>
                 config.members
                     .firstWhere(
                       (m) => m.id == _selectedMemberFilter,
-                      orElse: () => MemberConfig(id: _selectedMemberFilter!, name: _selectedMemberFilter!),
+                      orElse: () => MemberConfig(
+                          id: _selectedMemberFilter!,
+                          name: _selectedMemberFilter!),
                     )
                     .name,
               ),
@@ -1194,7 +1369,10 @@ class _HomeScreenState extends State<HomeScreen>
                 config.billTypes
                     .firstWhere(
                       (b) => b.id == _selectedBillFilter,
-                      orElse: () => BillTypeConfig(id: _selectedBillFilter!, name: _selectedBillFilter!, icon: ''),
+                      orElse: () => BillTypeConfig(
+                          id: _selectedBillFilter!,
+                          name: _selectedBillFilter!,
+                          icon: ''),
                     )
                     .name,
               ),
@@ -1227,196 +1405,57 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showTypeFilterSheet() {
-    showModalBottomSheet(
+    TransactionFilterSheets.showTypeFilterSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Filter by Transaction Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: const Icon(Icons.all_inclusive_rounded),
-                title: const Text('All Transactions'),
-                trailing: _selectedFilterType == 'all' ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedFilterType = 'all';
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.arrow_downward_rounded, color: Colors.green),
-                title: const Text('Deposits / Credits'),
-                trailing: _selectedFilterType == 'credit' ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedFilterType = 'credit';
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.arrow_upward_rounded, color: Colors.red),
-                title: const Text('Expenses / Debits'),
-                trailing: _selectedFilterType == 'debit' ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedFilterType = 'debit';
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+      currentType: _selectedFilterType,
+      onSelected: (val) {
+        setState(() {
+          _selectedFilterType = val;
+          _transactionLimit = 20;
+        });
+      },
     );
   }
 
   void _showMonthFilterSheet(List<String> months) {
-    showModalBottomSheet(
+    TransactionFilterSheets.showMonthFilterSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Filter by Month', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              ListTile(
-                title: const Text('All Months'),
-                trailing: _selectedMonthFilter == null ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedMonthFilter = null;
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ...months.map(
-                (m) => ListTile(
-                  title: Text(AppDateUtils.formatMonthName(m)),
-                  subtitle: Text(m, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  trailing: _selectedMonthFilter == m ? const Icon(Icons.check, color: Colors.blue) : null,
-                  onTap: () {
-                    setState(() {
-                      _selectedMonthFilter = m;
-                      _transactionLimit = 20;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      months: months,
+      currentMonth: _selectedMonthFilter,
+      onSelected: (val) {
+        setState(() {
+          _selectedMonthFilter = val;
+          _transactionLimit = 20;
+        });
+      },
     );
   }
 
   void _showMemberFilterSheet(AppConfig config) {
-    showModalBottomSheet(
+    TransactionFilterSheets.showMemberFilterSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Filter by Member', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              ListTile(
-                title: const Text('All Members'),
-                trailing: _selectedMemberFilter == null ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedMemberFilter = null;
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ...config.members.map(
-                (m) => ListTile(
-                  leading: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                    child: Text(m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
-                        style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
-                  title: Text(m.name),
-                  subtitle: Text('@${m.id}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  trailing: _selectedMemberFilter == m.id ? const Icon(Icons.check, color: Colors.blue) : null,
-                  onTap: () {
-                    setState(() {
-                      _selectedMemberFilter = m.id;
-                      _transactionLimit = 20;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      config: config,
+      currentMemberId: _selectedMemberFilter,
+      onSelected: (val) {
+        setState(() {
+          _selectedMemberFilter = val;
+          _transactionLimit = 20;
+        });
+      },
     );
   }
 
   void _showBillFilterSheet(AppConfig config) {
-    showModalBottomSheet(
+    TransactionFilterSheets.showBillFilterSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Filter by Bill Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              ListTile(
-                title: const Text('All Categories'),
-                trailing: _selectedBillFilter == null ? const Icon(Icons.check, color: Colors.blue) : null,
-                onTap: () {
-                  setState(() {
-                    _selectedBillFilter = null;
-                    _transactionLimit = 20;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-              ...config.billTypes.map(
-                (b) => ListTile(
-                  leading: Text(b.icon, style: const TextStyle(fontSize: 20)),
-                  title: Text(b.name),
-                  subtitle: Text(b.id, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  trailing: _selectedBillFilter == b.id ? const Icon(Icons.check, color: Colors.blue) : null,
-                  onTap: () {
-                    setState(() {
-                      _selectedBillFilter = b.id;
-                      _transactionLimit = 20;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      config: config,
+      currentBillId: _selectedBillFilter,
+      onSelected: (val) {
+        setState(() {
+          _selectedBillFilter = val;
+          _transactionLimit = 20;
+        });
+      },
     );
   }
 
@@ -1466,11 +1505,13 @@ class _HomeScreenState extends State<HomeScreen>
               final route = 'member?id=${summary.memberId}';
               WebRouteHelper.setRoute(route);
               context.read<StorageService>().pushRoute(route);
-              Navigator.of(context).push(
+              Navigator.of(context)
+                  .push(
                 MaterialPageRoute(
                   builder: (_) => ProfileScreen(memberId: summary.memberId),
                 ),
-              ).then((_) {
+              )
+                  .then((_) {
                 if (mounted) {
                   WebRouteHelper.setRoute('people');
                   context.read<StorageService>().popRoute();
@@ -1537,7 +1578,8 @@ class _HomeScreenState extends State<HomeScreen>
                   color: Colors.white.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.pie_chart_rounded, color: Colors.white, size: 28),
+                child: const Icon(Icons.pie_chart_rounded,
+                    color: Colors.white, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1580,7 +1622,10 @@ class _HomeScreenState extends State<HomeScreen>
               'Tap category to view expenses',
               style: TextStyle(
                 fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant
+                    .withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -1601,11 +1646,13 @@ class _HomeScreenState extends State<HomeScreen>
               final route = 'category?id=${bill.id}';
               WebRouteHelper.setRoute(route);
               context.read<StorageService>().pushRoute(route);
-              Navigator.of(context).push(
+              Navigator.of(context)
+                  .push(
                 MaterialPageRoute(
                   builder: (_) => CategoryExpensesScreen(billTypeId: bill.id),
                 ),
-              ).then((_) {
+              )
+                  .then((_) {
                 if (mounted) {
                   WebRouteHelper.setRoute('expenses');
                   context.read<StorageService>().popRoute();

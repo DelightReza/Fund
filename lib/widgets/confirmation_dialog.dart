@@ -4,7 +4,8 @@ import '../utils/format_utils.dart';
 import 'glass_container.dart';
 
 class TransactionConfirmationDialog extends StatelessWidget {
-  final String type; // 'expense', 'credit', 'debit', 'distribute', 'settlement', 'transfer'
+  final String
+      type; // 'expense', 'credit', 'debit', 'distribute', 'settlement', 'transfer'
   final double amount;
   final String currency;
   final String dateStr;
@@ -157,7 +158,8 @@ class TransactionConfirmationDialog extends StatelessWidget {
               children: [
                 Text(
                   isEditing ? 'Confirm Update' : 'Confirm Transaction',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   typeLabel,
@@ -183,7 +185,8 @@ class TransactionConfirmationDialog extends StatelessWidget {
 
               // Prominent Amount Display
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                 decoration: BoxDecoration(
                   color: themeColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
@@ -206,7 +209,11 @@ class TransactionConfirmationDialog extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
-                        color: isCredit ? const Color(0xFF047857) : (type == 'debit' || type == 'expense' ? const Color(0xFFDC2626) : theme.colorScheme.onSurface),
+                        color: isCredit
+                            ? const Color(0xFF047857)
+                            : (type == 'debit' || type == 'expense'
+                                ? const Color(0xFFDC2626)
+                                : theme.colorScheme.onSurface),
                       ),
                     ),
                   ],
@@ -217,9 +224,11 @@ class TransactionConfirmationDialog extends StatelessWidget {
               // Details Summary List
               Container(
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
+                  border: Border.all(
+                      color: theme.dividerColor.withValues(alpha: 0.5)),
                 ),
                 padding: const EdgeInsets.all(14),
                 child: Column(
@@ -271,27 +280,34 @@ class TransactionConfirmationDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          color: theme.colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
                           children: customSplit!.entries.map((entry) {
                             final name = memberNames?[entry.key] ?? entry.key;
                             final exactPct = splitPercentages?[entry.key] ??
-                                (amount > 0 ? (entry.value / amount) * 100 : 0.0);
+                                (amount > 0
+                                    ? (entry.value / amount) * 100
+                                    : 0.0);
                             final pctStr = exactPct % 1.0 == 0.0
                                 ? exactPct.toInt().toString()
                                 : exactPct.toStringAsFixed(1);
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 2),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     name,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500),
                                   ),
                                   Text(
                                     '${FormatUtils.formatCurrency(entry.value, currency)} ($pctStr%)',
@@ -307,12 +323,17 @@ class TransactionConfirmationDialog extends StatelessWidget {
                           }).toList(),
                         ),
                       ),
-                    ] else if (splitMembers.isNotEmpty && (type == 'expense' || type == 'debit' || type == 'distribute')) ...[
+                    ] else if (splitMembers.isNotEmpty &&
+                        (type == 'expense' ||
+                            type == 'debit' ||
+                            type == 'distribute')) ...[
                       const Divider(height: 16),
                       _buildRow(
                         icon: Icons.group_rounded,
-                        label: type == 'distribute' ? 'Recipients' : 'Split Among',
-                        value: '${splitMembers.length} active members (${FormatUtils.formatCurrency(amount / splitMembers.length, currency)}/person)',
+                        label:
+                            type == 'distribute' ? 'Recipients' : 'Split Among',
+                        value:
+                            '${splitMembers.length} active members (${FormatUtils.formatCurrency(amount / splitMembers.length, currency)}/person)',
                       ),
                     ],
                     if (exemptMembers.isNotEmpty) ...[
@@ -348,9 +369,12 @@ class TransactionConfirmationDialog extends StatelessWidget {
             backgroundColor: themeColor,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          icon: Icon(isEditing ? Icons.check_circle_rounded : Icons.save_rounded, size: 18),
+          icon: Icon(
+              isEditing ? Icons.check_circle_rounded : Icons.save_rounded,
+              size: 18),
           label: Text(isEditing ? 'Confirm & Update' : 'Confirm & Save'),
           onPressed: () {
             FocusManager.instance.primaryFocus?.unfocus();
@@ -376,7 +400,10 @@ class TransactionConfirmationDialog extends StatelessWidget {
           width: 90,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 12.5, color: Colors.grey, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontSize: 12.5,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500),
           ),
         ),
         Expanded(
@@ -499,7 +526,8 @@ class ActionConfirmationDialog extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: confirmColor,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           onPressed: () => Navigator.of(context).pop(true),
           child: Text(confirmLabel),
@@ -556,7 +584,8 @@ class TransactionSuccessDialog extends StatefulWidget {
   }
 
   @override
-  State<TransactionSuccessDialog> createState() => _TransactionSuccessDialogState();
+  State<TransactionSuccessDialog> createState() =>
+      _TransactionSuccessDialogState();
 }
 
 class _TransactionSuccessDialogState extends State<TransactionSuccessDialog>
@@ -626,97 +655,99 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog>
               ),
             ],
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Animated Checkmark Bloom
-              AnimatedBuilder(
-                animation: _animController,
-                builder: (context, child) {
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Pulsing outer halo ring
-                      Transform.scale(
-                        scale: _ringScale.value,
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: widget.themeColor.withValues(alpha: 0.15),
-                          ),
-                        ),
-                      ),
-                      // Core checkmark badge
-                      Transform.scale(
-                        scale: _iconScale.value,
-                        child: Container(
-                          width: 58,
-                          height: 58,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [
-                                widget.themeColor,
-                                widget.themeColor.withValues(alpha: 0.85),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Animated Checkmark Bloom
+                AnimatedBuilder(
+                  animation: _animController,
+                  builder: (context, child) {
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Pulsing outer halo ring
+                        Transform.scale(
+                          scale: _ringScale.value,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: widget.themeColor.withValues(alpha: 0.15),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: widget.themeColor.withValues(alpha: 0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.check_rounded,
-                            color: Colors.white,
-                            size: 36,
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 18),
-              Text(
-                widget.title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.2,
+                        // Core checkmark badge
+                        Transform.scale(
+                          scale: _iconScale.value,
+                          child: Container(
+                            width: 58,
+                            height: 58,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [
+                                  widget.themeColor,
+                                  widget.themeColor.withValues(alpha: 0.85),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      widget.themeColor.withValues(alpha: 0.4),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ),
-              const SizedBox(height: 6),
-              if (widget.amount.isNotEmpty)
+                const SizedBox(height: 18),
                 Text(
-                  widget.amount,
+                  widget.title,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: widget.themeColor,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.2,
                   ),
                 ),
-              const SizedBox(height: 4),
-              Text(
-                widget.subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                const SizedBox(height: 6),
+                if (widget.amount.isNotEmpty)
+                  Text(
+                    widget.amount,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: widget.themeColor,
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: theme.textTheme.bodySmall?.color
+                        ?.withValues(alpha: 0.7),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

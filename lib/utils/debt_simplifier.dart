@@ -71,8 +71,10 @@ class BalanceEngine {
       if (timeA != timeB) {
         diff = timeA.compareTo(timeB);
       } else {
-        final parentA = (a.parentId != null && a.parentId!.isNotEmpty) ? a.parentId! : a.id;
-        final parentB = (b.parentId != null && b.parentId!.isNotEmpty) ? b.parentId! : b.id;
+        final parentA =
+            (a.parentId != null && a.parentId!.isNotEmpty) ? a.parentId! : a.id;
+        final parentB =
+            (b.parentId != null && b.parentId!.isNotEmpty) ? b.parentId! : b.id;
         if (parentA == parentB) {
           if (a.type != b.type) {
             diff = a.type == 'credit' ? -1 : 1;
@@ -102,12 +104,15 @@ class BalanceEngine {
     final chronological = sortTransactions(data.transactions, ascending: true);
 
     double running = 0.0;
-    final balanceMap = <String, Map<String, double>>{}; // tx.id -> {before, after, change}
+    final balanceMap =
+        <String, Map<String, double>>{}; // tx.id -> {before, after, change}
 
     for (final tx in chronological) {
       double change = 0.0;
       final isCredit = tx.type == 'credit';
-      final payer = (tx.payerId != null && tx.payerId!.isNotEmpty) ? tx.payerId! : tx.whoOrBill;
+      final payer = (tx.payerId != null && tx.payerId!.isNotEmpty)
+          ? tx.payerId!
+          : tx.whoOrBill;
 
       if (isCredit && payer == personId) {
         change += tx.amount;
@@ -148,8 +153,11 @@ class BalanceEngine {
 
     for (final tx in chronological) {
       final isCredit = tx.type == 'credit';
-      final payer = (tx.payerId != null && tx.payerId!.isNotEmpty) ? tx.payerId! : tx.whoOrBill;
-      final mapData = balanceMap[tx.id] ?? {'before': 0.0, 'after': 0.0, 'change': 0.0};
+      final payer = (tx.payerId != null && tx.payerId!.isNotEmpty)
+          ? tx.payerId!
+          : tx.whoOrBill;
+      final mapData =
+          balanceMap[tx.id] ?? {'before': 0.0, 'after': 0.0, 'change': 0.0};
       final change = mapData['change']!;
       final before = mapData['before']!;
       final after = mapData['after']!;
@@ -162,7 +170,9 @@ class BalanceEngine {
           );
           final String title = tx.note.trim().isNotEmpty
               ? tx.note.trim()
-              : (payerMember.name.isNotEmpty ? payerMember.name : 'Credit Deposit');
+              : (payerMember.name.isNotEmpty
+                  ? payerMember.name
+                  : 'Credit Deposit');
 
           items.add(
             PersonTransactionItem(
@@ -192,18 +202,20 @@ class BalanceEngine {
           paying = allIds.where((id) => !exemptions.contains(id)).toList();
         }
 
-        final isInvolved = hasCustom ? tx.customSplit!.containsKey(personId) : paying.contains(personId);
+        final isInvolved = hasCustom
+            ? tx.customSplit!.containsKey(personId)
+            : paying.contains(personId);
         if (isInvolved) {
           final share = hasCustom
               ? (tx.customSplit![personId] ?? 0.0)
               : (paying.isNotEmpty ? (tx.amount / paying.length) : 0.0);
           final bill = config.billTypes.firstWhere(
             (b) => b.id == (tx.billTypeId ?? tx.whoOrBill),
-            orElse: () => BillTypeConfig(id: tx.whoOrBill, name: tx.whoOrBill, icon: '🧾'),
+            orElse: () => BillTypeConfig(
+                id: tx.whoOrBill, name: tx.whoOrBill, icon: '🧾'),
           );
-          final String title = tx.note.trim().isNotEmpty
-              ? tx.note.trim()
-              : bill.name;
+          final String title =
+              tx.note.trim().isNotEmpty ? tx.note.trim() : bill.name;
 
           items.add(
             PersonTransactionItem(
@@ -245,7 +257,9 @@ class BalanceEngine {
     for (final tx in sorted) {
       double change = 0.0;
       final isCredit = tx.type == 'credit';
-      final payer = (tx.payerId != null && tx.payerId!.isNotEmpty) ? tx.payerId! : tx.whoOrBill;
+      final payer = (tx.payerId != null && tx.payerId!.isNotEmpty)
+          ? tx.payerId!
+          : tx.whoOrBill;
 
       if (isCredit && payer == personId) {
         change += tx.amount;
@@ -262,7 +276,8 @@ class BalanceEngine {
             paying = tx.splitAmong!;
           } else {
             final exemptions = tx.exemptions ?? [];
-            paying = allMemberIds.where((id) => !exemptions.contains(id)).toList();
+            paying =
+                allMemberIds.where((id) => !exemptions.contains(id)).toList();
           }
 
           if (paying.contains(personId) && paying.isNotEmpty) {
@@ -296,11 +311,15 @@ class BalanceEngine {
     AppConfig config,
   ) {
     final paidMap = <String, double>{for (final m in config.members) m.id: 0.0};
-    final consumedMap = <String, double>{for (final m in config.members) m.id: 0.0};
+    final consumedMap = <String, double>{
+      for (final m in config.members) m.id: 0.0
+    };
 
     for (final tx in data.transactions) {
       if (tx.type == 'credit') {
-        final pid = (tx.payerId != null && tx.payerId!.isNotEmpty) ? tx.payerId! : tx.whoOrBill;
+        final pid = (tx.payerId != null && tx.payerId!.isNotEmpty)
+            ? tx.payerId!
+            : tx.whoOrBill;
         if (paidMap.containsKey(pid)) {
           paidMap[pid] = (paidMap[pid] ?? 0.0) + tx.amount;
         }
@@ -308,7 +327,8 @@ class BalanceEngine {
         if (tx.customSplit != null && tx.customSplit!.isNotEmpty) {
           for (final entry in tx.customSplit!.entries) {
             if (consumedMap.containsKey(entry.key)) {
-              consumedMap[entry.key] = (consumedMap[entry.key] ?? 0.0) + entry.value;
+              consumedMap[entry.key] =
+                  (consumedMap[entry.key] ?? 0.0) + entry.value;
             }
           }
         } else {
@@ -352,14 +372,18 @@ class BalanceEngine {
   }
 
   /// Calculates net balance map (positive = owed money, negative = owes money)
-  static Map<String, double> calculateBalances(FundData data, AppConfig config) {
+  static Map<String, double> calculateBalances(
+      FundData data, AppConfig config) {
     final summaries = calculateMemberSummaries(data, config);
     return summaries.map((k, v) => MapEntry(k, v.netBalance));
   }
 
   /// Calculates bill type totals
-  static Map<String, double> calculateBillTypeTotals(FundData data, AppConfig config) {
-    final totals = <String, double>{for (final b in config.billTypes) b.id: 0.0};
+  static Map<String, double> calculateBillTypeTotals(
+      FundData data, AppConfig config) {
+    final totals = <String, double>{
+      for (final b in config.billTypes) b.id: 0.0
+    };
     for (final tx in data.transactions) {
       if (tx.type == 'debit') {
         final billId = (tx.billTypeId != null && tx.billTypeId!.isNotEmpty)
@@ -386,7 +410,8 @@ class BalanceEngine {
   }
 
   /// Greedy Debt Simplification Algorithm
-  static List<Settlement> calculateDebtSettlements(Map<String, double> balances) {
+  static List<Settlement> calculateDebtSettlements(
+      Map<String, double> balances) {
     final creditors = balances.entries
         .where((e) => e.value > 0.01)
         .map((e) => MapEntry(e.key, e.value))

@@ -34,9 +34,8 @@ Future<String?> pickAndReadFile({List<String>? allowedExtensions}) async {
   try {
     final uploadInput = html.FileUploadInputElement();
     if (allowedExtensions != null && allowedExtensions.isNotEmpty) {
-      uploadInput.accept = allowedExtensions
-          .map((e) => e.startsWith('.') ? e : '.$e')
-          .join(',');
+      uploadInput.accept =
+          allowedExtensions.map((e) => e.startsWith('.') ? e : '.$e').join(',');
     }
     uploadInput.click();
     await uploadInput.onChange.first;

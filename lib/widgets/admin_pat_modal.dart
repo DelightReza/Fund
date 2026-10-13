@@ -42,7 +42,8 @@ class _AdminPatModalState extends State<AdminPatModal> {
   Future<void> _verifyAndSave() async {
     final token = _patController.text.trim();
     if (token.isEmpty) {
-      setState(() => _errorMessage = 'Please enter your GitHub Personal Access Token (PAT)');
+      setState(() => _errorMessage =
+          'Please enter your GitHub Personal Access Token (PAT)');
       return;
     }
 
@@ -61,7 +62,8 @@ class _AdminPatModalState extends State<AdminPatModal> {
     if (owner.isEmpty || repoName.isEmpty) {
       setState(() {
         _isVerifying = false;
-        _errorMessage = 'No active repository selected. Please connect a repo first.';
+        _errorMessage =
+            'No active repository selected. Please connect a repo first.';
       });
       return;
     }
@@ -77,12 +79,12 @@ class _AdminPatModalState extends State<AdminPatModal> {
     if (hasAccess) {
       await storage.saveToken(token, owner: owner, repo: repoName);
       await storage.setAdminVerified(true, owner: owner, repo: repoName);
-      
+
       // Auto-sync if there was pending changes
       if (storage.hasPendingSyncFlagFor(owner: owner, repo: repoName)) {
         await repo.syncPending(token);
       }
-      
+
       setState(() => _isVerifying = false);
       Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,7 +96,8 @@ class _AdminPatModalState extends State<AdminPatModal> {
     } else {
       setState(() {
         _isVerifying = false;
-        _errorMessage = 'Invalid PAT or insufficient write permissions for $owner/$repoName.';
+        _errorMessage =
+            'Invalid PAT or insufficient write permissions for $owner/$repoName.';
       });
     }
   }
@@ -148,7 +151,9 @@ class _AdminPatModalState extends State<AdminPatModal> {
             ),
             child: Icon(
               Icons.shield_rounded,
-              color: isAlreadyVerified ? const Color(0xFF10B981) : theme.colorScheme.primary,
+              color: isAlreadyVerified
+                  ? const Color(0xFF10B981)
+                  : theme.colorScheme.primary,
               size: 24,
             ),
           ),
@@ -158,13 +163,19 @@ class _AdminPatModalState extends State<AdminPatModal> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isAlreadyVerified ? 'Admin Authorized' : 'Admin Authorization',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  isAlreadyVerified
+                      ? 'Admin Authorized'
+                      : 'Admin Authorization',
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 if (owner.isNotEmpty)
                   Text(
                     '$owner/$repoName',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.normal),
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.normal),
                   ),
               ],
             ),
@@ -192,7 +203,8 @@ class _AdminPatModalState extends State<AdminPatModal> {
                   labelText: 'GitHub Personal Access Token',
                   hintText: 'ghp_...',
                   prefixIcon: const Icon(Icons.key_rounded, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   errorText: _errorMessage,
                 ),
               ),
@@ -222,10 +234,13 @@ class _AdminPatModalState extends State<AdminPatModal> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
                 )
               : const Icon(Icons.verified_user_rounded, size: 18),
-          label: Text(_isVerifying ? 'Verifying...' : (isAlreadyVerified ? 'Update Token' : 'Verify & Unlock')),
+          label: Text(_isVerifying
+              ? 'Verifying...'
+              : (isAlreadyVerified ? 'Update Token' : 'Verify & Unlock')),
         ),
       ],
     );

@@ -49,82 +49,47 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Helper key generators: ${prefix}_${repoOwner}_${repoName}
-  String _formatKey(String prefix, [String? owner, String? repo]) {
-    final o = (owner != null && owner.isNotEmpty)
-        ? owner
-        : (activeRepoOwner ?? _findFallbackOwner());
-    final r = (repo != null && repo.isNotEmpty)
-        ? repo
-        : (activeRepoName ?? _findFallbackRepo());
+  // Helper key generators: fund_${repoOwner}_${repoName}_${suffix}
+  String _formatKey(String suffix, [String? owner, String? repo]) {
+    final o =
+        (owner != null && owner.isNotEmpty) ? owner : (activeRepoOwner ?? '');
+    final r = (repo != null && repo.isNotEmpty) ? repo : (activeRepoName ?? '');
 
     if (o.isNotEmpty && r.isNotEmpty) {
-      return '${prefix}_${o}_$r';
+      return 'fund_${o}_${r}_$suffix';
     }
-    return prefix;
+    return 'fund_$suffix';
   }
 
-  String _findFallbackOwner() {
-    final legacyStr = _prefs.getString(_legacyKeyConfig) ?? _prefs.getString(_legacyKeyConfigAlt);
-    if (legacyStr != null) {
-      try {
-        final j = jsonDecode(legacyStr);
-        if (j is Map && j['repoOwner'] != null) return j['repoOwner'];
-      } catch (_) {}
-    }
-    return '';
-  }
-
-  String _findFallbackRepo() {
-    final legacyStr = _prefs.getString(_legacyKeyConfig) ?? _prefs.getString(_legacyKeyConfigAlt);
-    if (legacyStr != null) {
-      try {
-        final j = jsonDecode(legacyStr);
-        if (j is Map && j['repoName'] != null) return j['repoName'];
-      } catch (_) {}
-    }
-    return '';
-  }
-
-  // Key names per repository
-  String configKey([String? owner, String? repo]) => _formatKey('config', owner, repo);
-  String dataKey([String? owner, String? repo]) => _formatKey('data', owner, repo);
-  String fundKey([String? owner, String? repo]) => _formatKey('fund', owner, repo);
-  String userKey([String? owner, String? repo]) => _formatKey('user', owner, repo);
-  String tokenKey([String? owner, String? repo]) => _formatKey('token', owner, repo);
-  String verifiedKey([String? owner, String? repo]) => _formatKey('admin_verified', owner, repo);
-  String pendingSyncKey([String? owner, String? repo]) => _formatKey('pending_sync', owner, repo);
-  String pendingMsgKey([String? owner, String? repo]) => _formatKey('pending_msg', owner, repo);
-  String lastRouteKey([String? owner, String? repo]) {
-    final o = (owner != null && owner.isNotEmpty)
-        ? owner
-        : (activeRepoOwner ?? _findFallbackOwner());
-    final r = (repo != null && repo.isNotEmpty)
-        ? repo
-        : (activeRepoName ?? _findFallbackRepo());
-
-    if (o.isNotEmpty && r.isNotEmpty) {
-      return 'Fund_${o}_${r}_last_active_route';
-    }
-    return 'Fund_last_active_route';
-  }
-
-  String lastRouteTimeKey([String? owner, String? repo]) {
-    final o = (owner != null && owner.isNotEmpty)
-        ? owner
-        : (activeRepoOwner ?? _findFallbackOwner());
-    final r = (repo != null && repo.isNotEmpty)
-        ? repo
-        : (activeRepoName ?? _findFallbackRepo());
-
-    if (o.isNotEmpty && r.isNotEmpty) {
-      return 'Fund_${o}_${r}_last_active_route_time';
-    }
-    return 'Fund_last_active_route_time';
-  }
+  // Key names strictly per repository
+  String configKey([String? owner, String? repo]) =>
+      _formatKey('config', owner, repo);
+  String dataKey([String? owner, String? repo]) =>
+      _formatKey('data', owner, repo);
+  String fundKey([String? owner, String? repo]) =>
+      _formatKey('metadata', owner, repo);
+  String userKey([String? owner, String? repo]) =>
+      _formatKey('user', owner, repo);
+  String tokenKey([String? owner, String? repo]) =>
+      _formatKey('token', owner, repo);
+  String verifiedKey([String? owner, String? repo]) =>
+      _formatKey('admin_verified', owner, repo);
+  String pendingSyncKey([String? owner, String? repo]) =>
+      _formatKey('pending_sync', owner, repo);
+  String pendingMsgKey([String? owner, String? repo]) =>
+      _formatKey('pending_msg', owner, repo);
+  String tombstonesKey([String? owner, String? repo]) =>
+      _formatKey('tombstones', owner, repo);
+  String lastRouteKey([String? owner, String? repo]) =>
+      _formatKey('last_active_route', owner, repo);
+  String lastRouteTimeKey([String? owner, String? repo]) =>
+      _formatKey('last_active_route_time', owner, repo);
+  String historyKey([String? owner, String? repo]) =>
+      _formatKey('route_history', owner, repo);
 
   static const String _legacyKeyLastRouteTime = 'fund_last_active_route_time';
-  static const int routeCacheMaxAgeMs = 10 * 60 * 1000; // 10 minutes cache expiration
+  static const int routeCacheMaxAgeMs =
+      10 * 60 * 1000; // 10 minutes cache expiration
 
   // Admin Verification Status per Repository
   bool isAdminVerifiedFor({String? owner, String? repo}) {
@@ -138,7 +103,8 @@ class StorageService extends ChangeNotifier {
 
   bool get isAdminVerified => isAdminVerifiedFor();
 
-  Future<void> setAdminVerified(bool verified, {String? owner, String? repo}) async {
+  Future<void> setAdminVerified(bool verified,
+      {String? owner, String? repo}) async {
     final key = verifiedKey(owner, repo);
     await _prefs.setBool(key, verified);
     notifyListeners();
@@ -173,14 +139,19 @@ class StorageService extends ChangeNotifier {
     }
   }
 
-  // App Config: config_${repoOwner}_${repoName}
+  // App Config: fund_${repoOwner}_${repoName}_config
   AppConfig? getConfigFor({String? owner, String? repo}) {
-    final key = configKey(owner, repo);
-    String? str = _prefs.getString(key);
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
 
-    // Fallback to legacy keys if namespaced key not found
-    str ??= _prefs.getString(_legacyKeyConfig);
-    str ??= _prefs.getString(_legacyKeyConfigAlt);
+    if (o == null || o.isEmpty || r == null || r.isEmpty) {
+      return null;
+    }
+
+    final key = configKey(o, r);
+    String? str = _prefs.getString(key);
+    // Backward compatibility migration for THIS specific repository only
+    str ??= _prefs.getString('config_${o}_$r');
 
     if (str == null || str.isEmpty) return null;
     try {
@@ -193,7 +164,8 @@ class StorageService extends ChangeNotifier {
   AppConfig? get currentConfig => getConfigFor();
   Future<AppConfig?> getConfig() async => currentConfig;
 
-  Future<void> saveConfig(AppConfig config, {String? owner, String? repo}) async {
+  Future<void> saveConfig(AppConfig config,
+      {String? owner, String? repo}) async {
     final o = (owner != null && owner.isNotEmpty) ? owner : config.repoOwner;
     final r = (repo != null && repo.isNotEmpty) ? repo : config.repoName;
 
@@ -206,7 +178,7 @@ class StorageService extends ChangeNotifier {
     final jsonStr = jsonEncode(config.toJson());
     await _prefs.setString(key, jsonStr);
 
-    // Also update metadata entry fund_${repoOwner}_${repoName}
+    // Also update metadata entry fund_${repoOwner}_${repoName}_metadata
     final fKey = fundKey(o, r);
     final metadata = {
       'owner': o,
@@ -221,14 +193,19 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Fund Data Cache: data_${repoOwner}_${repoName}
+  // Fund Data Cache: fund_${repoOwner}_${repoName}_data
   FundData? getDataCacheFor({String? owner, String? repo}) {
-    final key = dataKey(owner, repo);
-    String? str = _prefs.getString(key);
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
 
-    // Fallback to legacy keys
-    str ??= _prefs.getString(_legacyKeyDataCache);
-    str ??= _prefs.getString(_legacyKeyDataCacheAlt);
+    if (o == null || o.isEmpty || r == null || r.isEmpty) {
+      return null;
+    }
+
+    final key = dataKey(o, r);
+    String? str = _prefs.getString(key);
+    // Backward compatibility migration for THIS specific repository only
+    str ??= _prefs.getString('data_${o}_$r');
 
     if (str == null || str.isEmpty) return null;
     try {
@@ -241,29 +218,45 @@ class StorageService extends ChangeNotifier {
   FundData? get currentDataCache => getDataCacheFor();
   Future<FundData?> getDataCache() async => currentDataCache;
 
-  Future<void> saveDataCache(FundData data, {String? owner, String? repo}) async {
-    final key = dataKey(owner, repo);
+  Future<void> saveDataCache(FundData data,
+      {String? owner, String? repo}) async {
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    if (o == null || o.isEmpty || r == null || r.isEmpty) return;
+
+    final key = dataKey(o, r);
     await _prefs.setString(key, jsonEncode(data.toJson()));
     notifyListeners();
   }
 
-  // GitHub Personal Access Token: token_${repoOwner}_${repoName} & global fallback
+  // GitHub Personal Access Token: fund_${repoOwner}_${repoName}_token & global fallback
   String? getTokenFor({String? owner, String? repo}) {
-    final key = tokenKey(owner, repo);
-    final token = _prefs.getString(key);
-    if (token != null && token.isNotEmpty) return token;
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+
+    if (o != null && o.isNotEmpty && r != null && r.isNotEmpty) {
+      final key = tokenKey(o, r);
+      final token = _prefs.getString(key);
+      if (token != null && token.isNotEmpty) return token;
+      final altToken = _prefs.getString('token_${o}_$r');
+      if (altToken != null && altToken.isNotEmpty) return altToken;
+    }
     return _prefs.getString(_keyGlobalToken);
   }
 
   String? get currentToken => getTokenFor();
-  Future<String?> getToken({String? owner, String? repo}) async => getTokenFor(owner: owner, repo: repo);
+  Future<String?> getToken({String? owner, String? repo}) async =>
+      getTokenFor(owner: owner, repo: repo);
 
   Future<void> saveToken(String? token, {String? owner, String? repo}) async {
-    final key = tokenKey(owner, repo);
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    final key = tokenKey(o, r);
+
     if (token == null || token.trim().isEmpty) {
       await _prefs.remove(key);
       await _prefs.remove(_keyGlobalToken);
-      await setAdminVerified(false, owner: owner, repo: repo);
+      await setAdminVerified(false, owner: o, repo: r);
     } else {
       await _prefs.setString(key, token.trim());
       await _prefs.setString(_keyGlobalToken, token.trim());
@@ -271,11 +264,18 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Active User Profile: user_${repoOwner}_${repoName}
+  // Active User Profile: fund_${repoOwner}_${repoName}_user
   String? getUserFor({String? owner, String? repo}) {
-    final key = userKey(owner, repo);
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+
+    if (o == null || o.isEmpty || r == null || r.isEmpty) {
+      return null;
+    }
+
+    final key = userKey(o, r);
     String? user = _prefs.getString(key);
-    user ??= _prefs.getString(_legacyKeyUser);
+    user ??= _prefs.getString('user_${o}_$r');
     return user;
   }
 
@@ -283,22 +283,28 @@ class StorageService extends ChangeNotifier {
   Future<String?> getUser() async => currentUser;
 
   Future<void> saveUser(String userId, {String? owner, String? repo}) async {
-    final key = userKey(owner, repo);
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    if (o == null || o.isEmpty || r == null || r.isEmpty) return;
+
+    final key = userKey(o, r);
     await _prefs.setString(key, userId);
-    await _prefs.setString(_legacyKeyUser, userId);
     notifyListeners();
   }
 
   // Saved Workspaces
   List<SavedWorkspace> get savedWorkspaces {
     final list = _prefs.getStringList(_keyWorkspaces) ?? [];
-    return list.map((item) {
-      try {
-        return SavedWorkspace.fromJson(jsonDecode(item));
-      } catch (_) {
-        return null;
-      }
-    }).whereType<SavedWorkspace>().toList();
+    return list
+        .map((item) {
+          try {
+            return SavedWorkspace.fromJson(jsonDecode(item));
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<SavedWorkspace>()
+        .toList();
   }
 
   Future<List<SavedWorkspace>> getSavedWorkspaces() async => savedWorkspaces;
@@ -306,7 +312,8 @@ class StorageService extends ChangeNotifier {
   Future<void> saveWorkspace(SavedWorkspace workspace) async {
     final current = savedWorkspaces;
     current.removeWhere(
-      (w) => w.owner.toLowerCase() == workspace.owner.toLowerCase() &&
+      (w) =>
+          w.owner.toLowerCase() == workspace.owner.toLowerCase() &&
           w.repo.toLowerCase() == workspace.repo.toLowerCase(),
     );
     current.insert(0, workspace);
@@ -322,7 +329,8 @@ class StorageService extends ChangeNotifier {
   Future<void> removeWorkspace(String owner, String repo) async {
     final current = savedWorkspaces;
     current.removeWhere(
-      (w) => w.owner.toLowerCase() == owner.toLowerCase() &&
+      (w) =>
+          w.owner.toLowerCase() == owner.toLowerCase() &&
           w.repo.toLowerCase() == repo.toLowerCase(),
     );
     final encoded = current.map((w) => jsonEncode(w.toJson())).toList();
@@ -337,44 +345,74 @@ class StorageService extends ChangeNotifier {
     await _prefs.remove(verifiedKey(owner, repo));
     await _prefs.remove(pendingSyncKey(owner, repo));
     await _prefs.remove(pendingMsgKey(owner, repo));
+    await _prefs.remove(lastRouteKey(owner, repo));
+    await _prefs.remove(lastRouteTimeKey(owner, repo));
+    await _prefs.remove(historyKey(owner, repo));
+    await _prefs.remove(tombstonesKey(owner, repo));
+    await _prefs.remove(tombstonesTxKey(owner, repo));
+    await _prefs.remove(tombstonesParentKey(owner, repo));
+    // Also remove old format keys if present
+    await _prefs.remove('config_${owner}_$repo');
+    await _prefs.remove('data_${owner}_$repo');
+    await _prefs.remove('user_${owner}_$repo');
+    await _prefs.remove('token_${owner}_$repo');
+    await _prefs.remove('pending_sync_${owner}_$repo');
+    await _prefs.remove('pending_msg_${owner}_$repo');
+    await _prefs.remove('tombstones_tx_${owner}_$repo');
+    await _prefs.remove('tombstones_parent_${owner}_$repo');
+
+    if (activeRepoOwner == owner && activeRepoName == repo) {
+      await _prefs.remove(_keyActiveRepoOwner);
+      await _prefs.remove(_keyActiveRepoName);
+    }
 
     notifyListeners();
   }
 
-  // Offline Pending Sync: pending_sync_${repoOwner}_${repoName} & pending_msg_${repoOwner}_${repoName}
+  // Offline Pending Sync: fund_${repoOwner}_${repoName}_pending_sync & fund_${repoOwner}_${repoName}_pending_msg
   bool hasPendingSyncFlagFor({String? owner, String? repo}) {
-    final key = pendingSyncKey(owner, repo);
-    final val = _prefs.getBool(key);
-    if (val != null) return val;
-    return _prefs.getBool(_legacyKeyPendingSync) ?? false;
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    if (o == null || o.isEmpty || r == null || r.isEmpty) {
+      return false;
+    }
+    final key = pendingSyncKey(o, r);
+    return _prefs.getBool(key) ??
+        _prefs.getBool('pending_sync_${o}_$r') ??
+        false;
   }
 
   bool get hasPendingSyncFlag => hasPendingSyncFlagFor();
   Future<bool> hasPendingSync() async => hasPendingSyncFlag;
 
   String? getPendingMessageFor({String? owner, String? repo}) {
-    final key = pendingMsgKey(owner, repo);
-    final msg = _prefs.getString(key);
-    if (msg != null) return msg;
-    return _prefs.getString(_legacyKeyPendingMsg);
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    if (o == null || o.isEmpty || r == null || r.isEmpty) {
+      return null;
+    }
+    final key = pendingMsgKey(o, r);
+    return _prefs.getString(key) ?? _prefs.getString('pending_msg_${o}_$r');
   }
 
   String? get currentPendingMessage => getPendingMessageFor();
   Future<String?> getPendingMessage() async => currentPendingMessage;
 
-  Future<void> setPendingSync(bool pending, [String? msg, String? owner, String? repo]) async {
-    final sKey = pendingSyncKey(owner, repo);
-    final mKey = pendingMsgKey(owner, repo);
+  Future<void> setPendingSync(bool pending,
+      [String? msg, String? owner, String? repo]) async {
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    if (o == null || o.isEmpty || r == null || r.isEmpty) return;
+
+    final sKey = pendingSyncKey(o, r);
+    final mKey = pendingMsgKey(o, r);
 
     await _prefs.setBool(sKey, pending);
-    await _prefs.setBool(_legacyKeyPendingSync, pending);
 
     if (msg != null) {
       await _prefs.setString(mKey, msg);
-      await _prefs.setString(_legacyKeyPendingMsg, msg);
     } else if (!pending) {
       await _prefs.remove(mKey);
-      await _prefs.remove(_legacyKeyPendingMsg);
     }
     notifyListeners();
   }
@@ -388,9 +426,21 @@ class StorageService extends ChangeNotifier {
       await _prefs.remove(fundKey(o, r));
       await _prefs.remove(pendingSyncKey(o, r));
       await _prefs.remove(pendingMsgKey(o, r));
+      await _prefs.remove(tombstonesKey(o, r));
+      await _prefs.remove(tombstonesTxKey(o, r));
+      await _prefs.remove(tombstonesParentKey(o, r));
+      await _prefs.remove('config_${o}_$r');
+      await _prefs.remove('data_${o}_$r');
+      await _prefs.remove('pending_sync_${o}_$r');
+      await _prefs.remove('pending_msg_${o}_$r');
+      await _prefs.remove('tombstones_tx_${o}_$r');
+      await _prefs.remove('tombstones_parent_${o}_$r');
     }
+    // Also purge global legacy keys once and for all
     await _prefs.remove(_legacyKeyConfig);
+    await _prefs.remove(_legacyKeyConfigAlt);
     await _prefs.remove(_legacyKeyDataCache);
+    await _prefs.remove(_legacyKeyDataCacheAlt);
     await _prefs.remove(_legacyKeyPendingSync);
     await _prefs.remove(_legacyKeyPendingMsg);
     notifyListeners();
@@ -398,20 +448,6 @@ class StorageService extends ChangeNotifier {
 
   // Web Route Persistence
   static const String _legacyKeyLastRoute = 'fund_last_active_route';
-
-  String historyKey([String? owner, String? repo]) {
-    final o = (owner != null && owner.isNotEmpty)
-        ? owner
-        : (activeRepoOwner ?? _findFallbackOwner());
-    final r = (repo != null && repo.isNotEmpty)
-        ? repo
-        : (activeRepoName ?? _findFallbackRepo());
-
-    if (o.isNotEmpty && r.isNotEmpty) {
-      return 'Fund_${o}_${r}_route_history';
-    }
-    return 'Fund_route_history';
-  }
 
   List<String> getRouteHistory({String? owner, String? repo}) {
     final key = historyKey(owner, repo);
@@ -430,7 +466,10 @@ class StorageService extends ChangeNotifier {
       return;
     }
     // If route is a root/tab route, reset base history to avoid unbounded backstack
-    if (route == 'transactions' || route == 'people' || route == 'expenses' || route == 'admin') {
+    if (route == 'transactions' ||
+        route == 'people' ||
+        route == 'expenses' ||
+        route == 'admin') {
       history = [route];
     } else {
       final existingIndex = history.indexOf(route);
@@ -520,14 +559,100 @@ class StorageService extends ChangeNotifier {
       await _prefs.remove(lastRouteKey(o, r));
       await _prefs.remove(lastRouteTimeKey(o, r));
       await _prefs.remove(historyKey(o, r));
+      await _prefs.remove(tombstonesKey(o, r));
+      await _prefs.remove(tombstonesTxKey(o, r));
+      await _prefs.remove(tombstonesParentKey(o, r));
+      await _prefs.remove('config_${o}_$r');
+      await _prefs.remove('data_${o}_$r');
+      await _prefs.remove('user_${o}_$r');
+      await _prefs.remove('token_${o}_$r');
+      await _prefs.remove('pending_sync_${o}_$r');
+      await _prefs.remove('pending_msg_${o}_$r');
+      await _prefs.remove('tombstones_tx_${o}_$r');
+      await _prefs.remove('tombstones_parent_${o}_$r');
     }
     await _prefs.remove(_legacyKeyConfig);
+    await _prefs.remove(_legacyKeyConfigAlt);
     await _prefs.remove(_legacyKeyDataCache);
+    await _prefs.remove(_legacyKeyDataCacheAlt);
     await _prefs.remove(_legacyKeyUser);
     await _prefs.remove(_legacyKeyPendingSync);
     await _prefs.remove(_legacyKeyPendingMsg);
     await _prefs.remove(_legacyKeyLastRoute);
     await _prefs.remove(_legacyKeyLastRouteTime);
     notifyListeners();
+  }
+
+  // Deletion Tombstones: fund_${repoOwner}_${repoName}_tombstones & fund_${repoOwner}_${repoName}_tombstones_tx
+  static String tombstonesTxKey(String? owner, String? repo) {
+    if (owner != null && owner.isNotEmpty && repo != null && repo.isNotEmpty) {
+      return 'fund_${owner}_${repo}_tombstones_tx';
+    }
+    return 'fund_tombstones_tx';
+  }
+
+  static String tombstonesParentKey(String? owner, String? repo) {
+    if (owner != null && owner.isNotEmpty && repo != null && repo.isNotEmpty) {
+      return 'fund_${owner}_${repo}_tombstones_parent';
+    }
+    return 'fund_tombstones_parent';
+  }
+
+  Set<String> getDeletedTxIds({String? owner, String? repo}) {
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    if (o == null || o.isEmpty || r == null || r.isEmpty) return <String>{};
+    final list = _prefs.getStringList(tombstonesKey(o, r)) ??
+        _prefs.getStringList(tombstonesTxKey(o, r)) ??
+        _prefs.getStringList('tombstones_tx_${o}_$r');
+    return list != null ? list.toSet() : <String>{};
+  }
+
+  Set<String> getDeletedParentIds({String? owner, String? repo}) {
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    if (o == null || o.isEmpty || r == null || r.isEmpty) return <String>{};
+    final list = _prefs.getStringList(tombstonesParentKey(o, r)) ??
+        _prefs.getStringList('tombstones_parent_${o}_$r');
+    return list != null ? list.toSet() : <String>{};
+  }
+
+  Future<void> addDeletedTombstone(
+      {String? txId, String? parentId, String? owner, String? repo}) async {
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    if (o == null || o.isEmpty || r == null || r.isEmpty) return;
+    if (txId != null && txId.isNotEmpty) {
+      final current = getDeletedTxIds(owner: o, repo: r);
+      current.add(txId);
+      await _prefs.setStringList(tombstonesKey(o, r), current.toList());
+      await _prefs.setStringList(tombstonesTxKey(o, r), current.toList());
+    }
+    if (parentId != null && parentId.isNotEmpty) {
+      final current = getDeletedParentIds(owner: o, repo: r);
+      current.add(parentId);
+      await _prefs.setStringList(tombstonesParentKey(o, r), current.toList());
+    }
+  }
+
+  Future<void> removeDeletedTombstones(
+      {Set<String>? txIds,
+      Set<String>? parentIds,
+      String? owner,
+      String? repo}) async {
+    final o = (owner != null && owner.isNotEmpty) ? owner : activeRepoOwner;
+    final r = (repo != null && repo.isNotEmpty) ? repo : activeRepoName;
+    if (o == null || o.isEmpty || r == null || r.isEmpty) return;
+    if (txIds != null && txIds.isNotEmpty) {
+      final current = getDeletedTxIds(owner: o, repo: r);
+      current.removeAll(txIds);
+      await _prefs.setStringList(tombstonesKey(o, r), current.toList());
+      await _prefs.setStringList(tombstonesTxKey(o, r), current.toList());
+    }
+    if (parentIds != null && parentIds.isNotEmpty) {
+      final current = getDeletedParentIds(owner: o, repo: r);
+      current.removeAll(parentIds);
+      await _prefs.setStringList(tombstonesParentKey(o, r), current.toList());
+    }
   }
 }

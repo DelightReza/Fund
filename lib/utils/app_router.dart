@@ -24,7 +24,8 @@ class AppRouter {
       final txId = parsed.id;
       final repo = context.read<FundRepository>();
       final txList = repo.data?.transactions ?? [];
-      final matches = txList.where((t) => t.id == txId || t.id.toString() == txId).toList();
+      final matches =
+          txList.where((t) => t.id == txId || t.id.toString() == txId).toList();
       if (matches.isNotEmpty) {
         return TransactionDetailScreen(
           transaction: matches.first,
@@ -100,7 +101,8 @@ class AppRouter {
       storage.pushRoute(targetRoute);
     }
 
-    final screen = buildScreenForRoute(context, targetRoute, isRestored: isRestored);
+    final screen =
+        buildScreenForRoute(context, targetRoute, isRestored: isRestored);
     if (replace) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => screen),
@@ -126,7 +128,8 @@ class AppRouter {
       WebRouteHelper.setRoute(targetRoute, replace: true);
       storage.popRoute();
       storage.setLastRoute(targetRoute);
-      final screen = buildScreenForRoute(context, targetRoute, isRestored: true);
+      final screen =
+          buildScreenForRoute(context, targetRoute, isRestored: true);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => screen),
       );

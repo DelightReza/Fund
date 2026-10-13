@@ -25,6 +25,10 @@ Thumbs.db
 .pub-cache/
 /build/
 
+# Tests
+test/
+
+
 # Web Generated
 
 # IDEs & Editors

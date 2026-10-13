@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'web_route_stub.dart'
-    if (dart.library.html) 'web_route_web.dart';
+import 'web_route_stub.dart' if (dart.library.html) 'web_route_web.dart';
 
 class ParsedRoute {
   final String path;
@@ -18,7 +17,9 @@ class ParsedRoute {
     if (path == 'tx' || path == 'transaction') {
       if (from == 'category') {
         final cid = catId;
-        return (cid != null && cid.isNotEmpty) ? 'category?id=$cid' : 'expenses';
+        return (cid != null && cid.isNotEmpty)
+            ? 'category?id=$cid'
+            : 'expenses';
       } else if (from == 'member') {
         final mid = memberId;
         return (mid != null && mid.isNotEmpty) ? 'member?id=$mid' : 'people';
@@ -55,6 +56,21 @@ class ParsedRoute {
     while (clean.startsWith('#') || clean.startsWith('/')) {
       clean = clean.substring(1);
     }
+    clean = clean.trim();
+
+    // Support key=value formats directly (e.g. member=Raza, tx=123, category=Food)
+    if (clean.contains('=') && !clean.contains('?')) {
+      final eqIdx = clean.indexOf('=');
+      final key = clean.substring(0, eqIdx).trim().toLowerCase();
+      final val = Uri.decodeComponent(clean.substring(eqIdx + 1).trim());
+      if (key == 'member' || key == 'profile') {
+        return ParsedRoute('member', {'id': val});
+      } else if (key == 'tx' || key == 'transaction') {
+        return ParsedRoute('tx', {'id': val});
+      } else if (key == 'category') {
+        return ParsedRoute('category', {'id': val});
+      }
+    }
 
     final uri = Uri.tryParse('http://app/$clean');
     if (uri != null) {
@@ -63,7 +79,20 @@ class ParsedRoute {
         p = p.substring(1);
       }
       if (p.isEmpty) p = 'transactions';
-      return ParsedRoute(p.toLowerCase(), uri.queryParameters);
+
+      final qParams = Map<String, String>.from(uri.queryParameters);
+      if (p == 'transactions' || p == 'home' || p == 'app') {
+        if (qParams.containsKey('member')) {
+          return ParsedRoute('member', {'id': qParams['member']!});
+        }
+        if (qParams.containsKey('tx')) {
+          return ParsedRoute('tx', {'id': qParams['tx']!});
+        }
+        if (qParams.containsKey('category')) {
+          return ParsedRoute('category', {'id': qParams['category']!});
+        }
+      }
+      return ParsedRoute(p.toLowerCase(), qParams);
     }
     return ParsedRoute(clean.toLowerCase(), {});
   }
