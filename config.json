@@ -2,9 +2,9 @@
   "siteTitle": "Fund",
   "siteSubtitle": "Expenses Tracker",
   "currency": "₹",
-  "repoOwner": "",
-  "repoName": "",
-  "repoBranch": "",
+  "repoOwner": "DelightReza",
+  "repoName": "Fund",
+  "repoBranch": "main",
   "dataFileName": "data.json",
   "people": [],
   "billTypes": []
